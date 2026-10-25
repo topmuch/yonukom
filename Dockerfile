@@ -5,7 +5,8 @@ RUN npm install -g bun
 
 WORKDIR /app
 
-RUN curl -sL https://github.com/topmuch/yonukom/archive/refs/heads/main.tar.gz | tar xz --strip-components=1
+RUN git clone --branch main --depth 1 https://github.com/topmuch/yonukom.git /app/tmp && \
+    cp -r /app/tmp/. /app/ && rm -rf /app/tmp
 
 RUN bun install
 
