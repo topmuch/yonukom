@@ -436,14 +436,12 @@ function DashboardMain({ onLogout }: { onLogout: () => void }) {
 
   return (
     <AppShell activeTab={activeTab} onTabChange={setActiveTab}>
-      <div className="lg:ml-56">
-        {activeTab === "home" && <HomeTab onTabChange={setActiveTab} onLogout={onLogout} />}
-        {activeTab === "pos" && <PosScreen />}
-        {activeTab === "stock" && <StockTab />}
-        {activeTab === "orders" && <OrdersTab />}
-        {activeTab === "pipeline" && <PipelineTab />}
-        {activeTab === "settings" && <SettingsTab onLogout={onLogout} />}
-      </div>
+      {activeTab === "home" && <HomeTab onTabChange={setActiveTab} onLogout={onLogout} />}
+      {activeTab === "pos" && <PosScreen />}
+      {activeTab === "stock" && <StockTab />}
+      {activeTab === "orders" && <OrdersTab />}
+      {activeTab === "pipeline" && <PipelineTab />}
+      {activeTab === "settings" && <SettingsTab onLogout={onLogout} />}
     </AppShell>
   );
 }
