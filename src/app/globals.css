@@ -1,0 +1,197 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  /* YonuKom custom colors */
+  --color-yk-deep: var(--yk-deep);
+  --color-yk-deep-light: var(--yk-deep-light);
+  --color-yk-emerald: var(--yk-emerald);
+  --color-yk-emerald-light: var(--yk-emerald-light);
+  --color-yk-amber: var(--yk-amber);
+  --color-yk-amber-light: var(--yk-amber-light);
+  --color-yk-surface: var(--yk-surface);
+}
+
+/* ============================================================
+   YonuKom — Palette de couleurs
+   Primaire : Bleu profond (confiance)
+   Secondaire : Vert émeraude (validation/argent)
+   Fond : Blanc cassé pour réduire la fatigue visuelle
+   ============================================================ */
+
+:root {
+  --radius: 0.625rem;
+
+  /* YonuKom brand tokens */
+  --yk-deep: oklch(0.32 0.11 250);         /* #1B3A5C Bleu profond */
+  --yk-deep-light: oklch(0.50 0.12 250);   /* #3B6B9E Bleu profond clair */
+  --yk-emerald: oklch(0.57 0.17 162);       /* #059669 Vert émeraude */
+  --yk-emerald-light: oklch(0.75 0.15 162); /* #6EE7B7 Vert émeraude clair */
+  --yk-amber: oklch(0.70 0.17 55);          /* #E5940 Orange/ambre pour alertes */
+  --yk-amber-light: oklch(0.90 0.10 55);    /* Orange clair */
+  --yk-surface: oklch(0.98 0.002 250);      /* #F7F8FA Blanc cassé avec teinte bleue */
+
+  /* shadcn/ui tokens mapped to YonuKom palette */
+  --background: oklch(0.98 0.002 250);      /* Blanc cassé YonuKom */
+  --foreground: oklch(0.18 0.04 250);       /* Texte foncé avec teinte bleue */
+  --card: oklch(1 0 0);                     /* Blanc pur pour les cartes */
+  --card-foreground: oklch(0.18 0.04 250);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.18 0.04 250);
+  --primary: oklch(0.32 0.11 250);          /* Bleu profond YonuKom */
+  --primary-foreground: oklch(0.98 0 0);    /* Blanc sur bleu profond */
+  --secondary: oklch(0.57 0.17 162);        /* Vert émeraude YonuKom */
+  --secondary-foreground: oklch(0.98 0 0);  /* Blanc sur émeraude */
+  --muted: oklch(0.96 0.005 250);           /* Gris très clair teinté */
+  --muted-foreground: oklch(0.50 0.03 250); /* Gris moyen */
+  --accent: oklch(0.75 0.15 162);           /* Émeraude clair pour accents */
+  --accent-foreground: oklch(0.18 0.04 250);
+  --destructive: oklch(0.577 0.245 27.325); /* Rouge destructif */
+  --border: oklch(0.90 0.01 250);           /* Bordure subtile */
+  --input: oklch(0.90 0.01 250);
+  --ring: oklch(0.50 0.12 250);             /* Ring bleu profond */
+
+  /* Charts */
+  --chart-1: oklch(0.32 0.11 250);  /* Bleu profond */
+  --chart-2: oklch(0.57 0.17 162);  /* Émeraude */
+  --chart-3: oklch(0.70 0.17 55);   /* Ambre */
+  --chart-4: oklch(0.65 0.20 330);  /* Rose */
+  --chart-5: oklch(0.60 0.15 270);  /* Violet */
+
+  /* Sidebar */
+  --sidebar: oklch(0.20 0.08 250);
+  --sidebar-foreground: oklch(0.95 0 0);
+  --sidebar-primary: oklch(0.57 0.17 162);
+  --sidebar-primary-foreground: oklch(0.98 0 0);
+  --sidebar-accent: oklch(0.30 0.09 250);
+  --sidebar-accent-foreground: oklch(0.95 0 0);
+  --sidebar-border: oklch(0.35 0.08 250);
+  --sidebar-ring: oklch(0.50 0.12 250);
+}
+
+.dark {
+  --yk-deep: oklch(0.55 0.12 250);
+  --yk-deep-light: oklch(0.65 0.11 250);
+  --yk-emerald: oklch(0.65 0.17 162);
+  --yk-emerald-light: oklch(0.80 0.14 162);
+  --yk-amber: oklch(0.75 0.15 55);
+  --yk-amber-light: oklch(0.85 0.10 55);
+  --yk-surface: oklch(0.16 0.03 250);
+
+  --background: oklch(0.16 0.03 250);
+  --foreground: oklch(0.95 0.005 250);
+  --card: oklch(0.20 0.04 250);
+  --card-foreground: oklch(0.95 0.005 250);
+  --popover: oklch(0.20 0.04 250);
+  --popover-foreground: oklch(0.95 0.005 250);
+  --primary: oklch(0.55 0.12 250);
+  --primary-foreground: oklch(0.98 0 0);
+  --secondary: oklch(0.65 0.17 162);
+  --secondary-foreground: oklch(0.98 0 0);
+  --muted: oklch(0.25 0.03 250);
+  --muted-foreground: oklch(0.70 0.02 250);
+  --accent: oklch(0.40 0.12 162);
+  --accent-foreground: oklch(0.95 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.55 0.12 250);
+
+  --chart-1: oklch(0.55 0.12 250);
+  --chart-2: oklch(0.65 0.17 162);
+  --chart-3: oklch(0.75 0.15 55);
+  --chart-4: oklch(0.65 0.20 330);
+  --chart-5: oklch(0.60 0.15 270);
+
+  --sidebar: oklch(0.15 0.04 250);
+  --sidebar-foreground: oklch(0.95 0 0);
+  --sidebar-primary: oklch(0.65 0.17 162);
+  --sidebar-primary-foreground: oklch(0.98 0 0);
+  --sidebar-accent: oklch(0.25 0.06 250);
+  --sidebar-accent-foreground: oklch(0.95 0 0);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.55 0.12 250);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* ============================================================
+   YonuKom — Styles utilitaires
+   ============================================================ */
+
+/* Boutons tactiles min 48px (Mobile-First) */
+.touch-target {
+  min-height: 48px;
+  min-width: 48px;
+}
+
+/* Scrollbar personnalisée pour les longues listes */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: oklch(0.80 0.01 250);
+  border-radius: 3px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: oklch(0.65 0.03 250);
+}
+
+/* Animation pulse pour l'indicateur offline */
+@keyframes pulse-offline {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+.animate-pulse-offline {
+  animation: pulse-offline 2s ease-in-out infinite;
+}

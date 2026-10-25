@@ -1,0 +1,888 @@
+     1→// ============================================================
+     2→// YonuKom — Superadmin Dashboard
+     3→// Dashboard complet pour le propriétaire de la plateforme YonuKom
+     4→// Navigation par sidebar avec 5 sections + impersonation
+     5→// ============================================================
+     6→
+     7→"use client";
+     8→
+     9→import { useState, useEffect, useCallback } from "react";
+    10→import { motion, AnimatePresence } from "framer-motion";
+    11→import {
+    12→  BarChart3,
+    13→  Building2,
+    14→  CreditCard,
+    15→  Settings,
+    16→  ScrollText,
+    17→  TrendingUp,
+    18→  Users,
+    19→  Search,
+    20→  Plus,
+    21→  RefreshCw,
+    22→  ChevronRight,
+    23→  LogOut,
+    24→  Shield,
+    25→  Activity,
+    26→  AlertTriangle,
+    27→  CircleDollarSign,
+    28→} from "lucide-react";
+    29→import { Button } from "@/components/ui/button";
+    30→import { Input } from "@/components/ui/input";
+    31→import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+    32→import { Badge } from "@/components/ui/badge";
+    33→import { Separator } from "@/components/ui/separator";
+    34→import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+    35→import { useSuperadminStore } from "@/stores/use-superadmin-store";
+    36→import { useAuthStore } from "@/stores/use-auth-store";
+    37→import { MetricsCards } from "@/components/superadmin/metrics-cards";
+    38→import { TenantTable } from "@/components/superadmin/tenant-table";
+    39→import { SubscriptionStatusBadge } from "@/components/superadmin/subscription-status-badge";
+    40→import { RevenueChart } from "@/components/superadmin/revenue-chart";
+    41→import { TenantDetailPanel } from "@/components/superadmin/tenant-detail-panel";
+    42→import { ImpersonationBanner } from "@/components/superadmin/impersonation-banner";
+    43→import { formatFCFA, formatFCFAShort } from "@/lib/fcfa";
+    44→import type { SuperadminPage, TenantInfo, SubscriptionPlan, SubscriptionStatus } from "@/types";
+    45→import {
+    46→  SUBSCRIPTION_PLAN_LABELS,
+    47→  SUBSCRIPTION_PLAN_PRICES,
+    48→  SUBSCRIPTION_STATUS_LABELS,
+    49→  TENANT_TYPE_LABELS,
+    50→} from "@/types";
+    51→
+    52→// --- Sidebar Navigation Items ---
+    53→const NAV_ITEMS: { page: SuperadminPage; icon: typeof BarChart3; label: string }[] = [
+    54→  { page: "overview", icon: BarChart3, label: "Vue d'ensemble" },
+    55→  { page: "tenants", icon: Building2, label: "Tenants" },
+    56→  { page: "subscriptions", icon: CreditCard, label: "Abonnements" },
+    57→  { page: "analytics", icon: TrendingUp, label: "Analytics" },
+    58→  { page: "logs", icon: ScrollText, label: "Logs" },
+    59→  { page: "settings", icon: Settings, label: "Paramètres" },
+    60→];
+    61→
+    62→// ============================================================
+    63→// MAIN COMPONENT
+    64→// ============================================================
+    65→
+    66→export function SuperadminDashboard() {
+    67→  const activePage = useSuperadminStore((s) => s.activePage);
+    68→  const setActivePage = useSuperadminStore((s) => s.setActivePage);
+    69→  const impersonation = useSuperadminStore((s) => s.impersonation);
+    70→  const endImpersonation = useSuperadminStore((s) => s.endImpersonation);
+    71→  const logout = useAuthStore((s) => s.logout);
+    72→  const [sidebarOpen, setSidebarOpen] = useState(false);
+    73→
+    74→  // Fetch initial data
+    75→  useEffect(() => {
+    76→    fetchMetrics();
+    77→    fetchTenants();
+    78→  }, []);
+    79→
+    80→  const fetchMetrics = useCallback(async () => {
+    81→    useSuperadminStore.getState().setMetricsLoading(true);
+    82→    try {
+    83→      const res = await fetch("/api/superadmin/analytics");
+    84→      if (res.ok) {
+    85→        const data = await res.json();
+    86→        useSuperadminStore.getState().setMetrics(data);
+    87→      }
+    88→    } catch (err) {
+    89→      console.error("Failed to fetch metrics:", err);
+    90→    } finally {
+    91→      useSuperadminStore.getState().setMetricsLoading(false);
+    92→    }
+    93→  }, []);
+    94→
+    95→  const fetchTenants = useCallback(async () => {
+    96→    useSuperadminStore.getState().setTenantsLoading(true);
+    97→    try {
+    98→      const res = await fetch("/api/superadmin/tenants");
+    99→      if (res.ok) {
+   100→        const data = await res.json();
+   101→        useSuperadminStore.getState().setTenants(data);
+   102→      }
+   103→    } catch (err) {
+   104→      console.error("Failed to fetch tenants:", err);
+   105→    } finally {
+   106→      useSuperadminStore.getState().setTenantsLoading(false);
+   107→    }
+   108→  }, []);
+   109→
+   110→  const handleViewTenant = useCallback((id: string) => {
+   111→    useSuperadminStore.getState().setSelectedTenantId(id);
+   112→  }, []);
+   113→
+   114→  const handleImpersonate = useCallback(async (tenantId: string, tenantName: string) => {
+   115→    try {
+   116→      const res = await fetch("/api/superadmin/impersonate", {
+   117→        method: "POST",
+   118→        headers: { "Content-Type": "application/json" },
+   119→        body: JSON.stringify({ tenantId }),
+   120→      });
+   121→      if (res.ok) {
+   122→        useSuperadminStore.getState().startImpersonation(tenantId, tenantName);
+   123→      }
+   124→    } catch (err) {
+   125→      console.error("Failed to start impersonation:", err);
+   126→    }
+   127→  }, []);
+   128→
+   129→  const selectedTenantId = useSuperadminStore((s) => s.selectedTenantId);
+   130→  const tenants = useSuperadminStore((s) => s.tenants);
+   131→  const selectedTenant = tenants.find((t) => t.id === selectedTenantId) ?? null;
+   132→
+   133→  return (
+   134→    <div className="min-h-screen flex flex-col bg-background">
+   135→      {/* Impersonation Banner */}
+   136→      {impersonation.isImpersonating && impersonation.tenantName && (
+   137→        <ImpersonationBanner
+   138→          tenantName={impersonation.tenantName}
+   139→          onEndImpersonation={endImpersonation}
+   140→        />
+   141→      )}
+   142→
+   143→      <div className="flex flex-1">
+   144→        {/* Sidebar - Desktop */}
+   145→        <aside className="hidden lg:flex w-64 flex-col border-r bg-card">
+   146→          <SidebarContent
+   147→            activePage={activePage}
+   148→            onNavigate={(page) => { setActivePage(page); setSidebarOpen(false); }}
+   149→            onLogout={logout}
+   150→          />
+   151→        </aside>
+   152→
+   153→        {/* Sidebar - Mobile (overlay) */}
+   154→        <AnimatePresence>
+   155→          {sidebarOpen && (
+   156→            <>
+   157→              <motion.div
+   158→                initial={{ opacity: 0 }}
+   159→                animate={{ opacity: 1 }}
+   160→                exit={{ opacity: 0 }}
+   161→                className="fixed inset-0 bg-black/40 z-40 lg:hidden"
+   162→                onClick={() => setSidebarOpen(false)}
+   163→              />
+   164→              <motion.aside
+   165→                initial={{ x: -280 }}
+   166→                animate={{ x: 0 }}
+   167→                exit={{ x: -280 }}
+   168→                transition={{ type: "spring", stiffness: 300, damping: 30 }}
+   169→                className="fixed left-0 top-0 bottom-0 w-[280px] z-50 bg-card border-r lg:hidden"
+   170→              >
+   171→                <SidebarContent
+   172→                  activePage={activePage}
+   173→                  onNavigate={(page) => { setActivePage(page); setSidebarOpen(false); }}
+   174→                  onLogout={logout}
+   175→                />
+   176→              </motion.aside>
+   177→            </>
+   178→          )}
+   179→        </AnimatePresence>
+   180→
+   181→        {/* Main Content */}
+   182→        <main className="flex-1 min-w-0">
+   183→          {/* Top bar (mobile) */}
+   184→          <header className="lg:hidden flex items-center justify-between px-4 py-3 border-b bg-card">
+   185→            <Button variant="ghost" size="sm" onClick={() => setSidebarOpen(true)}>
+   186→              <BarChart3 className="w-5 h-5" />
+   187→            </Button>
+   188→            <div className="flex items-center gap-2">
+   189→              <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
+   190→                <span className="text-primary-foreground font-bold text-xs">YK</span>
+   191→              </div>
+   192→              <span className="font-semibold text-sm">Superadmin</span>
+   193→            </div>
+   194→            <Badge variant="outline" className="text-xs border-yk-emerald/50 text-yk-emerald">
+   195→              <Shield className="w-3 h-3 mr-1" />
+   196→              Admin
+   197→            </Badge>
+   198→          </header>
+   199→
+   200→          {/* Page Content */}
+   201→          <div className="p-4 lg:p-8">
+   202→            <AnimatePresence mode="wait">
+   203→              <motion.div
+   204→                key={activePage}
+   205→                initial={{ opacity: 0, y: 8 }}
+   206→                animate={{ opacity: 1, y: 0 }}
+   207→                exit={{ opacity: 0, y: -8 }}
+   208→                transition={{ duration: 0.2 }}
+   209→              >
+   210→                {activePage === "overview" && (
+   211→                  <OverviewPage
+   212→                    onViewTenant={handleViewTenant}
+   213→                    onImpersonate={handleImpersonate}
+   214→                    onRefresh={fetchMetrics}
+   215→                  />
+   216→                )}
+   217→                {activePage === "tenants" && (
+   218→                  <TenantsPage
+   219→                    onViewTenant={handleViewTenant}
+   220→                    onImpersonate={handleImpersonate}
+   221→                    onRefresh={fetchTenants}
+   222→                  />
+   223→                )}
+   224→                {activePage === "subscriptions" && <SubscriptionsPage />}
+   225→                {activePage === "analytics" && <AnalyticsPage onRefresh={fetchMetrics} />}
+   226→                {activePage === "logs" && <LogsPage />}
+   227→                {activePage === "settings" && <SettingsPage />}
+   228→              </motion.div>
+   229→            </AnimatePresence>
+   230→          </div>
+   231→        </main>
+   232→      </div>
+   233→
+   234→      {/* Tenant Detail Panel */}
+   235→      <TenantDetailPanel
+   236→        tenant={selectedTenant}
+   237→        open={!!selectedTenantId}
+   238→        onOpenChange={(open) => {
+   239→          if (!open) useSuperadminStore.getState().setSelectedTenantId(null);
+   240→        }}
+   241→        onImpersonate={handleImpersonate}
+   242→      />
+   243→    </div>
+   244→  );
+   245→}
+   246→
+   247→// ============================================================
+   248→// SIDEBAR
+   249→// ============================================================
+   250→
+   251→function SidebarContent({
+   252→  activePage,
+   253→  onNavigate,
+   254→  onLogout,
+   255→}: {
+   256→  activePage: SuperadminPage;
+   257→  onNavigate: (page: SuperadminPage) => void;
+   258→  onLogout: () => void;
+   259→}) {
+   260→  return (
+   261→    <div className="flex flex-col h-full p-4">
+   262→      {/* Logo */}
+   263→      <div className="flex items-center gap-3 mb-8">
+   264→        <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center shadow-md">
+   265→          <span className="text-primary-foreground font-bold text-lg">YK</span>
+   266→        </div>
+   267→        <div>
+   268→          <p className="font-bold text-sm">YonuKom</p>
+   269→          <p className="text-[10px] text-muted-foreground">Superadmin</p>
+   270→        </div>
+   271→      </div>
+   272→
+   273→      {/* Nav items */}
+   274→      <nav className="space-y-1 flex-1">
+   275→        {NAV_ITEMS.map(({ page, icon: Icon, label }) => (
+   276→          <button
+   277→            key={page}
+   278→            onClick={() => onNavigate(page)}
+   279→            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${
+   280→              activePage === page
+   281→                ? "bg-primary/10 text-primary font-semibold"
+   282→                : "text-muted-foreground hover:bg-muted hover:text-foreground"
+   283→            }`}
+   284→          >
+   285→            <Icon className="w-4.5 h-4.5" />
+   286→            {label}
+   287→          </button>
+   288→        ))}
+   289→      </nav>
+   290→
+   291→      <Separator className="my-4" />
+   292→
+   293→      {/* Admin badge + logout */}
+   294→      <div className="space-y-2">
+   295→        <div className="flex items-center gap-2 px-3">
+   296→          <Shield className="w-4 h-4 text-yk-emerald" />
+   297→          <span className="text-xs text-muted-foreground">Superadmin</span>
+   298→        </div>
+   299→        <button
+   300→          onClick={onLogout}
+   301→          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-destructive hover:bg-destructive/10 transition-colors"
+   302→        >
+   303→          <LogOut className="w-4.5 h-4.5" />
+   304→          Déconnexion
+   305→        </button>
+   306→      </div>
+   307→    </div>
+   308→  );
+   309→}
+   310→
+   311→// ============================================================
+   312→// PAGE: OVERVIEW
+   313→// ============================================================
+   314→
+   315→function OverviewPage({
+   316→  onViewTenant,
+   317→  onImpersonate,
+   318→  onRefresh,
+   319→}: {
+   320→  onViewTenant: (id: string) => void;
+   321→  onImpersonate: (tenantId: string, tenantName: string) => void;
+   322→  onRefresh: () => void;
+   323→}) {
+   324→  const metrics = useSuperadminStore((s) => s.metrics);
+   325→  const metricsLoading = useSuperadminStore((s) => s.metricsLoading);
+   326→  const tenants = useSuperadminStore((s) => s.tenants);
+   327→
+   328→  return (
+   329→    <div className="space-y-6">
+   330→      {/* Header */}
+   331→      <div className="flex items-center justify-between">
+   332→        <div>
+   333→          <h1 className="text-2xl font-bold">Vue d&apos;ensemble</h1>
+   334→          <p className="text-muted-foreground text-sm">Pilotage de la plateforme YonuKom</p>
+   335→        </div>
+   336→        <Button variant="outline" size="sm" onClick={onRefresh} disabled={metricsLoading}>
+   337→          <RefreshCw className={`w-4 h-4 mr-1.5 ${metricsLoading ? "animate-spin" : ""}`} />
+   338→          Actualiser
+   339→        </Button>
+   340→      </div>
+   341→
+   342→      {/* Metrics Cards */}
+   343→      <MetricsCards
+   344→        metrics={metrics ? {
+   345→          totalTenants: metrics.totalTenants,
+   346→          mrr: metrics.mrr,
+   347→          activationRate: metrics.activationRate,
+   348→          pastDueCount: metrics.pastDueCount,
+   349→        } : null}
+   350→      />
+   351→
+   352→      {/* Revenue Chart */}
+   353→      {metrics?.revenueByMonth && metrics.revenueByMonth.length > 0 && (
+   354→        <Card>
+   355→          <CardHeader>
+   356→            <CardTitle className="text-base flex items-center gap-2">
+   357→              <TrendingUp className="w-4 h-4 text-primary" />
+   358→              Évolution du MRR (12 derniers mois)
+   359→            </CardTitle>
+   360→          </CardHeader>
+   361→          <CardContent>
+   362→            <RevenueChart data={metrics.revenueByMonth} />
+   363→          </CardContent>
+   364→        </Card>
+   365→      )}
+   366→
+   367→      {/* Recent Tenants */}
+   368→      <Card>
+   369→        <CardHeader>
+   370→          <div className="flex items-center justify-between">
+   371→            <CardTitle className="text-base flex items-center gap-2">
+   372→              <Building2 className="w-4 h-4 text-primary" />
+   373→              Derniers commerces inscrits
+   374→            </CardTitle>
+   375→            <Button
+   376→              variant="ghost"
+   377→              size="sm"
+   378→              className="text-xs gap-1"
+   379→              onClick={() => useSuperadminStore.getState().setActivePage("tenants")}
+   380→            >
+   381→              Voir tout
+   382→              <ChevronRight className="w-3 h-3" />
+   383→            </Button>
+   384→          </div>
+   385→        </CardHeader>
+   386→        <CardContent>
+   387→          <TenantTable
+   388→            tenants={tenants.slice(0, 5)}
+   389→            onViewTenant={onViewTenant}
+   390→            onImpersonate={onImpersonate}
+   391→          />
+   392→        </CardContent>
+   393→      </Card>
+   394→    </div>
+   395→  );
+   396→}
+   397→
+   398→// ============================================================
+   399→// PAGE: TENANTS
+   400→// ============================================================
+   401→
+   402→function TenantsPage({
+   403→  onViewTenant,
+   404→  onImpersonate,
+   405→  onRefresh,
+   406→}: {
+   407→  onViewTenant: (id: string) => void;
+   408→  onImpersonate: (tenantId: string, tenantName: string) => void;
+   409→  onRefresh: () => void;
+   410→}) {
+   411→  const tenants = useSuperadminStore((s) => s.tenants);
+   412→  const tenantsLoading = useSuperadminStore((s) => s.tenantsLoading);
+   413→  const tenantSearch = useSuperadminStore((s) => s.tenantSearch);
+   414→  const setTenantSearch = useSuperadminStore((s) => s.setTenantSearch);
+   415→
+   416→  const filteredTenants = tenants.filter((t) => {
+   417→    if (!tenantSearch) return true;
+   418→    const q = tenantSearch.toLowerCase();
+   419→    return (
+   420→      t.name.toLowerCase().includes(q) ||
+   421→      t.ownerName.toLowerCase().includes(q) ||
+   422→      t.ownerEmail.toLowerCase().includes(q)
+   423→    );
+   424→  });
+   425→
+   426→  return (
+   427→    <div className="space-y-6">
+   428→      {/* Header */}
+   429→      <div className="flex items-center justify-between flex-wrap gap-3">
+   430→        <div>
+   431→          <h1 className="text-2xl font-bold">Tenants</h1>
+   432→          <p className="text-muted-foreground text-sm">{tenants.length} commerces inscrits</p>
+   433→        </div>
+   434→        <div className="flex items-center gap-2">
+   435→          <Button variant="outline" size="sm" onClick={onRefresh} disabled={tenantsLoading}>
+   436→            <RefreshCw className={`w-4 h-4 mr-1.5 ${tenantsLoading ? "animate-spin" : ""}`} />
+   437→            Actualiser
+   438→          </Button>
+   439→          <Button size="sm">
+   440→            <Plus className="w-4 h-4 mr-1.5" />
+   441→            Nouveau tenant
+   442→          </Button>
+   443→        </div>
+   444→      </div>
+   445→
+   446→      {/* Search */}
+   447→      <div className="relative max-w-md">
+   448→        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+   449→        <Input
+   450→          placeholder="Rechercher par nom, propriétaire ou email..."
+   451→          value={tenantSearch}
+   452→          onChange={(e) => setTenantSearch(e.target.value)}
+   453→          className="pl-9"
+   454→        />
+   455→      </div>
+   456→
+   457→      {/* Table */}
+   458→      <TenantTable
+   459→        tenants={filteredTenants}
+   460→        onViewTenant={onViewTenant}
+   461→        onImpersonate={onImpersonate}
+   462→      />
+   463→    </div>
+   464→  );
+   465→}
+   466→
+   467→// ============================================================
+   468→// PAGE: SUBSCRIPTIONS
+   469→// ============================================================
+   470→
+   471→function SubscriptionsPage() {
+   472→  const [subs, setSubs] = useState<Array<{
+   473→    id: string;
+   474→    plan: string;
+   475→    status: string;
+   476→    amount: number;
+   477→    paymentMethod?: string;
+   478→    nextBillingDate?: string;
+   479→    tenant: { id: string; name: string; ownerName: string; ownerEmail: string };
+   480→  }>>([]);
+   481→  const [loading, setLoading] = useState(true);
+   482→  const [statusFilter, setStatusFilter] = useState("all");
+   483→
+   484→  useEffect(() => {
+   485→    (async () => {
+   486→      setLoading(true);
+   487→      try {
+   488→        const url = statusFilter !== "all"
+   489→          ? `/api/superadmin/subscriptions?status=${statusFilter}`
+   490→          : "/api/superadmin/subscriptions";
+   491→        const res = await fetch(url);
+   492→        if (res.ok) setSubs(await res.json());
+   493→      } catch (err) {
+   494→        console.error("Failed to fetch subscriptions:", err);
+   495→      } finally {
+   496→        setLoading(false);
+   497→      }
+   498→    })();
+   499→  }, [statusFilter]);
+   500→
+   501→  return (
+   502→    <div className="space-y-6">
+   503→      {/* Header */}
+   504→      <div className="flex items-center justify-between flex-wrap gap-3">
+   505→        <div>
+   506→          <h1 className="text-2xl font-bold">Abonnements</h1>
+   507→          <p className="text-muted-foreground text-sm">Gestion des abonnements tenants</p>
+   508→        </div>
+   509→        <Select value={statusFilter} onValueChange={setStatusFilter}>
+   510→          <SelectTrigger className="w-[180px]">
+   511→            <SelectValue placeholder="Filtrer par statut" />
+   512→          </SelectTrigger>
+   513→          <SelectContent>
+   514→            <SelectItem value="all">Tous</SelectItem>
+   515→            <SelectItem value="active">🟢 Actifs</SelectItem>
+   516→            <SelectItem value="past_due">🟠 En retard</SelectItem>
+   517→            <SelectItem value="expired">🔴 Expirés</SelectItem>
+   518→            <SelectItem value="cancelled">⚫ Annulés</SelectItem>
+   519→          </SelectContent>
+   520→        </Select>
+   521→      </div>
+   522→
+   523→      {/* Subscription Cards Grid */}
+   524→      {loading ? (
+   525→        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+   526→          {Array.from({ length: 6 }).map((_, i) => (
+   527→            <Card key={i} className="animate-pulse">
+   528→              <CardContent className="p-6 space-y-3">
+   529→                <div className="h-4 bg-muted rounded w-1/2" />
+   530→                <div className="h-3 bg-muted rounded w-3/4" />
+   531→                <div className="h-3 bg-muted rounded w-1/3" />
+   532→              </CardContent>
+   533→            </Card>
+   534→          ))}
+   535→        </div>
+   536→      ) : subs.length === 0 ? (
+   537→        <div className="text-center py-12">
+   538→          <p className="text-muted-foreground">Aucun abonnement trouvé</p>
+   539→        </div>
+   540→      ) : (
+   541→        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+   542→          {subs.map((sub, i) => (
+   543→            <motion.div
+   544→              key={sub.id}
+   545→              initial={{ opacity: 0, y: 10 }}
+   546→              animate={{ opacity: 1, y: 0 }}
+   547→              transition={{ delay: i * 0.05 }}
+   548→            >
+   549→              <Card className="hover:shadow-md transition-shadow">
+   550→                <CardContent className="p-5 space-y-3">
+   551→                  <div className="flex items-start justify-between">
+   552→                    <div className="min-w-0">
+   553→                      <p className="font-semibold text-sm truncate">{sub.tenant.name}</p>
+   554→                      <p className="text-xs text-muted-foreground truncate">{sub.tenant.ownerEmail}</p>
+   555→                    </div>
+   556→                    <SubscriptionStatusBadge status={sub.status as SubscriptionStatus} />
+   557→                  </div>
+   558→                  <Separator />
+   559→                  <div className="flex items-center justify-between">
+   560→                    <Badge variant="secondary" className="text-xs">
+   561→                      {SUBSCRIPTION_PLAN_LABELS[sub.plan as SubscriptionPlan] ?? sub.plan}
+   562→                    </Badge>
+   563→                    <span className="font-bold text-sm">{formatFCFAShort(sub.amount)}</span>
+   564→                  </div>
+   565→                  {sub.nextBillingDate && (
+   566→                    <p className="text-xs text-muted-foreground">
+   567→                      Prochaine facturation : {new Date(sub.nextBillingDate).toLocaleDateString("fr-FR")}
+   568→                    </p>
+   569→                  )}
+   570→                </CardContent>
+   571→              </Card>
+   572→            </motion.div>
+   573→          ))}
+   574→        </div>
+   575→      )}
+   576→    </div>
+   577→  );
+   578→}
+   579→
+   580→// ============================================================
+   581→// PAGE: ANALYTICS
+   582→// ============================================================
+   583→
+   584→function AnalyticsPage({ onRefresh }: { onRefresh: () => void }) {
+   585→  const metrics = useSuperadminStore((s) => s.metrics);
+   586→  const metricsLoading = useSuperadminStore((s) => s.metricsLoading);
+   587→
+   588→  return (
+   589→    <div className="space-y-6">
+   590→      {/* Header */}
+   591→      <div className="flex items-center justify-between">
+   592→        <div>
+   593→          <h1 className="text-2xl font-bold">Analytics</h1>
+   594→          <p className="text-muted-foreground text-sm">Métriques globales de la plateforme</p>
+   595→        </div>
+   596→        <Button variant="outline" size="sm" onClick={onRefresh} disabled={metricsLoading}>
+   597→          <RefreshCw className={`w-4 h-4 mr-1.5 ${metricsLoading ? "animate-spin" : ""}`} />
+   598→          Actualiser
+   599→        </Button>
+   600→      </div>
+   601→
+   602→      {/* Key Metrics */}
+   603→      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+   604→        <MetricCard
+   605→          icon={CircleDollarSign}
+   606→          title="MRR"
+   607→          value={metrics ? formatFCFAShort(metrics.mrr) : "—"}
+   608→          subtitle="Revenu récurrent mensuel"
+   609→          color="emerald"
+   610→        />
+   611→        <MetricCard
+   612→          icon={Activity}
+   613→          title="Activation"
+   614→          value={metrics ? `${metrics.activationRate}%` : "—"}
+   615→          subtitle="Taux d'activation"
+   616→          color="emerald"
+   617→        />
+   618→        <MetricCard
+   619→          icon={AlertTriangle}
+   620→          title="Churn"
+   621→          value={metrics ? `${metrics.churnRate}%` : "—"}
+   622→          subtitle="Taux de désabonnement"
+   623→          color="amber"
+   624→        />
+   625→        <MetricCard
+   626→          icon={Users}
+   627→          title="Tenants actifs"
+   628→          value={metrics ? String(metrics.activeTenants) : "—"}
+   629→          subtitle={`Sur ${metrics?.totalTenants ?? 0} inscrits`}
+   630→          color="emerald"
+   631→        />
+   632→      </div>
+   633→
+   634→      {/* Revenue Chart */}
+   635→      {metrics?.revenueByMonth && (
+   636→        <Card>
+   637→          <CardHeader>
+   638→            <CardTitle className="text-base flex items-center gap-2">
+   639→              <TrendingUp className="w-4 h-4 text-primary" />
+   640→              MRR — 12 derniers mois
+   641→            </CardTitle>
+   642→            <CardDescription>Évolution du revenu récurrent mensuel</CardDescription>
+   643→          </CardHeader>
+   644→          <CardContent>
+   645→            <RevenueChart data={metrics.revenueByMonth} />
+   646→          </CardContent>
+   647→        </Card>
+   648→      )}
+   649→
+   650→      {/* Subscription Breakdown */}
+   651→      {metrics?.subscriptionBreakdown && (
+   652→        <Card>
+   653→          <CardHeader>
+   654→            <CardTitle className="text-base">Répartition des abonnements</CardTitle>
+   655→          </CardHeader>
+   656→          <CardContent>
+   657→            <div className="grid grid-cols-3 gap-4">
+   658→              {(["starter", "pro", "enterprise"] as SubscriptionPlan[]).map((plan) => (
+   659→                <div key={plan} className="text-center space-y-1">
+   660→                  <p className="text-3xl font-bold">
+   661→                    {metrics.subscriptionBreakdown[plan]}
+   662→                  </p>
+   663→                  <Badge variant="secondary" className="text-xs">
+   664→                    {SUBSCRIPTION_PLAN_LABELS[plan]}
+   665→                  </Badge>
+   666→                  <p className="text-xs text-muted-foreground">
+   667→                    {formatFCFA(SUBSCRIPTION_PLAN_PRICES[plan])}/mois
+   668→                  </p>
+   669→                </div>
+   670→              ))}
+   671→            </div>
+   672→          </CardContent>
+   673→        </Card>
+   674→      )}
+   675→    </div>
+   676→  );
+   677→}
+   678→
+   679→// ============================================================
+   680→// PAGE: LOGS
+   681→// ============================================================
+   682→
+   683→function LogsPage() {
+   684→  const platformLogs = useSuperadminStore((s) => s.platformLogs);
+   685→  const setPlatformLogs = useSuperadminStore((s) => s.setPlatformLogs);
+   686→  const [loading, setLoading] = useState(true);
+   687→  const [levelFilter, setLevelFilter] = useState("all");
+   688→
+   689→  useEffect(() => {
+   690→    (async () => {
+   691→      setLoading(true);
+   692→      try {
+   693→        const url = levelFilter !== "all"
+   694→          ? `/api/superadmin/logs?level=${levelFilter}`
+   695→          : "/api/superadmin/logs";
+   696→        const res = await fetch(url);
+   697→        if (res.ok) setPlatformLogs(await res.json());
+   698→      } catch (err) {
+   699→        console.error("Failed to fetch logs:", err);
+   700→      } finally {
+   701→        setLoading(false);
+   702→      }
+   703→    })();
+   704→  }, [levelFilter, setPlatformLogs]);
+   705→
+   706→  const levelColors: Record<string, string> = {
+   707→    info: "text-blue-500",
+   708→    warning: "text-amber-500",
+   709→    error: "text-red-500",
+   710→    critical: "text-red-700 font-bold",
+   711→  };
+   712→
+   713→  const levelBg: Record<string, string> = {
+   714→    info: "bg-blue-50",
+   715→    warning: "bg-amber-50",
+   716→    error: "bg-red-50",
+   717→    critical: "bg-red-100",
+   718→  };
+   719→
+   720→  return (
+   721→    <div className="space-y-6">
+   722→      {/* Header */}
+   723→      <div className="flex items-center justify-between flex-wrap gap-3">
+   724→        <div>
+   725→          <h1 className="text-2xl font-bold">Logs plateforme</h1>
+   726→          <p className="text-muted-foreground text-sm">Journal des événements globaux</p>
+   727→        </div>
+   728→        <Select value={levelFilter} onValueChange={setLevelFilter}>
+   729→          <SelectTrigger className="w-[180px]">
+   730→            <SelectValue placeholder="Niveau" />
+   731→          </SelectTrigger>
+   732→          <SelectContent>
+   733→            <SelectItem value="all">Tous</SelectItem>
+   734→            <SelectItem value="info">Info</SelectItem>
+   735→            <SelectItem value="warning">Warning</SelectItem>
+   736→            <SelectItem value="error">Error</SelectItem>
+   737→            <SelectItem value="critical">Critical</SelectItem>
+   738→          </SelectContent>
+   739→        </Select>
+   740→      </div>
+   741→
+   742→      {/* Logs list */}
+   743→      {loading ? (
+   744→        <div className="space-y-2">
+   745→          {Array.from({ length: 5 }).map((_, i) => (
+   746→            <div key={i} className="h-12 bg-muted rounded animate-pulse" />
+   747→          ))}
+   748→        </div>
+   749→      ) : platformLogs.length === 0 ? (
+   750→        <div className="text-center py-12">
+   751→          <ScrollText className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
+   752→          <p className="text-muted-foreground">Aucun log trouvé</p>
+   753→        </div>
+   754→      ) : (
+   755→        <div className="space-y-2 max-h-[600px] overflow-y-auto custom-scrollbar">
+   756→          {platformLogs.map((log, i) => (
+   757→            <motion.div
+   758→              key={log.id}
+   759→              initial={{ opacity: 0 }}
+   760→              animate={{ opacity: 1 }}
+   761→              transition={{ delay: i * 0.02 }}
+   762→              className={`flex items-start gap-3 p-3 rounded-lg border ${levelBg[log.level] ?? "bg-card"}`}
+   763→            >
+   764→              <Badge variant="outline" className={`text-[9px] shrink-0 ${levelColors[log.level] ?? ""}`}>
+   765→                {log.level.toUpperCase()}
+   766→              </Badge>
+   767→              <div className="flex-1 min-w-0">
+   768→                <div className="flex items-center gap-2 mb-0.5">
+   769→                  <Badge variant="secondary" className="text-[9px]">{log.category}</Badge>
+   770→                  <span className="text-xs text-muted-foreground">
+   771→                    {new Date(log.createdAt).toLocaleString("fr-FR")}
+   772→                  </span>
+   773→                </div>
+   774→                <p className="text-sm truncate">{log.message}</p>
+   775→              </div>
+   776→            </motion.div>
+   777→          ))}
+   778→        </div>
+   779→      )}
+   780→    </div>
+   781→  );
+   782→}
+   783→
+   784→// ============================================================
+   785→// PAGE: SETTINGS
+   786→// ============================================================
+   787→
+   788→function SettingsPage() {
+   789→  const user = useAuthStore((s) => s.user);
+   790→  const logout = useAuthStore((s) => s.logout);
+   791→
+   792→  return (
+   793→    <div className="space-y-6">
+   794→      <h1 className="text-2xl font-bold">Paramètres</h1>
+   795→
+   796→      <Card>
+   797→        <CardHeader>
+   798→          <CardTitle className="text-base">Compte Superadmin</CardTitle>
+   799→          <CardDescription>Informations du compte administrateur</CardDescription>
+   800→        </CardHeader>
+   801→        <CardContent className="space-y-4">
+   802→          <div className="flex items-center gap-3">
+   803→            <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+   804→              <Shield className="w-6 h-6 text-primary" />
+   805→            </div>
+   806→            <div>
+   807→              <p className="font-semibold">{user?.name ?? "Superadmin"}</p>
+   808→              <p className="text-sm text-muted-foreground">{user?.email ?? "admin@yonukom.sn"}</p>
+   809→            </div>
+   810→          </div>
+   811→          <Separator />
+   812→          <div className="flex items-center gap-2">
+   813→            <Badge className="bg-yk-emerald/10 text-yk-emerald border-yk-emerald/20">
+   814→              <Shield className="w-3 h-3 mr-1" />
+   815→              Superadmin
+   816→            </Badge>
+   817→            <span className="text-xs text-muted-foreground">Accès complet à la plateforme</span>
+   818→          </div>
+   819→          <Button variant="destructive" size="sm" onClick={logout} className="gap-1.5">
+   820→            <LogOut className="w-4 h-4" />
+   821→            Déconnexion
+   822→          </Button>
+   823→        </CardContent>
+   824→      </Card>
+   825→
+   826→      <Card>
+   827→        <CardHeader>
+   828→          <CardTitle className="text-base">Configuration plateforme</CardTitle>
+   829→          <CardDescription>Paramètres globaux de YonuKom</CardDescription>
+   830→        </CardHeader>
+   831→        <CardContent className="space-y-3">
+   832→          <div className="flex items-center justify-between">
+   833→            <span className="text-sm">Devise par défaut</span>
+   834→            <Badge variant="outline">FCFA (XOF)</Badge>
+   835→          </div>
+   836→          <div className="flex items-center justify-between">
+   837→            <span className="text-sm">Région</span>
+   838→            <Badge variant="outline">Sénégal (SN)</Badge>
+   839→          </div>
+   840→          <div className="flex items-center justify-between">
+   841→            <span className="text-sm">Mode</span>
+   842→            <Badge variant="outline" className="border-yk-emerald/30 text-yk-emerald">Production</Badge>
+   843→          </div>
+   844→        </CardContent>
+   845→      </Card>
+   846→    </div>
+   847→  );
+   848→}
+   849→
+   850→// ============================================================
+   851→// HELPER: Metric Card
+   852→// ============================================================
+   853→
+   854→function MetricCard({
+   855→  icon: Icon,
+   856→  title,
+   857→  value,
+   858→  subtitle,
+   859→  color,
+   860→}: {
+   861→  icon: typeof CircleDollarSign;
+   862→  title: string;
+   863→  value: string;
+   864→  subtitle: string;
+   865→  color: "emerald" | "amber";
+   866→}) {
+   867→  const colors = {
+   868→    emerald: { icon: "text-emerald-600", bg: "bg-emerald-50" },
+   869→    amber: { icon: "text-amber-600", bg: "bg-amber-50" },
+   870→  };
+   871→  const c = colors[color];
+   872→
+   873→  return (
+   874→    <Card>
+   875→      <CardContent className="p-4">
+   876→        <div className="flex items-start justify-between mb-2">
+   877→          <p className="text-xs text-muted-foreground font-medium">{title}</p>
+   878→          <div className={`p-1.5 rounded-md ${c.bg}`}>
+   879→            <Icon className={`w-3.5 h-3.5 ${c.icon}`} />
+   880→          </div>
+   881→        </div>
+   882→        <p className="text-2xl font-bold">{value}</p>
+   883→        <p className="text-xs text-muted-foreground mt-1">{subtitle}</p>
+   884→      </CardContent>
+   885→    </Card>
+   886→  );
+   887→}
+   888→

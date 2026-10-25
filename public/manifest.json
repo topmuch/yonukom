@@ -1,0 +1,21 @@
+{
+  "name": "YonuKom",
+  "short_name": "YonuKom",
+  "description": "Gestion de vente simplifiée pour commerçants — Offline-first, Mobile-first",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#F7F8FA",
+  "theme_color": "#1B3A5C",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/logo.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ],
+  "categories": ["business", "finance", "shopping"],
+  "lang": "fr",
+  "dir": "ltr"
+}

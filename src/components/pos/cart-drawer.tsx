@@ -1,0 +1,279 @@
+// ============================================================
+// YonuKom — Cart Drawer
+// Panier en bottom sheet (Sheet) — slide up depuis le bas
+// Contrôles +/- quantité, total FCFA, bouton Encaisser
+// ============================================================
+
+"use client";
+
+import { useCartStore } from "@/stores/use-cart-store";
+import { formatFCFA } from "@/lib/fcfa";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+  SheetFooter,
+} from "@/components/ui/sheet";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Minus, Plus, Trash2, ShoppingCart, User, Phone } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+
+interface CartDrawerProps {
+  /** Is the sheet open? */
+  open: boolean;
+  /** Toggle open state */
+  onOpenChange: (open: boolean) => void;
+}
+
+export function CartDrawer({ open, onOpenChange }: CartDrawerProps) {
+  const items = useCartStore((s) => s.items);
+  const total = useCartStore((s) => s.total);
+  const itemCount = useCartStore((s) => s.itemCount);
+  const customer = useCartStore((s) => s.customer);
+  const updateQuantity = useCartStore((s) => s.updateQuantity);
+  const removeItem = useCartStore((s) => s.removeItem);
+  const clearCart = useCartStore((s) => s.clearCart);
+
+  const handleCheckout = () => {
+    // TODO: Navigate to checkout / payment screen (Phase 4)
+    onOpenChange(false);
+  };
+
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent side="bottom" className="h-[85vh] max-h-[600px] rounded-t-2xl">
+        <SheetHeader className="pb-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <ShoppingCart className="w-5 h-5 text-primary" />
+              <SheetTitle className="text-lg">Panier</SheetTitle>
+              {itemCount > 0 && (
+                <Badge variant="secondary" className="text-xs">
+                  {itemCount} article{itemCount > 1 ? "s" : ""}
+                </Badge>
+              )}
+            </div>
+            {items.length > 0 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={clearCart}
+                className="text-destructive hover:text-destructive text-xs"
+              >
+                Vider
+              </Button>
+            )}
+          </div>
+          <SheetDescription className="sr-only">
+            Votre panier de vente
+          </SheetDescription>
+        </SheetHeader>
+
+        {/* Customer info */}
+        {customer && (
+          <div className="px-4 py-2 bg-yk-emerald/5 rounded-lg mx-4 mb-2 flex items-center gap-2">
+            <User className="w-4 h-4 text-yk-emerald" />
+            <span className="text-sm font-medium text-yk-emerald">{customer.name}</span>
+            {customer.phone && (
+              <>
+                <Phone className="w-3 h-3 text-muted-foreground ml-1" />
+                <span className="text-xs text-muted-foreground">{customer.phone}</span>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* Cart items */}
+        <ScrollArea className="flex-1 px-4 -mx-4">
+          {items.length === 0 ? (
+            <div className="py-12 text-center">
+              <ShoppingCart className="w-10 h-10 text-muted-foreground/40 mx-auto mb-3" />
+              <p className="text-muted-foreground text-sm">Le panier est vide</p>
+              <p className="text-muted-foreground/60 text-xs mt-1">
+                Appuyez sur un produit pour l&apos;ajouter
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-1 px-4">
+              <AnimatePresence initial={false}>
+                {items.map((item) => (
+                  <CartItemRow
+                    key={item.productId}
+                    productId={item.productId}
+                    name={item.productName}
+                    salePrice={item.salePrice}
+                    quantity={item.quantity}
+                    totalPrice={item.totalPrice}
+                    onUpdateQuantity={updateQuantity}
+                    onRemove={removeItem}
+                  />
+                ))}
+              </AnimatePresence>
+            </div>
+          )}
+        </ScrollArea>
+
+        {/* Footer with total + checkout */}
+        {items.length > 0 && (
+          <SheetFooter className="border-t border-border pt-3 gap-2">
+            <div className="flex items-center justify-between w-full mb-2">
+              <span className="text-sm text-muted-foreground">Total</span>
+              <motion.span
+                key={total}
+                initial={{ scale: 1.1, color: "oklch(0.57 0.17 162)" }}
+                animate={{ scale: 1, color: "inherit" }}
+                transition={{ duration: 0.2 }}
+                className="text-2xl font-bold text-yk-emerald"
+              >
+                {formatFCFA(total)}
+              </motion.span>
+            </div>
+            <Button
+              onClick={handleCheckout}
+              size="lg"
+              className="w-full min-h-[48px] text-base font-semibold"
+            >
+              Encaisser
+            </Button>
+          </SheetFooter>
+        )}
+      </SheetContent>
+    </Sheet>
+  );
+}
+
+// --- Cart Item Row ---
+interface CartItemRowProps {
+  productId: string;
+  name: string;
+  salePrice: number;
+  quantity: number;
+  totalPrice: number;
+  onUpdateQuantity: (productId: string, quantity: number) => void;
+  onRemove: (productId: string) => void;
+}
+
+function CartItemRow({
+  productId,
+  name,
+  salePrice,
+  quantity,
+  totalPrice,
+  onUpdateQuantity,
+  onRemove,
+}: CartItemRowProps) {
+  return (
+    <motion.div
+      layout
+      initial={{ opacity: 0, x: -20 }}
+      animate={{ opacity: 1, x: 0 }}
+      exit={{ opacity: 0, x: -20, height: 0 }}
+      transition={{ duration: 0.2 }}
+      className="flex items-center gap-3 py-3"
+    >
+      {/* Product info */}
+      <div className="flex-1 min-w-0">
+        <h4 className="text-sm font-medium leading-tight line-clamp-1">{name}</h4>
+        <p className="text-xs text-muted-foreground">{formatFCFA(salePrice)} / unité</p>
+      </div>
+
+      {/* Quantity controls */}
+      <div className="flex items-center gap-1.5">
+        <Button
+          variant="outline"
+          size="icon"
+          className="h-8 w-8"
+          onClick={(e) => {
+            e.stopPropagation();
+            onUpdateQuantity(productId, quantity - 1);
+          }}
+          aria-label="Diminuer la quantité"
+        >
+          <Minus className="w-3.5 h-3.5" />
+        </Button>
+
+        <motion.span
+          key={quantity}
+          initial={{ scale: 1.3 }}
+          animate={{ scale: 1 }}
+          transition={{ duration: 0.15 }}
+          className="w-8 text-center text-sm font-semibold tabular-nums"
+        >
+          {quantity}
+        </motion.span>
+
+        <Button
+          variant="outline"
+          size="icon"
+          className="h-8 w-8"
+          onClick={(e) => {
+            e.stopPropagation();
+            onUpdateQuantity(productId, quantity + 1);
+          }}
+          aria-label="Augmenter la quantité"
+        >
+          <Plus className="w-3.5 h-3.5" />
+        </Button>
+      </div>
+
+      {/* Line total */}
+      <div className="text-right min-w-[70px]">
+        <p className="text-sm font-semibold tabular-nums">{formatFCFA(totalPrice)}</p>
+      </div>
+
+      {/* Remove */}
+      <Button
+        variant="ghost"
+        size="icon"
+        className="h-8 w-8 text-muted-foreground hover:text-destructive"
+        onClick={(e) => {
+          e.stopPropagation();
+          onRemove(productId);
+        }}
+        aria-label="Retirer du panier"
+      >
+        <Trash2 className="w-3.5 h-3.5" />
+      </Button>
+    </motion.div>
+  );
+}
+
+// --- Floating Cart Button (to open drawer) ---
+interface CartButtonProps {
+  itemCount: number;
+  total: number;
+  onClick: () => void;
+}
+
+export function CartButton({ itemCount, total, onClick }: CartButtonProps) {
+  return (
+    <motion.div
+      initial={{ y: 100 }}
+      animate={{ y: 0 }}
+      transition={{ type: "spring", stiffness: 300, damping: 25 }}
+    >
+      <Button
+        onClick={onClick}
+        size="lg"
+        className="w-full min-h-[48px] text-base font-semibold shadow-lg relative"
+      >
+        <ShoppingCart className="w-5 h-5 mr-2" />
+        <span>Voir le panier</span>
+        {itemCount > 0 && (
+          <Badge
+            variant="secondary"
+            className="ml-2 bg-primary-foreground/20 text-primary-foreground border-0"
+          >
+            {itemCount}
+          </Badge>
+        )}
+        <span className="ml-auto font-bold">{formatFCFA(total)}</span>
+      </Button>
+    </motion.div>
+  );
+}

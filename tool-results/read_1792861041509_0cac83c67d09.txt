@@ -1,0 +1,401 @@
+     1→---
+     2→Task ID: 1
+     3→Agent: Main
+     4→Task: Phase 1 — Architecture, Prisma Schema, Stores Zustand
+     5→
+     6→Work Log:
+     7→- Designed complete folder structure for YonuKom (modular PWA architecture)
+     8→- Created Prisma schema with 11 models: Business, User, Product, StockMovement, Customer, Order, OrderItem, Payment, AuditLog, CashSession, SyncQueueItem
+     9→- Key design: quantity vs reservedQuantity distinction for B2B stock management
+    10→- Installed dexie@4.4.7 for IndexedDB offline storage
+    11→- Created 5 Zustand stores: connectivity, sync-queue, auth, config, cart
+    12→- Created Dexie.js config with 6 tables + pending actions queue
+    13→- Created utility modules: fcfa.ts, whatsapp.ts, permissions.ts
+    14→- Created TypeScript types: index.ts, onboarding.ts
+    15→- Created module config system: config/modules.ts
+    16→- Pushed schema to SQLite database successfully
+    17→
+    18→Stage Summary:
+    19→- Complete offline-first architecture established
+    20→- All models respect FCFA integer convention (no floats for money)
+    21→- Anti-fraud permissions system (vendeur can't see purchase prices or delete sales)
+    22→- WhatsApp link generation for e-commerce social module
+    23→
+    24→---
+    25→Task ID: 2
+    26→Agent: Main
+    27→Task: Phase 2 — Onboarding Wizard 5 étapes + Dashboard Preview
+    28→
+    29→Work Log:
+    30→- Updated globals.css with YonuKom color palette (bleu profond + vert émeraude)
+    31→- Created OnboardingWizard with 5-step navigation, progress bar, animations
+    32→- Created StepBusinessType: 4 business types with icons + e-com options
+    33→- Created StepTeam: team size, role selection, cash register option
+    34→- Created StepPayments: 6 payment methods (cash, Wave, OM, CB, cheque, virement), Wave/OM numbers
+    35→- Created StepStock: stock tracking toggle, low stock alert with slider, B2B reservations
+    36→- Created StepEquipment: receipt printer, barcode scanner, language selection (FR/WO/EN)
+    37→- Created ConnectivityBanner with offline/online indicators and sync status
+    38→- Created shared components: FcfaAmount, OfflineBadge
+    39→- Created API routes: /api/onboarding (POST), /api/health (HEAD/GET), /api/sync (POST)
+    40→- Created PWA manifest.json
+    41→- Updated layout.tsx with YonuKom metadata and PWA viewport
+    42→- Fixed Zustand re-render bug: derived values must be computed in components, not as store functions
+    43→- Fixed setState-during-render bug: initialized store with default values instead of null
+    44→- Browser-verified full flow: 5 steps → submit → dashboard with all data saved to DB
+    45→
+    46→Stage Summary:
+    47→- Full onboarding flow works end-to-end
+    48→- Database writes confirmed: Business, User, AuditLog inserted on submit
+    49→- Mobile-first responsive design verified at 375px and 1280px
+    50→- Connectivity indicator always visible (🟢 En ligne / 🔴 Hors ligne)
+    51→- Dashboard preview shows modules and stats
+    52→
+    53→---
+    54→Task ID: 3-a
+    55→Agent: API Routes Agent
+    56→Task: Create CRUD API routes for products, customers, orders, payments
+    57→
+    58→Work Log:
+    59→- Created /api/products/route.ts: GET (list by businessId, active only, ordered by name), POST (create with required name/salePrice/businessId + optional fields)
+    60→- Created /api/products/[id]/route.ts: GET (single product), PUT (update with field whitelist), DELETE (soft delete isActive=false, role check patron/gerant only)
+    61→- Created /api/customers/route.ts: GET (list by businessId, search by name/phone), POST (create with required name/phone/businessId + optional B2B fields)
+    62→- Created /api/customers/[id]/route.ts: GET (single customer), PUT (update with field whitelist)
+    63→- Created /api/orders/route.ts: GET (list by businessId, filter by status, include orderItems+customer, ordered by createdAt desc), POST (create with items, generate orderNumber YK-{year}-{XXXX}, calculate totals, create StockMovements type:sale, decrement product quantities — all in transaction)
+    64→- Created /api/orders/[id]/route.ts: GET (single order with items+payments), PUT (update status; cancellation requires cancellationReason, sets isCancelled=true, increments product quantities back, creates StockMovement type:adjustment — all in transaction)
+    65→- Created /api/payments/route.ts: POST (create payment, update order paidAmount/remainingAmount in transaction, auto-transition to_pay→to_ship when fully paid)
+    66→- All routes use NextRequest/NextResponse, try/catch with proper error responses, JSON responses
+    67→- Lint passed with zero errors
+    68→
+    69→Stage Summary:
+    70→- 7 API route files created covering full CRUD for products, customers, orders, and payments
+    71→- Transactional integrity for order creation (items + stock movements + quantity decrement) and cancellation (quantity restoration + stock movement)
+    72→- Payment auto-updates order paidAmount/remainingAmount with status auto-transition
+    73→- Anti-fraud: product soft delete restricted to patron/gerant roles
+    74→- Order number format: YK-{year}-{XXXX} with auto-incrementing sequence
+    75→
+    76→---
+    77→Task ID: 3-b-3-c
+    78→Agent: Frontend Agent
+    79→Task: Create AppShell + POS Screen components
+    80→
+    81→Work Log:
+    82→- Created AppShell component (/src/components/layout/app-shell.tsx) with sticky header (YK logo + ConnectivityDot + business name), bottom mobile nav (5 tabs with active indicator animation via Framer Motion layoutId), desktop sidebar nav (lg+ breakpoint)
+    83→- Created ProductGrid sub-component (/src/components/pos/product-grid.tsx) with search input + barcode icon, 2-col mobile / 3-col tablet grid, product cards with name/price/stock badge, instant add-to-cart on click, loading skeleton
+    84→- Created CartDrawer sub-component (/src/components/pos/cart-drawer.tsx) as bottom Sheet with +/- quantity controls, line totals in FCFA, customer info display, "Encaisser" checkout button, "Vider" clear cart, animated item add/remove, floating CartButton with item count badge
+    85→- Created QuickSale sub-component (/src/components/pos/quick-sale.tsx) for restaurant mode: large product buttons grouped by category, cart quantity badge overlay, disabled for out-of-stock
+    86→- Created PosScreen component (/src/components/pos/pos-screen.tsx) as main POS screen with customer selector (Select), barcode scan button, category filter tabs, restaurant mode toggle (auto from config), cart integration
+    87→- Created /api/products route returning 25 mock Sénégalais products (Thiébou Rouge, Yassa, Bissap, Riz 25kg, Boubou, etc.)
+    88→- Updated page.tsx to use AppShell with tab-based navigation (Home/POS/Stock/Orders/Settings), Home tab shows stats + quick actions + low stock alert, placeholder tabs for Stock/Orders/Settings
+    89→- All touch targets min 48px, FCFA formatting via formatFCFA, Framer Motion animations throughout
+    90→- Lint passed with zero errors
+    91→
+    92→Stage Summary:
+    93→- Full POS selling screen functional with product grid, cart drawer, and checkout flow
+    94→- AppShell provides persistent navigation with mobile bottom tabs and desktop sidebar
+    95→- 25 mock Sénégalais products loaded from /api/products
+    96→- Cart supports add/increment/decrement/remove/clear with FCFA totals
+    97→- Restaurant mode auto-activates when config.restaurant is true (QuickSale layout)
+    98→- All components mobile-first with 48px touch targets and Framer Motion animations
+    99→
+   100→---
+   101→Task ID: 3-d-3e-3f
+   102→Agent: Kanban + Products + Customers Agent
+   103→Task: Create Kanban board, product management, customer management, stock dashboard
+   104→
+   105→Work Log:
+   106→- Created 3 mock API routes for dev data: /api/ecom-orders (7 orders across 3 statuses), /api/ecom-customers (6 Sénégalais customers), /api/ecom-products (25 products with full fields)
+   107→- Created Order Kanban board (/src/components/orders/order-kanban.tsx): 3 columns (À Payer/À Livrer/Livré), responsive grid (1-col mobile, 3-col desktop), ScrollArea per column, AnimatePresence for card transitions, empty state with CTA
+   108→- Created Order Card (/src/components/orders/order-card.tsx): order number, customer name+phone, total in FCFA, time ago in French, payment method badge (Wave/OM/Espèces), WhatsApp button for to_pay, status transition buttons (→ Livrer / ✓ Livré), left border color-coded by status
+   109→- Created Order Detail Dialog (/src/components/orders/order-detail-dialog.tsx): full order details with items list, totals, payments history, WhatsApp link generation, status change actions, delivery address
+   110→- Created Product List (/src/components/products/product-list.tsx): search bar, category filter tabs, 2/3-col grid, add button, loading skeleton, empty state with CTA
+   111→- Created Product Card (/src/components/products/product-card.tsx): name, sale price in FCFA, stock quantity with color coding (red=rupture, amber=low, green=ok), category badge, SKU
+   112→- Created Product Form (/src/components/products/product-form.tsx): Dialog form for create/edit with name, SKU, category, salePrice, purchasePrice, quantity, productType, unitType, minStockAlert fields
+   113→- Created Customer List (/src/components/customers/customer-list.tsx): search by name/phone, quick add button, customer rows with avatar initial, payment badge, B2B badge, total orders count
+   114→- Created Customer Card (/src/components/customers/customer-card.tsx): avatar initial, name, phone with tel: link, payment method badge, B2B badge, orders count
+   115→- Created Customer Form (/src/components/customers/customer-form.tsx): quick add (name + phone only) + full edit with payment method select and B2B checkbox
+   116→- Created Stock Dashboard (/src/components/stock/stock-dashboard.tsx): summary cards (total products, low stock, out of stock), product list filtered by stock issues or all, stock value per item, available stock accounting for B2B reservations, "Déclarer une perte" button per item, view switcher between dashboard and product management
+   117→- Created Loss Dialog (/src/components/stock/loss-dialog.tsx): quantity + reason form for declaring stock losses (restaurant mode)
+   118→- Updated page.tsx: Stock tab now uses StockDashboard, Orders tab now uses OrderKanban, Settings tab now shows CustomerList, Home tab has 4 quick actions grid with navigation to all tabs
+   119→- Fixed lint errors: removed useEffect for form state initialization (react-hooks/set-state-in-effect), used key prop on forms for proper remount on data change
+   120→- All components are "use client", mobile-first with min 48px touch targets, use formatFCFA for all money display
+   121→- Lint passed with zero errors
+   122→
+   123→Stage Summary:
+   124→- Full Order Kanban board with 3 status columns, WhatsApp integration, and status transitions
+   125→- Complete Product CRUD with search, category filtering, and stock color coding
+   126→- Customer management with quick-add flow (just name + phone) and B2B support
+   127→- Stock dashboard with summary cards, stock issue filtering, reservation awareness, and loss declaration
+   128→- All mock API routes return realistic Sénégalais data
+   129→- 11 new component files + 3 new API routes created
+   130→- page.tsx fully wired: Home/POS/Stock/Orders/Settings tabs all functional
+   131→
+   132→---
+   133→Task ID: 3
+   134→Agent: Main
+   135→Task: Phase 3 — Module E-Commerce Social complet
+   136→
+   137→Work Log:
+   138→- Created 7 API route files: products (GET/POST + [id] GET/PUT/DELETE), customers (GET/POST + [id] GET/PUT), orders (GET/POST + [id] GET/PUT), payments (POST)
+   139→- All mutations use Prisma transactions for atomicity
+   140→- Order creation: generates YK-YYYY-XXXX number, creates StockMovements, decrements product quantities
+   141→- Order cancellation: requires mandatory reason, restores stock, creates adjustment movements
+   142→- Payment: auto-updates paidAmount/remainingAmount, auto-transitions status (to_pay → to_ship when fully paid)
+   143→- Created AppShell with sticky header + bottom nav (5 tabs: Accueil, Vente, Stock, Commandes, Paramètres)
+   144→- Created POS screen: product grid with search, category filters, customer selector, instant add-to-cart
+   145→- Created Cart drawer: bottom Sheet with +/- controls, FCFA totals, checkout button
+   146→- Created Kanban board: 3 columns (🟠 À Payer / 🔵 À Livrer / 🟢 Livré) with order cards
+   147→- Created order detail dialog with WhatsApp link generation
+   148→- Created product management: list + search + category filter + create/edit form
+   149→- Created customer management: list + search + quick add (name + phone)
+   150→- Created stock dashboard: summary cards, stock issues, loss declaration dialog
+   151→- Fixed onboarding API: unique email per business (patron.{businessId}@yonukom.com)
+   152→- Mock APIs: 25 Sénégalais products, 6 customers, 7 orders across 3 statuses
+   153→- Browser-verified: all 5 tabs functional, POS cart works, Kanban displays orders, Stock shows issues
+   154→
+   155→Stage Summary:
+   156→- Full E-Commerce Social module operational
+   157→- POS: click-to-add in <1s, cart with FCFA totals
+   158→- Kanban: 3-column tracking with WhatsApp + status transition buttons
+   159→- Product/Customer CRUD with search and quick-add
+   160→- Stock dashboard with rupture/low stock alerts
+   161→- All API routes transactional with anti-fraud controls
+   162→- Lint: 0 errors, all pages render correctly
+   163→
+   164→---
+   165→Task ID: 4-c
+   166→Agent: Store Agent
+   167→Task: Create use-pipeline-store.ts
+   168→
+   169→Work Log:
+   170→- Created /src/stores/use-pipeline-store.ts with full Zustand store for B2B pipeline
+   171→- Defined PipelineQuote interface with nested customer, items, payments sub-objects
+   172→- Defined PipelineState interface with all state fields (quotes, selectedQuoteId, statusFilter, isLoading, searchQuery) and actions (loadQuotes, selectQuote, setStatusFilter, setSearchQuery, validateQuote, deliverQuote, invoiceQuote, cancelQuote, refresh)
+   173→- Implemented loadQuotes: GET /api/b2b-quotes?businessId=... with loading state and error toast
+   174→- Implemented validateQuote: PUT /api/quotes/{id} with {status: "quote_validated"}, local quotes array update on success
+   175→- Implemented deliverQuote: PUT /api/quotes/{id} with {status: "delivery_note"}, sets isDelivered: true locally
+   176→- Implemented invoiceQuote: PUT /api/quotes/{id} with {status: "invoiced"}, local quotes array update on success
+   177→- Implemented cancelQuote: PUT /api/quotes/{id} with {status: "cancelled", cancellationReason}, sets isCancelled: true locally
+   178→- All API calls use relative paths (no localhost), errors shown via sonner toast
+   179→- Implemented refresh using cached _lastBusinessId to re-trigger loadQuotes
+   180→- Lint passed with zero errors
+   181→
+   182→Stage Summary:
+   183→- Complete Zustand store for B2B pipeline management created at /src/stores/use-pipeline-store.ts
+   184→- Supports full quote lifecycle: draft → quote_validated → delivery_note → invoiced (+ cancel at any stage)
+   185→- All monetary values in FCFA integers (no floats)
+   186→- Toast notifications (sonner) for success/error on all mutations
+   187→- Ready for consumption by Pipeline Kanban UI components
+   188→
+   189→---
+   190→Task ID: 4-a
+   191→Agent: API Routes Agent
+   192→Task: Create B2B Pipeline API routes (quotes CRUD with stock reservation logic)
+   193→
+   194→Work Log:
+   195→- Created /src/app/api/quotes/route.ts: GET (list B2B quotes by businessId, filter by status, only returns orders with B2B pipeline statuses: draft/quote_validated/delivery_note/invoiced, includes orderItems+product+customer+payments, ordered by createdAt desc) + POST (create draft quote with items, validates customer is B2B, validates all products exist+active+belong to business, generates YK-{year}-{XXXX} order number, calculates FCFA integer totals, creates Order with status "draft" — NO stock impact at this stage, audit log quote_created)
+   196→- Created /src/app/api/quotes/[id]/route.ts: GET (single quote with items+product+payments+customer, validates B2B status) + PUT (full status transition engine with 4 transition paths):
+   197→  - draft → quote_validated (VALIDATE): checks stock availability (product.quantity - product.reservedQuantity >= item.quantity for each item), returns 400 with per-item details if insufficient, increments product.reservedQuantity for each item, creates StockMovement type:reservation, audit log quote_validated
+   198→  - quote_validated → delivery_note (DELIVER): decrements product.quantity (physical stock out), decrements product.reservedQuantity (release reservation), creates StockMovement type:reservation_release AND type:sale, sets isDelivered=true + deliveryDate=now, audit log quote_delivered
+   199→  - delivery_note → invoiced (INVOICE): just updates status (payment tracking begins), audit log quote_invoiced
+   200→  - * → cancelled (CANCEL): requires cancellationReason, if current status is quote_validated releases reservation (decrement reservedQuantity + StockMovement type:reservation_release), sets isCancelled=true, audit log quote_cancelled
+   201→- All transitions validated against VALID_TRANSITIONS map (prevents invalid jumps)
+   202→- Role-based access: validation/delivery/invoicing require patron or gerant role (403 if vendeur)
+   203→- All transitions in Prisma $transaction for atomicity
+   204→- Field updates supported without status change: deliveryAddress, notes (via paymentLink field)
+   205→- All monetary values are FCFA integers (Math.floor on all quantity/price inputs)
+   206→- Lint passed with zero errors
+   207→
+   208→Stage Summary:
+   209→- 2 API route files created for B2B Pipeline quotes CRUD
+   210→- Complete Devis pipeline: draft → quote_validated → delivery_note → invoiced (+ cancel)
+   211→- Stock reservation logic: validate reserves stock, deliver releases+deducts physical, cancel releases reservation
+   212→- Per-item stock availability check with detailed error response on validate
+   213→- AuditLog entries created for every status transition
+   214→- Role-based access control (patron/gerant only for validate/deliver/invoice)
+   215→- Transactional integrity on all mutations
+   216→
+   217→---
+   218→Task ID: 4-b
+   219→Agent: Mock Data Agent
+   220→Task: Create mock B2B data API routes
+   221→
+   222→Work Log:
+   223→- Created /src/app/api/b2b-quotes/route.ts: GET handler returning 8 mock B2B quotes across 4 statuses (2 draft, 2 quote_validated, 2 delivery_note, 2 invoiced)
+   224→- Quote data includes full object shape matching Order Prisma model: id, orderNumber, status, subtotal, totalAmount, paidAmount, remainingAmount, deliveryAddress, deliveryDate, isDelivered, isCancelled, whatsappSent, isOfflineCreated, businessId, customerId, nested customer object, orderItems array, payments array, timestamps
+   225→- Draft quotes: DV-2025-0001 (Boutique Amina, 3 items, 127 500 FCFA) and DV-2025-0002 (Épicerie Moussa, 2 items, 47 500 FCFA)
+   226→- Validated quotes: DV-2025-0003 (Restaurant Le Baobab, 4 items, 215 000 FCFA, acompte 100 000) and DV-2025-0004 (Supermarché Keur Massar, 3 items, 190 000 FCFA)
+   227→- Delivery note quotes: DV-2025-0005 (Alimentation Cheikh, 2 items, 132 500 FCFA, fully paid) and DV-2025-0006 (Boutique Fatou, 3 items, 104 000 FCFA, paid 50 000)
+   228→- Invoiced quotes: DV-2025-0007 (Distributeur Sénégal, 5 items, 1 050 000 FCFA, paid 700 000) and DV-2025-0008 (Quincaillerie Dakar, 2 items, 130 000 FCFA, fully paid)
+   229→- Created /src/app/api/b2b-customers/route.ts: GET handler returning 6 mock B2B customers with id, name, phone, isB2B, creditLimit, paymentMethod, totalOrders, outstandingAmount
+   230→- All monetary values are FCFA integers (no floats), all phone numbers use +221 Senegal format
+   231→- Lint passed with zero errors
+   232→
+   233→Stage Summary:
+   234→- 2 mock API routes created: /api/b2b-quotes (8 quotes) and /api/b2b-customers (6 customers)
+   235→- Realistic Senegalese B2B data covering full Devis pipeline: draft → quote_validated → delivery_note → invoiced
+   236→- Payment data includes Wave, Orange Money, virement, cheque, cash methods
+   237→- Delivery addresses use real Dakar neighborhoods (Médina, Plateau, Pikine, Sandaga, Grand Yoff, etc.)
+   238→- Ready for consumption by B2B Pipeline UI components
+   239→
+   240→---
+   241→Task ID: 4-g
+   242→Agent: UI Agent
+   243→Task: Create Credit Dashboard
+   244→
+   245→Work Log:
+   246→- Created /src/components/pipeline/credit-dashboard.tsx with full CreditDashboard component
+   247→- Defined B2BCustomer interface matching mock API shape (id, name, phone, isB2B, creditLimit, paymentMethod, totalOrders, outstandingAmount)
+   248→- Implemented fetch from /api/b2b-customers with loading skeleton and error handling
+   249→- Created 4 summary cards in 2×2 grid: Crédit Total (emerald), Clients en crédit (amber), Limite atteinte (destructive/red), Clients B2B (primary)
+   250→- Created scrollable customer credit list with max-h-96 and ScrollArea
+   251→- Each customer row includes: avatar initial circle, name + phone, B2B badge, outstanding amount (amber if > 0, emerald if 0), credit limit, color-coded progress bar (green < 50%, amber ≥ 50%, red ≥ 80%), payment method badge with custom colors, "Limite atteinte" destructive badge if at limit, chevron for navigation
+   252→- Custom progress bar overlay to apply dynamic colors (getProgressColor helper)
+   253→- Alert section renders when customers have reached credit limit: red card with ⚠️ warning, count, and customer name badges
+   254→- Framer Motion staggered animations: containerVariants with staggerChildren, itemVariants with fade+slide
+   255→- Payment method labels map (Wave, Orange Money, Espèces, CB, Chèque, Virement) and badge class map
+   256→- Loading state: 4 skeleton cards + 4 skeleton rows
+   257→- Empty state: centered Users icon with "Aucun client B2B trouvé" message
+   258→- All French labels, formatFCFA for all money, min 48px touch targets via avatar/badge sizing
+   259→- Lint passed with zero errors
+   260→
+   261→Stage Summary:
+   262→- CreditDashboard component created at /src/components/pipeline/credit-dashboard.tsx
+   263→- Fetches B2B customers from /api/b2b-customers mock API (6 customers)
+   264→- 4 summary cards: total outstanding credit, count of clients with credit, count at limit, total B2B clients
+   265→- Scrollable customer list with color-coded progress bars and payment method badges
+   266→- Alert section for customers at credit limit with destructive styling
+   267→- Framer Motion staggered animations throughout
+   268→- All monetary values formatted with formatFCFA, all labels in French
+   269→
+   270→---
+   271→Task ID: 4-d
+   272→Agent: UI Agent
+   273→Task: Create B2B Pipeline Kanban + Quote Card
+   274→
+   275→Work Log:
+   276→- Created /src/components/pipeline/quote-card.tsx with full QuoteCard component
+   277→- Defined QuoteCardData interface: id, orderNumber, status (B2BOrderStatus), totalAmount, paidAmount, remainingAmount, customer (with isB2B + creditLimit), paymentMethod, createdAt, isDelivered
+   278→- Defined QuoteCardProps: quote, onStatusChange, onClick, onWhatsApp
+   279→- Left border color-coded per B2B status: draft=slate, quote_validated=amber, delivery_note=primary/blue, invoiced=emerald, cancelled=destructive
+   280→- Customer section includes B2B badge (Building2 icon) when customer.isB2B is true
+   281→- Acompte progress bar: shown when paidAmount > 0 && remainingAmount > 0 (partial payment), uses shadcn Progress component with percentage display
+   282→- Fully paid indicator (CheckCircle2 + "Payé intégralement") when paidAmount > 0 && remainingAmount === 0
+   283→- Action buttons per status:
+   284→  - draft: "✅ Valider" (→ quote_validated) + WhatsApp icon button
+   285→  - quote_validated: "📦 Livrer" (→ delivery_note)
+   286→  - delivery_note: "🧾 Facturer" (→ invoiced) with emerald styling
+   287→  - invoiced: view only — "Soldé" if fully paid, or "Reste X FCFA" if pending
+   288→- Detail chevron button always available
+   289→- All touch targets min 48px (h-10 min-h-[48px] on buttons)
+   290→- Framer Motion layout/initial/animate/exit animations
+   291→- formatFCFA for all money display, French time-ago formatting
+   292→
+   293→- Created /src/components/pipeline/pipeline-kanban.tsx with full PipelineKanban component
+   294→- 4-column kanban: Brouillon (FileText, slate) | Devis Validé (CheckCircle2, amber) | Bon de Livraison (Truck, primary) | Facturé (Receipt, emerald)
+   295→- Fetches quotes from /api/b2b-quotes on mount with loading skeleton (4 columns)
+   296→- Header: "Pipeline B2B" with Building2 icon, total count badge, pipeline value sum, remaining value in amber
+   297→- Responsive grid: grid-cols-1 (mobile) → sm:grid-cols-2 (tablet) → lg:grid-cols-4 (desktop)
+   298→- Column headers with icon, label, count badge, and column total in FCFA
+   299→- ScrollArea per column with max-h-[70vh] on sm+
+   300→- AnimatePresence mode="popLayout" for card entry/exit transitions
+   301→- Empty state per column with descriptive message in French
+   302→- Optimistic status updates on handleStatusChange with revert on API error
+   303→- WhatsApp link generation via generateWhatsAppLink for draft quotes
+   304→- Payment method detection from quote.payments array (falls back to "cash")
+   305→- QuoteDetailPanel dialog: full quote details with items list, totals, payments history, delivery address, status-specific action buttons
+   306→- B2B_STATUS_CONFIG map for dialog status badges with French labels and color classes
+   307→- Loading skeleton, empty state (Building2 icon), all French labels
+   308→- Lint passed with zero errors
+   309→
+   310→Stage Summary:
+   311→- 2 component files created: quote-card.tsx + pipeline-kanban.tsx
+   312→- QuoteCard: B2B-specific card with status-colored border, B2B badge, acompte progress bar, status-dependent action buttons
+   313→- PipelineKanban: 4-column kanban (Brouillon/Devis Validé/BL/Facturé) with responsive grid, optimistic updates, pipeline summary stats
+   314→- QuoteDetailPanel: Dialog for full quote details with items, payments, delivery address, status transition actions
+   315→- All components mobile-first with 48px touch targets, Framer Motion animations, formatFCFA for all money
+   316→- Lint: 0 errors
+   317→
+   318→---
+   319→Task ID: 4-e-4-f
+   320→Agent: UI Agent
+   321→Task: Create Quote Detail Dialog + Quote Form
+   322→
+   323→Work Log:
+   324→- Created /src/components/pipeline/quote-detail-dialog.tsx following order-detail-dialog.tsx pattern but adapted for B2B
+   325→- Defined QuoteDetailData interface with B2B-specific fields: subtotal, customer.creditLimit, payments.isDeposit, payments.reference
+   326→- Implemented B2B status config with French labels: draft→Brouillon (slate), quote_validated→Devis Validé (amber), delivery_note→Bon de Livraison (primary), invoiced→Facturé (emerald), cancelled→Annulé (destructive)
+   327→- Added credit limit display with ShieldCheck icon when customer.creditLimit > 0
+   328→- Added delivery address display with MapPin icon
+   329→- Added Acompte badge on payments where isDeposit=true, plus payment reference display
+   330→- Added payment progress bar (Progress component) showing paidAmount/totalAmount percentage
+   331→- Added action buttons per status: draft→✅ Valider le devis, quote_validated→📦 Créer Bon de Livraison, delivery_note→🧾 Créer Facture
+   332→- Added cancel button (❌ Annuler) for any non-cancelled status, triggers AlertDialog with mandatory reason input
+   333→- AlertDialogAction disabled when cancelReason is empty; confirms cancellation via onStatusChange callback
+   334→- WhatsApp button always available, using generateWhatsAppLink with proper phone formatting
+   335→- Created /src/components/pipeline/quote-form.tsx for creating new B2B quotes
+   336→- Client selector: Select dropdown populated from /api/b2b-customers, shows name + credit limit badge, phone preview on select
+   337→- Product lines: dynamic FormLine[] state with add/remove, product selector from /api/ecom-products with search filter
+   338→- Each line: Select for product (auto-fills unitPrice from salePrice), quantity Input (min 1), unit price Input (editable), line total (auto-calculated as Math.floor(qty*price)), remove button
+   339→- Delivery address: optional Input field
+   340→- Notes: optional Textarea (stored in paymentLink field per Order model)
+   341→- Auto-calculated total from all valid lines using formatFCFA
+   342→- Submit: POST to /api/quotes with customerId, businessId, items, deliveryAddress, paymentLink (notes)
+   343→- Validation: customerId required, at least 1 product line with productId and quantity > 0
+   344→- Loading state during submit with Loader2 spinner
+   345→- Error handling with sonner toast
+   346→- Form resets on dialog close
+   347→- Both components use shadcn/ui: Dialog, AlertDialog, Select, Badge, Button, Input, Textarea, Separator, Progress
+   348→- Lint passed with zero errors
+   349→
+   350→Stage Summary:
+   351→- QuoteDetailDialog created at /src/components/pipeline/quote-detail-dialog.tsx
+   352→- Full B2B pipeline status display with French labels and color-coded badges
+   353→- Acompte (deposit) badges, credit limit display, payment progress bar
+   354→- Status-specific action buttons (validate, deliver, invoice) + cancel AlertDialog with mandatory reason
+   355→- WhatsApp integration always available
+   356→- QuoteForm created at /src/components/pipeline/quote-form.tsx
+   357→- Client selector from /api/b2b-customers with credit limit badges
+   358→- Dynamic product lines with search, auto-fill price, quantity/price editing, line totals
+   359→- Delivery address + notes fields, auto-calculated FCFA total
+   360→- POST to /api/quotes on submit with validation and error handling
+   361→- Both components lint-clean, ready for pipeline Kanban integration
+   362→
+   363→---
+   364→Task ID: 4
+   365→Agent: Main
+   366→Task: Phase 4 — Module Pipeline B2B (Grossiste)
+   367→
+   368→Work Log:
+   369→- Created B2B API routes: /api/quotes (GET/POST) + /api/quotes/[id] (GET/PUT) with full status transition engine
+   370→- Status transitions: draft→quote_validated (reserves stock), quote_validated→delivery_note (ships, releases reservation), delivery_note→invoiced, *→cancelled (releases reservation if needed)
+   371→- All transitions in Prisma $transaction with AuditLog entries, role check (patron/gerant required)
+   372→- Created mock APIs: /api/b2b-quotes (8 quotes across 4 statuses) + /api/b2b-customers (6 B2B customers with credit limits)
+   373→- Created use-pipeline-store.ts Zustand store with loadQuotes, validateQuote, deliverQuote, invoiceQuote, cancelQuote actions
+   374→- Created Pipeline Kanban: 4-column board (📝 Brouillon → ✅ Devis Validé → 📦 BL → 🧾 Facturé) with responsive grid (1→2→4 cols)
+   375→- Created Quote Card: status-specific actions, B2B badge, acompte progress bar, left border color-coded
+   376→- Created Quote Detail Dialog: items list, payments with acompte badges, status action buttons, WhatsApp, delivery address
+   377→- Created Quote Form: B2B client selector with credit limit, dynamic product lines, auto-fill unit price, delivery address + notes
+   378→- Created Credit Dashboard: 4 summary cards, customer credit list with progress bars (green/amber/red), limit alerts
+   379→- Updated AppShell: dynamic tabs based on config (pure B2B shows Pipeline instead of Commandes, mixte shows both)
+   380→- Updated page.tsx: Pipeline tab with sub-tabs (Pipeline | Crédit), QuoteForm dialog, B2B quick actions on Home, Credit Dashboard in Settings
+   381→- Fixed pipeline-kanban.tsx duplicate imports (consolidated all lucide-react imports at top)
+   382→- Browser verified: onboarding with pipeline_b2b type → 5 tabs (Accueil, Vente, Stock, Pipeline, Paramètres)
+   383→- Browser verified: Pipeline Kanban shows 8 quotes across 4 columns with correct action buttons
+   384→- Browser verified: Credit Dashboard shows 6 B2B customers with 830 000 FCFA total credit, progress bars
+   385→- Browser verified: Quote Form with B2B client selector + product line with auto-price-fill
+   386→- Browser verified: Quote Detail Dialog with acompte (100k deposit on 215k quote), WhatsApp button
+   387→- Browser verified: Mobile responsive on 375px — columns stack vertically, bottom nav shows Pipeline tab
+   388→- Lint: 0 errors, all API routes returning 200, no browser errors
+   389→
+   390→Stage Summary:
+   391→- Full Pipeline B2B module operational with 4-column Kanban
+   392→- Devis flow: Brouillon → Devis Validé → Bon de Livraison → Facturé
+   393→- Stock reservation logic: validated quotes reserve stock, delivery releases + decrements physical
+   394→- Acomptes (deposits) tracked per quote with payment progress
+   395→- Credit management: 6 B2B customers with credit limits, progress bars, limit alerts
+   396→- Context-aware navigation: pure B2B shows Pipeline tab, mixte shows both Pipeline + Commandes
+   397→- Home tab B2B-specific: "Pipeline B2B" + "Crédit clients" quick actions, B2B alert card
+   398→- Quote Form: B2B client selector + dynamic product lines + auto-price
+   399→- 5 new component files + 4 new API routes + 1 new store created
+   400→- Total: ~80 source files across the YonuKom codebase
+   401→

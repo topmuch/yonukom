@@ -1,0 +1,527 @@
+// ============================================================
+// YonuKom - Système de gestion de vente (POS/ERP léger)
+// Conçu pour les commerçants en Afrique de l'Ouest (Sénégal)
+// Philosophy: Offline-First, Mobile-First, Ultra-Rapide
+// ============================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ==========================================
+// ENTREPRISE & AUTH / RÔLES
+// ==========================================
+
+/// Représente l'entreprise (tenant) du commerçant.
+/// Chaque Business est indépendante — modèle multi-tenant simple.
+model Business {
+  id                String   @id @default(cuid())
+  name              String   // Nom de l'entreprise
+  type              String   @default("mixte") // "ecommerce_social" | "pipeline_b2b" | "restaurant" | "mixte"
+  phone             String?  // Numéro WhatsApp business
+  address           String?
+  city              String?  // Dakar, Thiès, Saint-Louis, etc.
+  country           String   @default("SN") // Sénégal par défaut
+  currency          String   @default("XOF") // FCFA — toujour entier, jamais flottant
+
+  /// JSON généré par l'onboarding qui active/masque les modules dynamiquement.
+  /// Ex: { "ecommerce_social": true, "pipeline_b2b": false, "restaurant": true, "payments": ["wave", "orange_money"] }
+  onboardingConfig  String?  // JSON string — configuration des modules
+  onboardingCompleted Boolean @default(false)
+
+  /// Lien vers le Tenant Superadmin (optionnel — un Business est toujours lié à un Tenant)
+  tenantId          String?
+  tenant            Tenant?  @relation(fields: [tenantId], references: [id])
+
+  users             User[]
+  products          Product[]
+  customers         Customer[]
+  orders            Order[]
+  auditLogs         AuditLog[]
+  cashSessions      CashSession[]
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+/// Utilisateur avec rôle strict (Anti-Fraude).
+/// 4 Rôles : Superadmin (plateforme), Patron (tout voir), Gérant (stock/caisse), Vendeur (vente uniquement)
+model User {
+  id          String   @id @default(cuid())
+  email       String   @unique
+  name        String
+  phone       String?  // Numéro de téléphone
+  password    String   // Hash bcrypt du mot de passe
+  role        String   @default("vendeur") // "superadmin" | "patron" | "gerant" | "vendeur"
+  isActive    Boolean  @default(true)
+
+  /// Obligatoire pour les utilisateurs tenant (patron/gerant/vendeur)
+  /// Null pour le superadmin (n'appartient à aucun commerce)
+  businessId  String?
+  business    Business? @relation(fields: [businessId], references: [id])
+
+  /// Lien vers le Tenant (pour les utilisateurs d'un tenant)
+  tenantId    String?
+  tenant      Tenant?   @relation(fields: [tenantId], references: [id])
+
+  auditLogs   AuditLog[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([role])
+  @@index([tenantId])
+}
+
+// ==========================================
+// PRODUITS & STOCK
+// ==========================================
+
+/// Produit avec distinction CRITIQUE entre stock physique et stock réservé.
+/// 
+/// ⚠️ LOGIQUE MÉTIER IMPORTANTE :
+/// - quantity = Stock PHYSIQUE (ce qui est réellement en magasin)
+/// - reservedQuantity = Stock RÉSERVÉ (commandes validées en devis mais pas encore livrées)
+/// - Stock DISPONIBLE = quantity - reservedQuantity
+/// - Un devis validé DÉDUIT du stock disponible mais PAS du stock physique
+/// - Une livraison DÉDUIT du stock physique et libère la réservation
+model Product {
+  id                String   @id @default(cuid())
+  name              String   // Nom du produit (ex: "Thiébou Rouge", "Sac riz 25kg")
+  sku               String?  // Code produit / référence
+  description       String?
+  category          String?  // Catégorie (ex: "Plats", "Boissons", "Épicerie")
+  imageUrl          String?
+
+  // --- PRIX ---
+  /// Prix d'achat en FCFA — ⚠️ NON VISIBLE par le vendeur (règle anti-fraude)
+  purchasePrice     Int      @default(0)
+  /// Prix de vente en FCFA
+  salePrice         Int
+
+  // --- STOCK (DISTINCTION CRITIQUE) ---
+  /// Stock physique total en magasin
+  quantity          Int      @default(0)
+  /// Stock réservé par des devis B2B validés (pas encore livrés)
+  reservedQuantity  Int      @default(0)
+  /// Seuil d'alerte stock bas — notification quand quantity <= minStockAlert
+  minStockAlert     Int      @default(5)
+
+  // --- TYPE DE PRODUIT ---
+  /// "standard" = produit normal
+  /// "plate_restaurant" = plat fini (restaurant) — vente déduit 1 unité
+  /// "service" = prestation (pas de stock déduit)
+  productType       String   @default("standard")
+  /// "piece" | "kg" | "litre" | "plat"
+  unitType          String   @default("piece")
+
+  isActive          Boolean  @default(true)
+
+  businessId        String
+  business          Business @relation(fields: [businessId], references: [id])
+
+  orderItems        OrderItem[]
+  stockMovements    StockMovement[]
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+/// Journal de tous les mouvements de stock — traçabilité complète.
+/// Chaque vente, restock, réservation, perte génère un mouvement.
+model StockMovement {
+  id              String   @id @default(cuid())
+
+  /// "sale" = vente (déduit stock physique)
+  /// "restock" = réapprovisionnement
+  /// "reservation" = devis B2B validé (augmente reservedQuantity)
+  /// "reservation_release" = livraison B2B (libère réservation + déduit physique)
+  /// "loss" = perte/gaspillage (déduit stock physique SANS impacter le CA)
+  /// "adjustment" = ajustement manuel (nécessite un motif)
+  type            String
+
+  /// Quantité du mouvement (toujours positif — le type détermine le sens)
+  quantity        Int
+
+  /// Motif obligatoire pour "loss" et "adjustment"
+  reason          String?
+
+  /// Flag spécifique aux pertes (restaurant) :
+  /// Une perte déduit le stock mais n'apparaît PAS dans le Chiffre d'Affaires
+  isLoss          Boolean  @default(false)
+
+  productId       String
+  product         Product  @relation(fields: [productId], references: [id])
+
+  /// Référence à la commande si le mouvement est lié à une vente
+  orderId         String?
+  /// Utilisateur qui a effectué le mouvement
+  userId          String?
+
+  /// Marqueur offline — ce mouvement a été créé hors ligne
+  isOfflineCreated Boolean @default(false)
+  syncedAt        DateTime?
+
+  createdAt       DateTime @default(now())
+}
+
+// ==========================================
+// CLIENTS
+// ==========================================
+
+/// Client — peut être B2C (e-com social) ou B2B (grossiste)
+model Customer {
+  id              String   @id @default(cuid())
+  name            String
+  phone           String   // Numéro WhatsApp — essentiel en Afrique de l'Ouest
+  email           String?
+  address         String?
+
+  /// Moyens de paiement préférés du client
+  /// "wave" | "orange_money" | "cash" | "cb"
+  paymentMethod   String?  @default("cash")
+
+  /// Client B2B (grossiste) — active les fonctionnalités pipeline
+  isB2B           Boolean  @default(false)
+  /// Limite de crédit en FCFA (B2B uniquement)
+  creditLimit     Int?     @default(0)
+
+  /// Produits favoris du client (e-com social) — IDs séparés par virgules
+  /// Permet la saisie de commande en < 15 secondes
+  favoriteProductIds String?
+
+  businessId      String
+  business        Business @relation(fields: [businessId], references: [id])
+
+  orders          Order[]
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+// ==========================================
+// COMMANDES
+// ==========================================
+
+/// Commande avec statuts variables selon le module actif.
+///
+/// Module E-Commerce Social : "to_pay" → "to_ship" → "shipped" | "cancelled"
+/// Module Pipeline B2B : "draft" → "quote_validated" → "delivery_note" → "invoiced" | "cancelled"
+/// Module Restaurant : "pending" → "completed" | "cancelled"
+model Order {
+  id              String   @id @default(cuid())
+  /// Numéro lisible et unique (ex: YK-2025-0001)
+  orderNumber     String   @unique
+
+  /// Statut de la commande (dépend du module — voir commentaires ci-dessus)
+  status          String   @default("draft")
+
+  // --- MONTANTS EN FCFA (entiers — JAMAIS de flottants avec la monnaie) ---
+  /// Somme des OrderItem.totalPrice avant remises
+  subtotal        Int      @default(0)
+  /// Montant total TTC
+  totalAmount     Int      @default(0)
+  /// Total des paiements reçus (somme de Payment.amount)
+  paidAmount      Int      @default(0)
+  /// Reste à payer = totalAmount - paidAmount (calculé automatiquement)
+  remainingAmount Int      @default(0)
+
+  // --- LIVRAISON ---
+  deliveryAddress String?
+  deliveryDate    DateTime?
+  isDelivered     Boolean  @default(false)
+
+  // --- E-COMMERCE SOCIAL ---
+  /// WhatsApp de confirmation envoyé ?
+  whatsappSent    Boolean  @default(false)
+  /// Lien de paiement Wave/OM collé par le client
+  paymentLink     String?
+
+  // --- ANTI-FRADE : ANNULATION CONTRÔLÉE ---
+  /// Un vendeur NE PEUT PAS supprimer une vente — uniquement annuler
+  isCancelled     Boolean  @default(false)
+  /// Motif d'annulation OBLIGATOIRE (tracé dans AuditLog)
+  cancellationReason String?
+
+  // --- OFFLINE-FIRST ---
+  /// Cette commande a été créée en mode hors ligne
+  isOfflineCreated Boolean @default(false)
+  /// Date à laquelle la commande a été synchronisée au serveur
+  syncedAt        DateTime?
+
+  businessId      String
+  business        Business @relation(fields: [businessId], references: [id])
+
+  customerId      String
+  customer        Customer @relation(fields: [customerId], references: [id])
+
+  orderItems      OrderItem[]
+  payments        Payment[]
+
+  /// userId qui a créé la commande
+  createdBy       String?
+  /// userId qui a annulé la commande (si applicable)
+  cancelledBy     String?
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+/// Ligne de commande — un produit avec sa quantité et prix
+model OrderItem {
+  id            String   @id @default(cuid())
+
+  productId     String
+  product       Product  @relation(fields: [productId], references: [id])
+
+  orderId       String
+  order         Order    @relation(fields: [orderId], references: [id])
+
+  quantity      Int      @default(1)
+  /// Prix unitaire au moment de la vente (snapshot — ne change pas si le prix produit change)
+  unitPrice     Int
+  /// totalPrice = quantity × unitPrice
+  totalPrice    Int
+
+  createdAt     DateTime @default(now())
+}
+
+// ==========================================
+// PAIEMENTS (inclut ACOMPPTES B2B)
+// ==========================================
+
+/// Paiement — peut être un paiement complet ou un acompte (B2B).
+/// Plusieurs paiements partiels possibles par commande.
+model Payment {
+  id            String   @id @default(cuid())
+  /// Montant en FCFA
+  amount        Int
+  /// Moyen de paiement : "cash" | "wave" | "orange_money" | "cb" | "cheque" | "virement"
+  method        String
+  /// Référence du paiement (ex: ID transaction Wave, n° chèque)
+  reference     String?
+
+  /// Flag acompte B2B — un acompte est un paiement partiel sur un devis validé
+  isDeposit     Boolean  @default(false)
+
+  orderId       String
+  order         Order    @relation(fields: [orderId], references: [id])
+
+  /// userId qui a reçu/enregistré le paiement
+  receivedBy    String?
+
+  // --- OFFLINE-FIRST ---
+  isOfflineCreated Boolean @default(false)
+  syncedAt      DateTime?
+
+  createdAt     DateTime @default(now())
+}
+
+// ==========================================
+// JOURNAL D'AUDIT (Anti-Fraude)
+// ==========================================
+
+/// Journal d'audit immuable — trace TOUTE action sensible.
+/// Actions tracées : vente créée, vente annulée, ajustement stock,
+/// clôture caisse, paiement reçu, changement rôle, connexion/échec
+model AuditLog {
+  id            String   @id @default(cuid())
+
+  /// Action effectuée
+  /// "sale_created" | "sale_cancelled" | "stock_adjustment" | "stock_loss"
+  /// | "cash_open" | "cash_close" | "payment_received" | "role_change"
+  /// | "login" | "login_failed" | "price_change" | "product_created"
+  action        String
+
+  /// Type de l'entité concernée : "order" | "product" | "user" | "payment" | "cash_session"
+  entityType    String?
+  /// ID de l'entité concernée
+  entityId      String?
+  /// Détails de l'action en JSON (avant/après, motif, etc.)
+  details       String?
+
+  /// Utilisateur qui a effectué l'action
+  userId        String?
+  user          User?    @relation(fields: [userId], references: [id])
+
+  businessId    String
+  business      Business @relation(fields: [businessId], references: [id])
+
+  /// Adresse IP pour traçabilité
+  ipAddress     String?
+
+  createdAt     DateTime @default(now())
+}
+
+// ==========================================
+// CLÔTURE DE CAISSE
+// ==========================================
+
+/// Session de caisse — ouverture et clôture avec calcul des écarts.
+/// Le montant théorique est calculé automatiquement à partir des ventes.
+/// Le montant réel est saisi par le gérant/patron.
+/// L'écart = montant réel - montant théorique (si ≠ 0, investigation nécessaire)
+model CashSession {
+  id              String   @id @default(cuid())
+  /// Date/heure d'ouverture de la caisse
+  openedAt        DateTime
+  /// Date/heure de clôture (null = caisse encore ouverte)
+  closedAt        DateTime?
+
+  /// Montant théorique = somme des paiements reçus pendant la session
+  theoreticalTotal Int?
+  /// Montant réel déclaré par le gérant/patron à la clôture
+  declaredTotal    Int?
+  /// Écart = declaredTotal - theoreticalTotal (calculé automatiquement)
+  difference       Int?
+
+  /// userId qui a ouvert la caisse
+  openedBy        String
+  /// userId qui a fermé la caisse
+  closedBy        String?
+
+  businessId      String
+  business        Business @relation(fields: [businessId], references: [id])
+
+  /// Caisse actuellement ouverte ?
+  isActive        Boolean  @default(true)
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+// ==========================================
+// SYNC QUEUE (File d'attente hors ligne)
+// ==========================================
+
+/// Éléments en attente de synchronisation avec le serveur.
+/// Chaque action d'écriture effectuée hors ligne est stockée ici
+/// et sera rejouée automatiquement quand le réseau revient.
+model SyncQueueItem {
+  id            String   @id @default(cuid())
+  /// Action CRUD : "create" | "update" | "delete"
+  action        String
+  /// Type d'entité : "order" | "payment" | "stock_movement" | "customer" | "product"
+  entityType    String
+  /// ID local de l'entité (pour référence lors du sync)
+  entityId      String?
+  /// Données à synchroniser (JSON string)
+  payload       String
+
+  /// Nombre de tentatives de synchronisation
+  retryCount    Int      @default(0)
+  /// Nombre max de tentatives avant abandon
+  maxRetries    Int      @default(3)
+  /// Dernière erreur rencontrée lors du sync
+  lastError     String?
+
+  /// Synchronisation réussie ?
+  isSynced      Boolean  @default(false)
+  syncedAt      DateTime?
+
+  createdAt     DateTime @default(now())
+}
+
+// ==========================================
+// SUPERADMIN — GESTION MULTI-TENANT
+// ==========================================
+
+/// Modèle pour représenter chaque commerce inscrit (tenant).
+/// C'est la vue Superadmin de la plateforme — chaque Tenant est un client YonuKom.
+model Tenant {
+  id                String    @id @default(cuid())
+  name              String    // Nom du commerce (ex: "Boutique Fatou")
+  ownerName         String    // Nom du propriétaire
+  ownerEmail        String    @unique
+  ownerPhone        String
+  /// "retail_shop" | "restaurant" | "wholesaler" | "tiktok_seller" | "ecommerce_social" | "mixte"
+  businessType      String    @default("retail_shop")
+  /// Configuration générée par l'onboarding (JSON string)
+  config            String?
+
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  // Relations
+  users             User[]
+  subscription      Subscription?
+  businesses        Business[]
+
+  @@index([ownerEmail])
+  @@index([businessType])
+}
+
+/// Modèle pour les abonnements des tenants.
+model Subscription {
+  id                String    @id @default(cuid())
+  tenantId          String    @unique
+  tenant            Tenant    @relation(fields: [tenantId], references: [id])
+
+  /// "starter" | "pro" | "enterprise"
+  plan              String    @default("starter")
+  /// "active" | "expired" | "past_due" | "cancelled"
+  status            String    @default("active")
+
+  currentPeriodStart DateTime  @default(now())
+  currentPeriodEnd   DateTime
+
+  /// Montant en FCFA (entier — JAMAIS flottant)
+  amount            Int       @default(0)
+  /// "wave" | "orange_money" | "cash" | "bank_transfer"
+  paymentMethod     String?
+  lastPaymentDate   DateTime?
+  nextBillingDate   DateTime?
+
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  payments          SubscriptionPayment[]
+
+  @@index([status])
+  @@index([nextBillingDate])
+}
+
+/// Modèle pour les paiements des abonnements (historique).
+model SubscriptionPayment {
+  id                String    @id @default(cuid())
+  subscriptionId    String
+  subscription      Subscription @relation(fields: [subscriptionId], references: [id])
+
+  /// Montant payé en FCFA (entier)
+  amount            Int
+  paymentDate       DateTime  @default(now())
+  /// "wave" | "orange_money" | "cash" | "bank_transfer"
+  paymentMethod     String
+  /// Référence de transaction (ex: ID Wave)
+  reference         String?
+  /// "completed" | "failed" | "pending"
+  status            String    @default("completed")
+
+  createdAt         DateTime  @default(now())
+
+  @@index([subscriptionId])
+  @@index([paymentDate])
+}
+
+/// Modèle pour les logs globaux de la plateforme (superadmin).
+model PlatformLog {
+  id                String    @id @default(cuid())
+  /// "info" | "warning" | "error" | "critical"
+  level             String    @default("info")
+  /// "payment" | "sync" | "api" | "user_action" | "impersonation" | "tenant_change"
+  category          String
+  message           String
+  /// Données supplémentaires (JSON string)
+  metadata          String?
+
+  createdAt         DateTime  @default(now())
+
+  @@index([level])
+  @@index([category])
+  @@index([createdAt])
+}
