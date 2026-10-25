@@ -5,7 +5,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { createCuid } from "@/lib/utils";
+import bcrypt from "bcryptjs";
 
 export async function POST(request: NextRequest) {
   try {
@@ -31,13 +31,18 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    // Hash du mot de passe par défaut avec bcrypt (jamais de plaintext)
+    // ⚠️ Phase 4 : remplacer par un vrai flux d'authentification
+    const defaultPassword = "yonukom123";
+    const passwordHash = await bcrypt.hash(defaultPassword, 10);
+
     // Créer le patron par défaut avec un email unique basé sur le business ID
-    await db.user.create({
+    const patron = await db.user.create({
       data: {
         email: `patron.${business.id}@yonukom.com`,
         name: "Patron",
         role: "patron",
-        password: "temp", // ⚠️ Phase 4 : remplacer par vrai auth
+        password: passwordHash,
         businessId: business.id,
       },
     });
@@ -62,6 +67,14 @@ export async function POST(request: NextRequest) {
       success: true,
       businessId: business.id,
       config,
+      user: {
+        id: patron.id,
+        email: patron.email,
+        name: patron.name,
+        role: patron.role,
+        businessId: business.id,
+        businessName: business.name,
+      },
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Erreur inconnue";

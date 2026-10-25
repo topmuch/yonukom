@@ -6,8 +6,11 @@
 
 "use client";
 
+import { useState } from "react";
 import { useCartStore } from "@/stores/use-cart-store";
+import { useAuthStore } from "@/stores/use-auth-store";
 import { formatFCFA } from "@/lib/fcfa";
+import { toast } from "@/hooks/use-toast";
 import {
   Sheet,
   SheetContent,
@@ -20,7 +23,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Minus, Plus, Trash2, ShoppingCart, User, Phone } from "lucide-react";
+import { Minus, Plus, Trash2, ShoppingCart, User, Phone, Loader2, CheckCircle2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface CartDrawerProps {
@@ -39,9 +42,68 @@ export function CartDrawer({ open, onOpenChange }: CartDrawerProps) {
   const removeItem = useCartStore((s) => s.removeItem);
   const clearCart = useCartStore((s) => s.clearCart);
 
-  const handleCheckout = () => {
-    // TODO: Navigate to checkout / payment screen (Phase 4)
-    onOpenChange(false);
+  const user = useAuthStore((s) => s.user);
+  const [isCheckingOut, setIsCheckingOut] = useState(false);
+
+  const handleCheckout = async () => {
+    if (items.length === 0) return;
+
+    // Récupérer businessId depuis l'utilisateur connecté
+    const businessId = user?.businessId;
+    if (!businessId) {
+      toast({
+        title: "Session expirée",
+        description: "Veuillez vous reconnecter pour encaisser la vente.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsCheckingOut(true);
+    try {
+      const payload = {
+        businessId,
+        customerId: customer?.id ?? "walk-in",
+        createdBy: user?.id ?? null,
+        status: "completed",
+        items: items.map((item) => ({
+          productId: item.productId,
+          quantity: item.quantity,
+          unitPrice: item.salePrice,
+        })),
+      };
+
+      const res = await fetch("/api/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const data = (await res.json().catch(() => ({}))) as { error?: string };
+        throw new Error(data.error ?? "Échec de la création de la commande");
+      }
+
+      const order = (await res.json()) as { orderNumber?: string };
+
+      toast({
+        title: "Vente encaissée ✓",
+        description: order.orderNumber
+          ? `Commande ${order.orderNumber} créée avec succès.`
+          : "La commande a été créée avec succès.",
+      });
+
+      clearCart();
+      onOpenChange(false);
+    } catch (err) {
+      toast({
+        title: "Erreur d'encaissement",
+        description: err instanceof Error ? err.message : "Erreur inconnue",
+        variant: "destructive",
+      });
+    } finally {
+      setIsCheckingOut(false);
+    }
   };
 
   return (
@@ -136,9 +198,20 @@ export function CartDrawer({ open, onOpenChange }: CartDrawerProps) {
             <Button
               onClick={handleCheckout}
               size="lg"
-              className="w-full min-h-[48px] text-base font-semibold"
+              disabled={isCheckingOut}
+              className="w-full min-h-[48px] text-base font-semibold gap-2"
             >
-              Encaisser
+              {isCheckingOut ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  Encaissement...
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 className="w-5 h-5" />
+                  Encaisser {formatFCFA(total)}
+                </>
+              )}
             </Button>
           </SheetFooter>
         )}

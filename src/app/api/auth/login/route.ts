@@ -4,6 +4,7 @@
 // ============================================================
 
 import { NextRequest, NextResponse } from 'next/server'
+import bcrypt from 'bcryptjs'
 import { db } from '@/lib/db'
 
 // POST /api/auth/login
@@ -48,8 +49,9 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Simple password check (in production, use bcrypt)
-    if (user.password !== password && user.password !== 'temp') {
+    // Vérification du mot de passe avec bcrypt
+    const valid = await bcrypt.compare(password, user.password)
+    if (!valid) {
       // Create audit log for failed login
       await db.auditLog.create({
         data: {

@@ -195,7 +195,7 @@ function LoginOrSignupView({
     return (
       <div className="min-h-screen bg-background">
         <Navbar variant="app" onBackToHome={onBackToHome} />
-        <OnboardingWizard />
+        <OnboardingWizard onComplete={onLoginSuccess} />
       </div>
     );
   }
@@ -395,6 +395,10 @@ function AppView({
     return (
       <div className="min-h-screen bg-background">
         <Navbar variant="app" onBackToHome={onBackToHome} />
+        {/* Après submit(), useConfigStore.saveConfig() passe isOnboarded=true
+            et AppView re-render automatiquement vers DashboardMain.
+            onComplete est fourni pour le cas où l'utilisateur re-cliquerait
+            sur "Accéder à mon espace" sans que le re-render n'ait eu lieu. */}
         <OnboardingWizard />
       </div>
     );

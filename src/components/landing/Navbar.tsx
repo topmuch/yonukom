@@ -151,6 +151,14 @@ export function Navbar({ onLogin, onSignup, onBackToHome, variant = "landing" }:
               Se connecter
             </Button>
             <Button
+              variant="outline"
+              size="sm"
+              className="text-yk-deep border-yk-deep/30 hover:bg-yk-deep/5 font-medium"
+              onClick={onSignup}
+            >
+              S&rsquo;inscrire
+            </Button>
+            <Button
               size="sm"
               className="bg-yk-deep hover:bg-yk-deep-light text-white font-medium gap-1.5 shadow-lg shadow-yk-deep/20"
               onClick={onSignup}
@@ -202,6 +210,13 @@ export function Navbar({ onLogin, onSignup, onBackToHome, variant = "landing" }:
                     onClick={() => { setMobileOpen(false); onLogin?.(); }}
                   >
                     Se connecter
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="w-full font-medium text-yk-deep border-yk-deep/40 hover:bg-yk-deep/5"
+                    onClick={() => { setMobileOpen(false); onSignup?.(); }}
+                  >
+                    S&rsquo;inscrire
                   </Button>
                   <Button
                     className="w-full bg-yk-deep hover:bg-yk-deep-light text-white font-medium gap-1.5"

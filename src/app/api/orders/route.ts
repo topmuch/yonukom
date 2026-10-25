@@ -50,9 +50,9 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const { customerId, businessId, items, createdBy, status, deliveryAddress } = body
 
-    if (!customerId || !businessId || !items || !Array.isArray(items) || items.length === 0) {
+    if (!businessId || !items || !Array.isArray(items) || items.length === 0) {
       return NextResponse.json(
-        { error: 'customerId, businessId, and items array are required' },
+        { error: 'businessId and items array are required' },
         { status: 400 }
       )
     }
@@ -64,6 +64,28 @@ export async function POST(request: NextRequest) {
           { error: 'Each item must have productId, quantity, and unitPrice' },
           { status: 400 }
         )
+      }
+    }
+
+    // Resolve customer : si customerId absent / "walk-in" / vide,
+    // on crée (ou récupère) un client "Client comptoir" par défaut pour ce business.
+    let resolvedCustomerId: string = customerId
+    if (!customerId || customerId === 'walk-in' || customerId.trim() === '') {
+      const existingWalkIn = await db.customer.findFirst({
+        where: { businessId, name: 'Client comptoir', phone: 'N/A' },
+        select: { id: true },
+      })
+      if (existingWalkIn) {
+        resolvedCustomerId = existingWalkIn.id
+      } else {
+        const walkIn = await db.customer.create({
+          data: {
+            name: 'Client comptoir',
+            phone: 'N/A',
+            businessId,
+          },
+        })
+        resolvedCustomerId = walkIn.id
       }
     }
 
@@ -93,13 +115,13 @@ export async function POST(request: NextRequest) {
       const newOrder = await tx.order.create({
         data: {
           orderNumber,
-          customerId,
+          customerId: resolvedCustomerId,
           businessId,
           subtotal,
           totalAmount,
           paidAmount: 0,
           remainingAmount: totalAmount,
-          status: status || 'draft',
+          status: status || 'completed',
           createdBy: createdBy || null,
           deliveryAddress: deliveryAddress || null,
           orderItems: {

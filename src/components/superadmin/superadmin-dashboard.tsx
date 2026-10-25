@@ -25,6 +25,7 @@ import {
   Activity,
   AlertTriangle,
   CircleDollarSign,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,6 +33,15 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 import { useSuperadminStore } from "@/stores/use-superadmin-store";
 import { useAuthStore } from "@/stores/use-auth-store";
 import { MetricsCards } from "@/components/superadmin/metrics-cards";
@@ -413,6 +423,61 @@ function TenantsPage({
   const tenantSearch = useSuperadminStore((s) => s.tenantSearch);
   const setTenantSearch = useSuperadminStore((s) => s.setTenantSearch);
 
+  // --- État du dialog "Nouveau tenant" ---
+  const [createOpen, setCreateOpen] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
+  const [form, setForm] = useState({
+    name: "",
+    ownerName: "",
+    ownerEmail: "",
+    ownerPhone: "",
+    businessType: "restaurant" as "restaurant" | "boutique" | "service" | "autre",
+  });
+
+  const setField = <K extends keyof typeof form>(key: K, value: (typeof form)[K]) => {
+    setForm((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const resetForm = () => {
+    setForm({
+      name: "",
+      ownerName: "",
+      ownerEmail: "",
+      ownerPhone: "",
+      businessType: "restaurant",
+    });
+    setCreateError(null);
+  };
+
+  const handleCreate = async () => {
+    if (!form.name || !form.ownerName || !form.ownerEmail || !form.ownerPhone) {
+      setCreateError("Tous les champs sont obligatoires.");
+      return;
+    }
+    setCreating(true);
+    setCreateError(null);
+    try {
+      const res = await fetch("/api/superadmin/tenants", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      });
+      if (!res.ok) {
+        const data = (await res.json().catch(() => ({}))) as { error?: string };
+        throw new Error(data.error ?? "Échec de la création du tenant");
+      }
+      // Succès : fermer le dialog, réinitialiser le formulaire et rafraîchir
+      setCreateOpen(false);
+      resetForm();
+      onRefresh();
+    } catch (err) {
+      setCreateError(err instanceof Error ? err.message : "Erreur inconnue");
+    } finally {
+      setCreating(false);
+    }
+  };
+
   const filteredTenants = tenants.filter((t) => {
     if (!tenantSearch) return true;
     const q = tenantSearch.toLowerCase();
@@ -436,7 +501,7 @@ function TenantsPage({
             <RefreshCw className={`w-4 h-4 mr-1.5 ${tenantsLoading ? "animate-spin" : ""}`} />
             Actualiser
           </Button>
-          <Button size="sm">
+          <Button size="sm" onClick={() => { resetForm(); setCreateOpen(true); }}>
             <Plus className="w-4 h-4 mr-1.5" />
             Nouveau tenant
           </Button>
@@ -460,6 +525,116 @@ function TenantsPage({
         onViewTenant={onViewTenant}
         onImpersonate={onImpersonate}
       />
+
+      {/* --- Dialog : Nouveau tenant --- */}
+      <Dialog open={createOpen} onOpenChange={(open) => { setCreateOpen(open); if (!open) resetForm(); }}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Créer un nouveau tenant</DialogTitle>
+            <DialogDescription>
+              Ajoutez un commerce à la plateforme. Un abonnement « Starter » actif de 30 jours sera créé automatiquement.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="tenant-name">Nom du commerce</Label>
+              <Input
+                id="tenant-name"
+                placeholder="Boutique Fatou"
+                value={form.name}
+                onChange={(e) => setField("name", e.target.value)}
+                disabled={creating}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="tenant-owner">Nom du propriétaire</Label>
+              <Input
+                id="tenant-owner"
+                placeholder="Fatou Diallo"
+                value={form.ownerName}
+                onChange={(e) => setField("ownerName", e.target.value)}
+                disabled={creating}
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="tenant-email">Email</Label>
+                <Input
+                  id="tenant-email"
+                  type="email"
+                  placeholder="fatou@boutique.sn"
+                  value={form.ownerEmail}
+                  onChange={(e) => setField("ownerEmail", e.target.value)}
+                  disabled={creating}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="tenant-phone">Téléphone</Label>
+                <Input
+                  id="tenant-phone"
+                  type="tel"
+                  placeholder="+221 77 123 45 67"
+                  value={form.ownerPhone}
+                  onChange={(e) => setField("ownerPhone", e.target.value)}
+                  disabled={creating}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="tenant-type">Type de commerce</Label>
+              <Select
+                value={form.businessType}
+                onValueChange={(val) => setField("businessType", val as typeof form.businessType)}
+                disabled={creating}
+              >
+                <SelectTrigger id="tenant-type" className="w-full">
+                  <SelectValue placeholder="Sélectionner un type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="restaurant">Restaurant</SelectItem>
+                  <SelectItem value="boutique">Boutique</SelectItem>
+                  <SelectItem value="service">Service</SelectItem>
+                  <SelectItem value="autre">Autre</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {createError && (
+              <p className="text-sm text-destructive">{createError}</p>
+            )}
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={() => { setCreateOpen(false); resetForm(); }}
+              disabled={creating}
+            >
+              Annuler
+            </Button>
+            <Button
+              onClick={handleCreate}
+              disabled={creating || !form.name || !form.ownerName || !form.ownerEmail || !form.ownerPhone}
+            >
+              {creating ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
+                  Création...
+                </>
+              ) : (
+                <>
+                  <Plus className="w-4 h-4 mr-1.5" />
+                  Créer le tenant
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

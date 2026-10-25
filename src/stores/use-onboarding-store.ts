@@ -135,9 +135,28 @@ export const useOnboardingStore = create<OnboardingStoreState>((set, get) => ({
         throw new Error("Erreur lors de la sauvegarde");
       }
 
+      // Récupérer l'utilisateur créé côté serveur pour auto-login
+      const data = (await response.json()) as {
+        user?: {
+          id: string;
+          email: string;
+          name: string;
+          role: "patron" | "gerant" | "vendeur" | "superadmin";
+          businessId: string;
+          businessName: string;
+        };
+      };
+
       // Sauvegarder la config dans le store local
       const { useConfigStore } = await import("@/stores/use-config-store");
       useConfigStore.getState().saveConfig(config);
+
+      // Connecter automatiquement l'utilisateur fraîchement créé
+      // pour que l'auto-redirect vers /app fonctionne sans reload.
+      if (data.user) {
+        const { useAuthStore } = await import("@/stores/use-auth-store");
+        useAuthStore.getState().login(data.user);
+      }
 
       set({
         isCompleted: true,

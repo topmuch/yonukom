@@ -13,6 +13,11 @@ import { StepTeam } from "./step-team";
 import { StepPayments } from "./step-payments";
 import { StepStock } from "./step-stock";
 import { StepEquipment } from "./step-equipment";
+import {
+  StepIllustration,
+  StepIndicatorIcon,
+  CelebrationIllustration,
+} from "./step-illustrations";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { ConnectivityBanner } from "@/components/layout/connectivity-banner";
@@ -22,7 +27,6 @@ import {
   ChevronRight,
   Check,
   Loader2,
-  Rocket,
 } from "lucide-react";
 
 // Mapping étape → composant
@@ -34,16 +38,12 @@ const STEP_COMPONENTS: Record<OnboardingStep, React.ComponentType> = {
   equipment: StepEquipment,
 };
 
-// Icônes d'étape
-const STEP_ICONS: Record<OnboardingStep, string> = {
-  business_type: "🏪",
-  team: "👥",
-  payments: "💳",
-  stock: "📦",
-  equipment: "⚙️",
-};
+interface OnboardingWizardProps {
+  /** Appelé quand l'utilisateur clique sur "Accéder à mon espace" après l'onboarding réussi */
+  onComplete?: () => void;
+}
 
-export function OnboardingWizard() {
+export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
   // --- État du store (sélecteurs atomiques pour le re-render) ---
   const currentStepIndex = useOnboardingStore((s) => s.currentStepIndex);
   const isCompleted = useOnboardingStore((s) => s.isCompleted);
@@ -96,9 +96,9 @@ export function OnboardingWizard() {
               initial={{ scale: 0 }}
               animate={{ scale: 1 }}
               transition={{ delay: 0.2, type: "spring", stiffness: 300 }}
-              className="mx-auto w-20 h-20 rounded-full bg-yk-emerald flex items-center justify-center"
+              className="mx-auto"
             >
-              <Rocket className="w-10 h-10 text-white" />
+              <CelebrationIllustration className="w-32 h-32 mx-auto" />
             </motion.div>
             <div className="space-y-2">
               <h1 className="text-3xl font-bold text-foreground">
@@ -116,7 +116,14 @@ export function OnboardingWizard() {
               <Button
                 size="lg"
                 className="touch-target w-full sm:w-auto px-8 text-lg bg-yk-emerald hover:bg-yk-emerald/90 text-white"
-                onClick={() => window.location.reload()}
+                onClick={() => {
+                  // Transition directe vers l'app au lieu d'un reload complet
+                  if (onComplete) {
+                    onComplete();
+                  } else {
+                    window.location.reload();
+                  }
+                }}
               >
                 Accéder à mon espace
                 <ChevronRight className="w-5 h-5 ml-1" />
@@ -171,7 +178,7 @@ export function OnboardingWizard() {
                   {isPast ? (
                     <Check className="w-3.5 h-3.5" />
                   ) : (
-                    <span>{STEP_ICONS[stepKey]}</span>
+                    <StepIndicatorIcon step={stepKey} className="w-4 h-4" />
                   )}
                   <span className="hidden sm:inline">
                     {ONBOARDING_STEP_LABELS[stepKey]}
@@ -194,6 +201,10 @@ export function OnboardingWizard() {
               exit={{ opacity: 0, x: -20 }}
               transition={{ duration: 0.3 }}
             >
+              {/* Illustration visuelle de l'étape courante */}
+              <div className="flex justify-center mb-4">
+                <StepIllustration step={step} className="w-28 h-28" />
+              </div>
               <StepComponent />
             </motion.div>
           </AnimatePresence>
