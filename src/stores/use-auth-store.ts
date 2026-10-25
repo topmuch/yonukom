@@ -49,9 +49,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   logout: () => {
+    // Synchronously clear state + storage, no async work, no delay
     set({ user: null, permissions: null, isLoaded: true });
     if (typeof window !== "undefined") {
-      localStorage.removeItem("yonukom_user");
+      try {
+        localStorage.removeItem("yonukom_user");
+      } catch {
+        /* ignore */
+      }
     }
   },
 

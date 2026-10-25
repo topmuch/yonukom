@@ -92,6 +92,21 @@ export default function Home() {
     setView("app");
   }
 
+  // CRITICAL: When user becomes null (logout), immediately switch back to landing
+  // with NO transition delay. This ensures the app view unmounts instantly.
+  // We compute the effective view synchronously (during render) AND mirror it
+  // into state via useEffect so the change persists across re-renders.
+  useEffect(() => {
+    if (!user && view === "app") {
+      setView("landing");
+    }
+  }, [user, view]);
+
+  // Synchronous fallback — instant view switch with no intermediate render
+  // that could show a "Redirection..." placeholder.
+  const effectiveView: PageView =
+    authLoaded && configLoaded && !user && view === "app" ? "landing" : view;
+
   const handleLoginSuccess = () => {
     setView("app");
   };
@@ -108,6 +123,13 @@ export default function Home() {
     setView("landing");
   };
 
+  // Immediate logout: clear auth state + switch view synchronously.
+  // No setTimeout, no async — avoids the 300ms exit transition delay from AnimatePresence.
+  const handleLogout = () => {
+    useAuthStore.getState().logout();
+    setView("landing");
+  };
+
   // Loading
   if (!authLoaded || !configLoaded) {
     return <LoadingScreen />;
@@ -115,14 +137,14 @@ export default function Home() {
 
   return (
     <AnimatePresence mode="wait">
-      {view === "landing" && (
+      {effectiveView === "landing" && (
         <motion.div
           key="landing"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          transition={{ duration: 0.3 }}
-          className="min-h-screen flex flex-col bg-white"
+          transition={{ duration: 0.2 }}
+          className="min-h-screen flex flex-col bg-background"
         >
           <Navbar
             onLogin={handleGoToLogin}
@@ -143,32 +165,32 @@ export default function Home() {
         </motion.div>
       )}
 
-      {(view === "login" || view === "signup") && (
+      {(effectiveView === "login" || effectiveView === "signup") && (
         <motion.div
-          key={view}
+          key={effectiveView}
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -20 }}
-          transition={{ duration: 0.3 }}
+          transition={{ duration: 0.2 }}
         >
           <LoginOrSignupView
-            mode={view as "login" | "signup"}
+            mode={effectiveView as "login" | "signup"}
             onLoginSuccess={handleLoginSuccess}
             onBackToHome={handleBackToHome}
           />
         </motion.div>
       )}
 
-      {view === "app" && (
+      {effectiveView === "app" && (
         <motion.div
           key="app"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.3 }}
+          // No exit transition — when user logs out, the view is removed instantly
+          transition={{ duration: 0.2 }}
         >
           <AppView
-            onLogout={() => { useAuthStore.getState().logout(); handleBackToHome(); }}
+            onLogout={handleLogout}
             onBackToHome={handleBackToHome}
           />
         </motion.div>
@@ -434,7 +456,7 @@ function HomeTab({ onTabChange, onLogout }: { onTabChange: (tab: TabId) => void;
 
   const stats = [
     { label: "Ventes aujourd'hui", value: "185 000 FCFA", accent: "text-yk-emerald", icon: TrendingUp },
-    { label: isB2B ? "Devis" : "Commandes", value: isB2B ? "8" : "12", accent: "text-primary", icon: isB2B ? FileText : Receipt },
+    { label: isB2B ? "Devis" : "Commandes", value: isB2B ? "8" : "12", accent: "text-yk-deep", icon: isB2B ? FileText : Receipt },
     { label: "Produits", value: "25", accent: "text-yk-deep-light", icon: Package },
     { label: "Clients", value: isB2B ? "6 B2B" : "6", accent: "text-yk-amber", icon: Users },
   ];
@@ -482,11 +504,19 @@ function HomeTab({ onTabChange, onLogout }: { onTabChange: (tab: TabId) => void;
               const Icon = stat.icon;
               return (
                 <motion.div key={i} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.1 }}>
-                  <Card><CardContent className="p-4">
-                    <div className="flex items-center justify-between mb-1"><Icon className="w-4 h-4 text-muted-foreground" /></div>
-                    <p className={`text-xl font-bold ${stat.accent}`}>{stat.value}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">{stat.label}</p>
-                  </CardContent></Card>
+                  <Card className="overflow-hidden hover:shadow-md transition-shadow">
+                    <CardContent className="p-4 relative">
+                      {/* Subtle accent stripe at top */}
+                      <div className={`absolute top-0 left-0 right-0 h-1 ${stat.accent.replace("text-", "bg-")}/80`} />
+                      <div className="flex items-center justify-between mb-2 pt-1">
+                        <div className={`p-1.5 rounded-md bg-muted`}>
+                          <Icon className={`w-4 h-4 ${stat.accent}`} />
+                        </div>
+                      </div>
+                      <p className={`text-xl font-bold ${stat.accent}`}>{stat.value}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">{stat.label}</p>
+                    </CardContent>
+                  </Card>
                 </motion.div>
               );
             })}

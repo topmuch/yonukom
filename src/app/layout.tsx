@@ -58,7 +58,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
-  themeColor: "#1B3A5C", // Bleu profond YonuKom
+  themeColor: "#338BE2", // Bleu vibrant YonuKom
 };
 
 export default function RootLayout({
@@ -68,6 +68,14 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="fr" suppressHydrationWarning>
+      <head>
+        {/* No-flash theme init — runs before React hydration */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var t=localStorage.getItem('yonukom_theme');if(!t){if(window.matchMedia('(prefers-color-scheme: dark)').matches){t='dark';}else{t='light';}}if(t==='dark'){document.documentElement.classList.add('dark');}}catch(e){}})();`,
+          }}
+        />
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
       >

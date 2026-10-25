@@ -50,6 +50,7 @@ import { SubscriptionStatusBadge } from "@/components/superadmin/subscription-st
 import { RevenueChart } from "@/components/superadmin/revenue-chart";
 import { TenantDetailPanel } from "@/components/superadmin/tenant-detail-panel";
 import { ImpersonationBanner } from "@/components/superadmin/impersonation-banner";
+import { ThemeToggle } from "@/components/shared/theme-toggle";
 import { formatFCFA, formatFCFAShort } from "@/lib/fcfa";
 import type { SuperadminPage, TenantInfo, SubscriptionPlan, SubscriptionStatus } from "@/types";
 import {
@@ -78,6 +79,7 @@ export function SuperadminDashboard() {
   const setActivePage = useSuperadminStore((s) => s.setActivePage);
   const impersonation = useSuperadminStore((s) => s.impersonation);
   const endImpersonation = useSuperadminStore((s) => s.endImpersonation);
+  const tenantSearch = useSuperadminStore((s) => s.tenantSearch);
   const logout = useAuthStore((s) => s.logout);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -151,8 +153,8 @@ export function SuperadminDashboard() {
       )}
 
       <div className="flex flex-1">
-        {/* Sidebar - Desktop */}
-        <aside className="hidden lg:flex w-64 flex-col border-r bg-card">
+        {/* Sidebar - Desktop (BLUE) */}
+        <aside className="hidden lg:flex w-64 flex-col bg-sidebar text-sidebar-foreground shadow-xl">
           <SidebarContent
             activePage={activePage}
             onNavigate={(page) => { setActivePage(page); setSidebarOpen(false); }}
@@ -176,7 +178,7 @@ export function SuperadminDashboard() {
                 animate={{ x: 0 }}
                 exit={{ x: -280 }}
                 transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                className="fixed left-0 top-0 bottom-0 w-[280px] z-50 bg-card border-r lg:hidden"
+                className="fixed left-0 top-0 bottom-0 w-[280px] z-50 bg-sidebar text-sidebar-foreground shadow-2xl lg:hidden"
               >
                 <SidebarContent
                   activePage={activePage}
@@ -189,10 +191,31 @@ export function SuperadminDashboard() {
         </AnimatePresence>
 
         {/* Main Content */}
-        <main className="flex-1 min-w-0">
+        <main className="flex-1 min-w-0 flex flex-col">
+          {/* Top bar — desktop: search + theme toggle + admin badge */}
+          <header className="hidden lg:flex items-center justify-between px-6 py-3 border-b border-border bg-card/80 backdrop-blur-sm sticky top-0 z-30">
+            {/* Search */}
+            <div className="relative w-full max-w-md">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder="Rechercher un tenant, email..."
+                className="pl-9 bg-background"
+                value={tenantSearch}
+                onChange={(e) => useSuperadminStore.getState().setTenantSearch(e.target.value)}
+              />
+            </div>
+            <div className="flex items-center gap-3 ml-4">
+              <Badge variant="outline" className="gap-1 border-yk-emerald/50 text-yk-emerald">
+                <Shield className="w-3 h-3" />
+                Admin
+              </Badge>
+              <ThemeToggle />
+            </div>
+          </header>
+
           {/* Top bar (mobile) */}
-          <header className="lg:hidden flex items-center justify-between px-4 py-3 border-b bg-card">
-            <Button variant="ghost" size="sm" onClick={() => setSidebarOpen(true)}>
+          <header className="lg:hidden flex items-center justify-between px-4 py-3 border-b border-border bg-card">
+            <Button variant="ghost" size="icon" onClick={() => setSidebarOpen(true)} aria-label="Ouvrir le menu">
               <BarChart3 className="w-5 h-5" />
             </Button>
             <div className="flex items-center gap-2">
@@ -201,14 +224,17 @@ export function SuperadminDashboard() {
               </div>
               <span className="font-semibold text-sm">Superadmin</span>
             </div>
-            <Badge variant="outline" className="text-xs border-yk-emerald/50 text-yk-emerald">
-              <Shield className="w-3 h-3 mr-1" />
-              Admin
-            </Badge>
+            <div className="flex items-center gap-1">
+              <ThemeToggle />
+              <Badge variant="outline" className="text-xs border-yk-emerald/50 text-yk-emerald">
+                <Shield className="w-3 h-3 mr-1" />
+                Admin
+              </Badge>
+            </div>
           </header>
 
           {/* Page Content */}
-          <div className="p-4 lg:p-8">
+          <div className="flex-1 p-4 lg:p-8">
             <AnimatePresence mode="wait">
               <motion.div
                 key={activePage}
@@ -269,46 +295,46 @@ function SidebarContent({
 }) {
   return (
     <div className="flex flex-col h-full p-4">
-      {/* Logo */}
-      <div className="flex items-center gap-3 mb-8">
-        <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center shadow-md">
-          <span className="text-primary-foreground font-bold text-lg">YK</span>
+      {/* Logo — white badge on blue */}
+      <div className="flex items-center gap-3 mb-8 px-2">
+        <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center shadow-md">
+          <span className="text-primary font-bold text-lg">YK</span>
         </div>
         <div>
-          <p className="font-bold text-sm">YonuKom</p>
-          <p className="text-[10px] text-muted-foreground">Superadmin</p>
+          <p className="font-bold text-sm text-white">YonuKom</p>
+          <p className="text-[10px] text-white/70">Superadmin</p>
         </div>
       </div>
 
-      {/* Nav items */}
+      {/* Nav items — white-on-blue */}
       <nav className="space-y-1 flex-1">
         {NAV_ITEMS.map(({ page, icon: Icon, label }) => (
           <button
             key={page}
             onClick={() => onNavigate(page)}
-            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
               activePage === page
-                ? "bg-primary/10 text-primary font-semibold"
-                : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                ? "bg-white text-primary shadow-sm"
+                : "text-white/85 hover:bg-white/10 hover:text-white"
             }`}
           >
-            <Icon className="w-4.5 h-4.5" />
+            <Icon className="w-4.5 h-4.5" strokeWidth={activePage === page ? 2.4 : 1.8} />
             {label}
           </button>
         ))}
       </nav>
 
-      <Separator className="my-4" />
+      <Separator className="my-4 bg-white/15" />
 
       {/* Admin badge + logout */}
       <div className="space-y-2">
-        <div className="flex items-center gap-2 px-3">
-          <Shield className="w-4 h-4 text-yk-emerald" />
-          <span className="text-xs text-muted-foreground">Superadmin</span>
+        <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/10">
+          <Shield className="w-4 h-4 text-white" />
+          <span className="text-xs text-white/90 font-medium">Superadmin</span>
         </div>
         <button
           onClick={onLogout}
-          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-destructive hover:bg-destructive/10 transition-colors"
+          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-white bg-white/5 hover:bg-white/15 transition-colors"
         >
           <LogOut className="w-4.5 h-4.5" />
           Déconnexion
@@ -781,14 +807,14 @@ function AnalyticsPage({ onRefresh }: { onRefresh: () => void }) {
           title="MRR"
           value={metrics ? formatFCFAShort(metrics.mrr) : "—"}
           subtitle="Revenu récurrent mensuel"
-          color="emerald"
+          color="blue"
         />
         <MetricCard
           icon={Activity}
           title="Activation"
           value={metrics ? `${metrics.activationRate}%` : "—"}
           subtitle="Taux d'activation"
-          color="emerald"
+          color="blue"
         />
         <MetricCard
           icon={AlertTriangle}
@@ -1037,16 +1063,17 @@ function MetricCard({
   title: string;
   value: string;
   subtitle: string;
-  color: "emerald" | "amber";
+  color: "emerald" | "amber" | "blue";
 }) {
   const colors = {
-    emerald: { icon: "text-emerald-600", bg: "bg-emerald-50" },
-    amber: { icon: "text-amber-600", bg: "bg-amber-50" },
+    emerald: { icon: "text-yk-emerald", bg: "bg-yk-emerald/10" },
+    amber: { icon: "text-yk-amber", bg: "bg-yk-amber/10" },
+    blue: { icon: "text-yk-deep", bg: "bg-yk-deep/10" },
   };
   const c = colors[color];
 
   return (
-    <Card>
+    <Card className="hover:shadow-md transition-shadow">
       <CardContent className="p-4">
         <div className="flex items-start justify-between mb-2">
           <p className="text-xs text-muted-foreground font-medium">{title}</p>

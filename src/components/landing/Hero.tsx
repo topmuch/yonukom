@@ -20,16 +20,20 @@ interface HeroProps {
 
 export function Hero({ onSignup }: HeroProps) {
   return (
-    <section className="relative min-h-screen flex items-center overflow-hidden bg-gradient-to-b from-white via-yk-surface to-white">
+    <section className="relative min-h-screen flex items-center overflow-hidden bg-background">
+      {/* Blue gradient backdrop — premium look */}
+      <div className="absolute inset-0 bg-gradient-to-br from-yk-surface via-yk-lavender/30 to-yk-surface" />
+
       {/* Subtle background pattern */}
-      <div className="absolute inset-0 opacity-[0.03]" style={{
+      <div className="absolute inset-0 opacity-[0.04]" style={{
         backgroundImage: `radial-gradient(circle at 1px 1px, var(--yk-deep) 1px, transparent 0)`,
         backgroundSize: "40px 40px",
       }} />
 
-      {/* Floating accent blobs */}
-      <div className="absolute top-20 -right-40 w-80 h-80 bg-yk-emerald/10 rounded-full blur-3xl" />
+      {/* Floating accent blobs (vibrant blue) */}
+      <div className="absolute top-20 -right-40 w-80 h-80 bg-yk-deep/10 rounded-full blur-3xl" />
       <div className="absolute -bottom-20 -left-40 w-96 h-96 bg-yk-deep/8 rounded-full blur-3xl" />
+      <div className="absolute top-1/2 left-1/3 w-72 h-72 bg-yk-emerald/8 rounded-full blur-3xl" />
 
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-28 sm:pt-32 pb-20 sm:pb-28">
         <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
@@ -41,9 +45,9 @@ export function Hero({ onSignup }: HeroProps) {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5 }}
             >
-              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-yk-emerald/10 border border-yk-emerald/20">
-                <Wifi className="w-4 h-4 text-yk-emerald" />
-                <span className="text-sm font-medium text-yk-emerald">
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/70 backdrop-blur border border-yk-deep/20 shadow-sm">
+                <Wifi className="w-4 h-4 text-yk-deep" />
+                <span className="text-sm font-medium text-yk-deep">
                   Fonctionne même sans internet
                 </span>
               </div>

@@ -1,7 +1,7 @@
 // ============================================================
-// YonuKom — AppShell (Phase 5)
+// YonuKom — AppShell (Phase 5) — Premium Blue Theme
 // Main application shell wrapping the dashboard after onboarding.
-// Sticky header + bottom nav (mobile) + content area
+// Blue sidebar + sticky header + bottom nav (mobile) + content area
 // Tabs are dynamic based on active modules (config)
 // Shows RoleBadge + user info in header/sidebar
 // ============================================================
@@ -11,9 +11,10 @@
 import { useMemo } from "react";
 import { ConnectivityDot } from "@/components/layout/connectivity-banner";
 import { RoleBadge } from "@/components/auth/permission-guard";
+import { ThemeToggle } from "@/components/shared/theme-toggle";
 import { useConfigStore } from "@/stores/use-config-store";
 import { useAuthStore } from "@/stores/use-auth-store";
-import { Home, ShoppingBag, Package, ClipboardList, Settings, Building2, LogOut } from "lucide-react";
+import { Home, ShoppingBag, Package, ClipboardList, Settings, Building2 } from "lucide-react";
 import { motion } from "framer-motion";
 
 export type TabId = "home" | "pos" | "stock" | "orders" | "pipeline" | "settings";
@@ -67,38 +68,51 @@ export function AppShell({ activeTab, onTabChange, children }: AppShellProps) {
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
-      {/* ---- Sticky Header ---- */}
-      <header className="border-b border-border bg-card/80 backdrop-blur-sm sticky top-0 z-40">
+      {/* ---- Sticky Header (mobile + tablet) ---- */}
+      <header className="lg:hidden border-b border-border bg-card/95 backdrop-blur-sm sticky top-0 z-40">
         <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            {/* YK Logo Badge */}
+            {/* YK Logo Badge — white on blue */}
             <div className="w-9 h-9 rounded-lg bg-primary flex items-center justify-center shadow-sm">
               <span className="text-primary-foreground font-bold text-sm">YK</span>
             </div>
             <div className="flex flex-col">
               <span className="font-bold text-base leading-tight">YonuKom</span>
               {user && (
-                <span className="text-[10px] text-muted-foreground leading-tight hidden sm:block">
+                <span className="text-[10px] text-muted-foreground leading-tight">
                   {user.businessName}
                 </span>
               )}
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             <RoleBadge />
             <ConnectivityDot />
+            <ThemeToggle />
           </div>
         </div>
       </header>
 
       {/* ---- Content Area ---- */}
-      <main className="flex-1 max-w-4xl mx-auto w-full pb-20 lg:pb-4">
+      <main className="flex-1 max-w-4xl mx-auto w-full pb-20 lg:pb-4 lg:ml-56">
+        {/* ---- Desktop Header (sticky top bar inside content) ---- */}
+        <header className="hidden lg:flex sticky top-0 z-30 px-6 py-3 items-center justify-between bg-card/80 backdrop-blur-sm border-b border-border">
+          <span className="font-semibold text-sm">
+            {tabs.find((t) => t.id === activeTab)?.label ?? "Accueil"}
+          </span>
+          <div className="flex items-center gap-2">
+            <RoleBadge />
+            <ConnectivityDot />
+            <ThemeToggle />
+          </div>
+        </header>
+
         {children}
       </main>
 
       {/* ---- Bottom Navigation (Mobile) ---- */}
       <nav
-        className="fixed bottom-0 inset-x-0 z-40 border-t border-border bg-card/95 backdrop-blur-sm lg:hidden safe-area-bottom"
+        className="lg:hidden fixed bottom-0 inset-x-0 z-40 border-t border-border bg-card/95 backdrop-blur-sm safe-area-bottom"
         role="tablist"
         aria-label="Navigation principale"
       >
@@ -146,22 +160,24 @@ export function AppShell({ activeTab, onTabChange, children }: AppShellProps) {
         </div>
       </nav>
 
-      {/* ---- Desktop Sidebar (lg+) ---- */}
-      <aside className="hidden lg:flex fixed left-0 top-0 bottom-0 w-56 border-r border-border bg-card/80 backdrop-blur-sm flex-col z-40">
-        <div className="px-4 py-5 flex items-center gap-2.5 border-b border-border">
-          <div className="w-9 h-9 rounded-lg bg-primary flex items-center justify-center shadow-sm">
-            <span className="text-primary-foreground font-bold text-sm">YK</span>
+      {/* ---- Desktop Sidebar (lg+) — BLUE ---- */}
+      <aside className="hidden lg:flex fixed left-0 top-0 bottom-0 w-56 bg-sidebar text-sidebar-foreground shadow-xl flex-col z-40">
+        {/* Logo header */}
+        <div className="px-4 py-5 flex items-center gap-2.5 border-b border-white/15">
+          <div className="w-9 h-9 rounded-lg bg-white flex items-center justify-center shadow-sm">
+            <span className="text-primary font-bold text-sm">YK</span>
           </div>
           <div className="flex flex-col">
-            <span className="font-bold text-base leading-tight">YonuKom</span>
+            <span className="font-bold text-base leading-tight text-white">YonuKom</span>
             {user && (
-              <span className="text-[10px] text-muted-foreground leading-tight">
+              <span className="text-[10px] text-white/70 leading-tight">
                 {user.businessName}
               </span>
             )}
           </div>
         </div>
 
+        {/* Nav — white-on-blue */}
         <nav className="flex-1 py-4 px-3 space-y-1" role="tablist" aria-label="Navigation principale">
           {tabs.map((tab) => {
             const isActive = activeTab === tab.id;
@@ -176,10 +192,10 @@ export function AppShell({ activeTab, onTabChange, children }: AppShellProps) {
                 onClick={() => onTabChange(tab.id)}
                 className={`
                   w-full flex items-center gap-3 px-3 py-2.5 rounded-lg
-                  transition-colors duration-150 min-h-[44px]
+                  transition-all duration-150 min-h-[44px] font-medium
                   ${isActive
-                    ? "bg-primary/10 text-primary font-semibold"
-                    : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+                    ? "bg-white text-primary shadow-sm"
+                    : "text-white/85 hover:bg-white/10 hover:text-white"
                   }
                 `}
               >
@@ -190,22 +206,28 @@ export function AppShell({ activeTab, onTabChange, children }: AppShellProps) {
           })}
         </nav>
 
-        {/* Sidebar footer: user info + connectivity */}
-        <div className="px-4 py-3 border-t border-border space-y-2">
+        {/* Sidebar footer: user info + connectivity + theme toggle */}
+        <div className="px-4 py-3 border-t border-white/15 space-y-2">
           {user && (
             <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                <span className="text-primary font-bold text-xs">
+              <div className="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center shrink-0">
+                <span className="text-white font-bold text-xs">
                   {user.name?.charAt(0).toUpperCase()}
                 </span>
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-[10px] font-medium truncate">{user.name}</p>
+                <p className="text-[10px] font-medium truncate text-white/90">{user.name}</p>
                 <RoleBadge className="text-[7px]" />
               </div>
             </div>
           )}
-          <ConnectivityDot />
+          <div className="flex items-center justify-between">
+            <ConnectivityDot />
+            {/* Theme toggle on blue background — uses light variant */}
+            <div className="[&_button]:text-white [&_button:hover]:bg-white/15">
+              <ThemeToggle />
+            </div>
+          </div>
         </div>
       </aside>
     </div>
