@@ -10,6 +10,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useCartStore } from "@/stores/use-cart-store";
 import { useConfigStore } from "@/stores/use-config-store";
+import { useAuthStore } from "@/stores/use-auth-store";
 import { ProductGrid, type ProductItem } from "@/components/pos/product-grid";
 import { CartDrawer, CartButton } from "@/components/pos/cart-drawer";
 import { QuickSale } from "@/components/pos/quick-sale";
@@ -49,14 +50,23 @@ export function PosScreen() {
   const clearCustomer = useCartStore((s) => s.clearCustomer);
   const isRestaurantMode = useConfigStore((s) => s.isRestaurantActive());
 
+  // Business courant — nécessaire pour filtrer les produits
+  const user = useAuthStore((s) => s.user);
+  const businessId = user?.businessId;
+
   // --- Fetch products ---
   const fetchProducts = useCallback(async () => {
     setIsLoading(true);
     try {
-      const res = await fetch("/api/products");
+      const url = businessId
+        ? `/api/products?businessId=${encodeURIComponent(businessId)}`
+        : `/api/products`;
+      const res = await fetch(url);
       if (res.ok) {
         const data = await res.json();
         setProducts(data.products ?? []);
+      } else {
+        setProducts([]);
       }
     } catch {
       // Offline: use empty array (products may be in IndexedDB)
@@ -64,7 +74,7 @@ export function PosScreen() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [businessId]);
 
   useEffect(() => {
     fetchProducts();

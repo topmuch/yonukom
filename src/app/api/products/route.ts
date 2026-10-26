@@ -1,58 +1,115 @@
 // ============================================================
 // YonuKom — API Products
-// GET /api/products — retourne les produits pour le POS
-// Pour la démo, retourne des données mock Sénégalaises
-// En production, interroge la DB via Prisma
+// GET  /api/products?businessId=xxx — retourne les produits du business
+// POST /api/products — crée un nouveau produit
+// Nouveau business = liste vide (pas de données démo).
 // ============================================================
 
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { db } from "@/lib/db";
 
-// Mock products — données réalistes pour un commerce Sénégalais
-const MOCK_PRODUCTS = [
-  // --- Plats (Restaurant) ---
-  { id: "p1", name: "Thiébou Rouge", salePrice: 1500, quantity: 25, category: "Plats" },
-  { id: "p2", name: "Thiébou Dieune", salePrice: 2000, quantity: 20, category: "Plats" },
-  { id: "p3", name: "Yassa Poulet", salePrice: 1800, quantity: 15, category: "Plats" },
-  { id: "p4", name: "Mafé Viande", salePrice: 1500, quantity: 18, category: "Plats" },
-  { id: "p5", name: "Dibi", salePrice: 2500, quantity: 10, category: "Plats" },
-  { id: "p6", name: "Accara", salePrice: 500, quantity: 30, category: "Plats" },
+// GET /api/products?businessId=xxx&category=yyy
+export async function GET(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const businessId = searchParams.get("businessId");
+    const category = searchParams.get("category");
 
-  // --- Boissons ---
-  { id: "p7", name: "Bissap", salePrice: 300, quantity: 50, category: "Boissons" },
-  { id: "p8", name: "Bouye", salePrice: 300, quantity: 40, category: "Boissons" },
-  { id: "p9", name: "Coca-Cola 33cl", salePrice: 350, quantity: 100, category: "Boissons" },
-  { id: "p10", name: "Sprite 33cl", salePrice: 350, quantity: 80, category: "Boissons" },
-  { id: "p11", name: "Jus de Mango", salePrice: 500, quantity: 35, category: "Boissons" },
-  { id: "p12", name: "Ataya", salePrice: 200, quantity: 60, category: "Boissons" },
+    if (!businessId) {
+      // Pas de businessId → on retourne une liste vide (au lieu d'une erreur)
+      // Permet à l'app de s'afficher même avant la connexion.
+      return NextResponse.json({ products: [], total: 0 });
+    }
 
-  // --- Épicerie ---
-  { id: "p13", name: "Riz 25kg", salePrice: 15000, quantity: 12, category: "Epicerie" },
-  { id: "p14", name: "Huile 5L", salePrice: 7500, quantity: 8, category: "Epicerie" },
-  { id: "p15", name: "Sucre 1kg", salePrice: 750, quantity: 45, category: "Epicerie" },
-  { id: "p16", name: "Café Touba 500g", salePrice: 2500, quantity: 30, category: "Epicerie" },
-  { id: "p17", name: "Lait Concentré", salePrice: 600, quantity: 55, category: "Epicerie" },
-  { id: "p18", name: "Savon 500g", salePrice: 500, quantity: 0, category: "Epicerie" },
+    const where: Record<string, unknown> = {
+      businessId,
+      isActive: true,
+    };
+    if (category) {
+      where.category = category;
+    }
 
-  // --- Cosmétiques ---
-  { id: "p19", name: "Crème Mains 200ml", salePrice: 2000, quantity: 20, category: "Cosmetiques" },
-  { id: "p20", name: "Huile Palme 1L", salePrice: 1500, quantity: 25, category: "Cosmetiques" },
+    const products = await db.product.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+    });
 
-  // --- Vêtements ---
-  { id: "p21", name: "Boubou Homme", salePrice: 15000, quantity: 5, category: "Vetements" },
-  { id: "p22", name: "Pagne Wax 6 yards", salePrice: 8000, quantity: 10, category: "Vetements" },
-  { id: "p23", name: "T-shirt Coton", salePrice: 3000, quantity: 3, category: "Vetements" },
+    return NextResponse.json({ products, total: products.length });
+  } catch (error) {
+    console.error("[Products] GET error:", error);
+    // En cas d'erreur DB (ex: table absente), retourner une liste vide
+    // pour ne pas casser l'UI côté client.
+    return NextResponse.json({ products: [], total: 0 });
+  }
+}
 
-  // --- Électronique ---
-  { id: "p24", name: "Chargeur USB-C", salePrice: 2500, quantity: 15, category: "Electronique" },
-  { id: "p25", name: "Écouteurs Bluetooth", salePrice: 8000, quantity: 7, category: "Electronique" },
-];
+// POST /api/products — crée un nouveau produit
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json();
 
-export async function GET() {
-  // In production, replace with Prisma query:
-  // const products = await db.product.findMany({ where: { isActive: true } });
+    const {
+      name,
+      businessId,
+      salePrice,
+      purchasePrice,
+      sku,
+      category,
+      description,
+      imageUrl,
+      quantity,
+      minStockAlert,
+      productType,
+      unitType,
+    } = body as {
+      name?: string;
+      businessId?: string;
+      salePrice?: number | string;
+      purchasePrice?: number | string;
+      sku?: string;
+      category?: string;
+      description?: string;
+      imageUrl?: string;
+      quantity?: number | string;
+      minStockAlert?: number | string;
+      productType?: string;
+      unitType?: string;
+    };
 
-  return NextResponse.json({
-    products: MOCK_PRODUCTS,
-    total: MOCK_PRODUCTS.length,
-  });
+    // Validation : name + price + businessId sont obligatoires
+    if (!name || !businessId || salePrice === undefined || salePrice === null) {
+      return NextResponse.json(
+        {
+          error: "Champs obligatoires manquants : name, businessId, salePrice",
+        },
+        { status: 400 }
+      );
+    }
+
+    const product = await db.product.create({
+      data: {
+        name: String(name).trim(),
+        businessId: String(businessId),
+        salePrice: Number(salePrice) || 0,
+        purchasePrice: Number(purchasePrice) || 0,
+        sku: sku ? String(sku).trim() : null,
+        category: category ? String(category) : null,
+        description: description ? String(description) : null,
+        imageUrl: imageUrl ? String(imageUrl) : null,
+        quantity: Number(quantity) || 0,
+        minStockAlert: Number(minStockAlert) || 5,
+        productType: productType || "standard",
+        unitType: unitType || "piece",
+        isActive: true,
+      },
+    });
+
+    return NextResponse.json(product, { status: 201 });
+  } catch (error) {
+    console.error("[Products] POST error:", error);
+    return NextResponse.json(
+      { error: "Échec de la création du produit" },
+      { status: 500 }
+    );
+  }
 }

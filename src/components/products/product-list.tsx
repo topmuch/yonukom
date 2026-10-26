@@ -15,6 +15,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent } from "@/components/ui/card";
 import { Plus, Search, Package } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useAuthStore } from "@/stores/use-auth-store";
 
 export function ProductList() {
   const [products, setProducts] = useState<ProductCardData[]>([]);
@@ -24,19 +25,40 @@ export function ProductList() {
   const [formOpen, setFormOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<ProductCardData | null>(null);
 
+  const user = useAuthStore((s) => s.user);
+  const businessId = user?.businessId;
+
   // Fetch products
   const fetchProducts = useCallback(async () => {
     try {
-      const res = await fetch("/api/ecom-products");
+      const url = businessId
+        ? `/api/products?businessId=${encodeURIComponent(businessId)}`
+        : `/api/products`;
+      const res = await fetch(url);
       if (!res.ok) throw new Error("Failed to fetch");
       const data = await res.json();
-      setProducts(data.products || []);
+      // Adapter les champs Prisma vers ProductCardData
+      setProducts(
+        (data.products || []).map((p: Record<string, unknown>) => ({
+          id: String(p.id),
+          name: String(p.name ?? ""),
+          sku: (p.sku as string) ?? null,
+          salePrice: Number(p.salePrice ?? 0),
+          purchasePrice: Number(p.purchasePrice ?? 0),
+          quantity: Number(p.quantity ?? 0),
+          reservedQuantity: Number(p.reservedQuantity ?? 0),
+          category: (p.category as string) ?? null,
+          productType: (p.productType as string) ?? "standard",
+          unitType: (p.unitType as string) ?? "piece",
+          minStockAlert: Number(p.minStockAlert ?? 5),
+        }))
+      );
     } catch {
       setProducts([]);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [businessId]);
 
   useEffect(() => {
     fetchProducts();
@@ -56,12 +78,12 @@ export function ProductList() {
     return matchSearch && matchCategory;
   });
 
-  // Handle save (create or update)
+  // Handle save (create or update) — POST sur /api/products (nouveau) ou PUT sur /api/products/[id]
   const handleSave = async (data: ProductFormData) => {
     try {
       if (data.id) {
         // Update
-        const res = await fetch("/api/ecom-products", {
+        const res = await fetch(`/api/products/${data.id}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(data),
@@ -72,15 +94,34 @@ export function ProductList() {
           );
         }
       } else {
-        // Create
-        const res = await fetch("/api/ecom-products", {
+        // Create — on POST sur /api/products (Prisma) avec businessId
+        if (!businessId) return;
+        const res = await fetch("/api/products", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(data),
+          body: JSON.stringify({
+            ...data,
+            businessId,
+          }),
         });
         if (res.ok) {
           const newProduct = await res.json();
-          setProducts((prev) => [...prev, newProduct]);
+          setProducts((prev) => [
+            {
+              id: String(newProduct.id),
+              name: String(newProduct.name ?? ""),
+              sku: (newProduct.sku as string) ?? null,
+              salePrice: Number(newProduct.salePrice ?? 0),
+              purchasePrice: Number(newProduct.purchasePrice ?? 0),
+              quantity: Number(newProduct.quantity ?? 0),
+              reservedQuantity: Number(newProduct.reservedQuantity ?? 0),
+              category: (newProduct.category as string) ?? null,
+              productType: (newProduct.productType as string) ?? "standard",
+              unitType: (newProduct.unitType as string) ?? "piece",
+              minStockAlert: Number(newProduct.minStockAlert ?? 5),
+            },
+            ...prev,
+          ]);
         }
       }
     } catch {

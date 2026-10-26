@@ -44,32 +44,79 @@ export async function GET(request: NextRequest) {
   }
 }
 
+// Type for an order item payload — supports two forms :
+//   1. Produit existant :  { productId, quantity, unitPrice? }
+//   2. Article manuel  :  { name, price|unitPrice, quantity }
+type OrderItemInput = {
+  productId?: string
+  name?: string
+  quantity?: number
+  unitPrice?: number
+  price?: number
+}
+
 // POST /api/orders
+// - businessId  : obligatoire
+// - customerId  : optionnel (walk-in par défaut créé automatiquement)
+// - items       : obligatoire, non vide — chaque item peut référencer un
+//                 productId existant OU être un article manuel (name + price).
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { customerId, businessId, items, createdBy, status, deliveryAddress } = body
+    const { customerId, businessId, items, createdBy, status, deliveryAddress } = body as {
+      customerId?: string
+      businessId?: string
+      items?: OrderItemInput[]
+      createdBy?: string | null
+      status?: string
+      deliveryAddress?: string | null
+    }
 
-    if (!businessId || !items || !Array.isArray(items) || items.length === 0) {
+    // --- Validation de base ---
+    if (!businessId) {
       return NextResponse.json(
-        { error: 'businessId and items array are required' },
+        { error: 'businessId est obligatoire' },
         { status: 400 }
       )
     }
 
-    // Validate each item has required fields
+    if (!items || !Array.isArray(items) || items.length === 0) {
+      return NextResponse.json(
+        { error: 'items (tableau non vide) est obligatoire' },
+        { status: 400 }
+      )
+    }
+
+    // Valider chaque item : doit avoir soit productId, soit (name + price)
     for (const item of items) {
-      if (!item.productId || item.quantity === undefined || item.unitPrice === undefined) {
+      const hasProduct = !!item.productId
+      const hasManual = !!item.name && (item.price !== undefined || item.unitPrice !== undefined)
+      const qty = Number(item.quantity)
+      if ((!hasProduct && !hasManual) || !qty || qty <= 0) {
         return NextResponse.json(
-          { error: 'Each item must have productId, quantity, and unitPrice' },
+          {
+            error:
+              "Chaque article doit avoir soit {productId, quantity} soit {name, price, quantity}",
+          },
           { status: 400 }
         )
       }
     }
 
-    // Resolve customer : si customerId absent / "walk-in" / vide,
-    // on crée (ou récupère) un client "Client comptoir" par défaut pour ce business.
-    let resolvedCustomerId: string = customerId
+    // Vérifier que le business existe (FK constraint sinon)
+    const business = await db.business.findUnique({
+      where: { id: businessId },
+      select: { id: true },
+    })
+    if (!business) {
+      return NextResponse.json(
+        { error: `Business introuvable pour businessId="${businessId}"` },
+        { status: 400 }
+      )
+    }
+
+    // --- Résoudre le customer : walk-in par défaut ---
+    let resolvedCustomerId: string | undefined = customerId
     if (!customerId || customerId === 'walk-in' || customerId.trim() === '') {
       const existingWalkIn = await db.customer.findFirst({
         where: { businessId, name: 'Client comptoir', phone: 'N/A' },
@@ -94,28 +141,80 @@ export async function POST(request: NextRequest) {
     const nextNum = orderCount + 1
     const orderNumber = `YK-${new Date().getFullYear()}-${String(nextNum).padStart(4, '0')}`
 
-    // Calculate totals
+    // --- Préparer les items : résoudre / créer les produits manuels ---
+    type ResolvedItem = {
+      productId: string
+      quantity: number
+      unitPrice: number
+      totalPrice: number
+      isManual: boolean
+    }
+
     let subtotal = 0
-    const orderItemsData = items.map((item: { productId: string; quantity: number; unitPrice: number }) => {
-      const totalPrice = Number(item.quantity) * Number(item.unitPrice)
-      subtotal += totalPrice
-      return {
-        productId: item.productId,
-        quantity: Number(item.quantity),
-        unitPrice: Number(item.unitPrice),
-        totalPrice,
+    const resolvedItems: ResolvedItem[] = []
+
+    for (const item of items) {
+      const qty = Number(item.quantity)
+      let productId: string
+      let unitPrice: number
+      let isManual = false
+
+      if (item.productId) {
+        // Produit existant — utiliser le prix du payload (snapshot), sinon le prix DB
+        const existing = await db.product.findUnique({
+          where: { id: item.productId },
+          select: { id: true, salePrice: true, productType: true },
+        })
+        if (!existing) {
+          return NextResponse.json(
+            { error: `Produit introuvable : ${item.productId}` },
+            { status: 400 }
+          )
+        }
+        productId = existing.id
+        unitPrice =
+          item.unitPrice !== undefined
+            ? Number(item.unitPrice)
+            : Number(item.price ?? existing.salePrice)
+        isManual = false
+      } else {
+        // Article manuel — créer un Product "service" à la volée
+        const manualPrice =
+          item.unitPrice !== undefined
+            ? Number(item.unitPrice)
+            : Number(item.price ?? 0)
+        const newProd = await db.product.create({
+          data: {
+            name: String(item.name).slice(0, 200),
+            businessId,
+            salePrice: manualPrice,
+            purchasePrice: 0,
+            quantity: 0,
+            productType: 'service',
+            unitType: 'piece',
+            minStockAlert: 0,
+            isActive: true,
+            description: 'Article saisi manuellement (vente rapide)',
+          },
+        })
+        productId = newProd.id
+        unitPrice = manualPrice
+        isManual = true
       }
-    })
+
+      const totalPrice = qty * unitPrice
+      subtotal += totalPrice
+      resolvedItems.push({ productId, quantity: qty, unitPrice, totalPrice, isManual })
+    }
 
     const totalAmount = subtotal
 
-    // Create order with items in a transaction
+    // --- Créer la commande + items + mouvements de stock dans une transaction ---
     const order = await db.$transaction(async (tx) => {
-      // Create the order
       const newOrder = await tx.order.create({
         data: {
           orderNumber,
-          customerId: resolvedCustomerId,
+          customerId: resolvedCustomerId!,
           businessId,
           subtotal,
           totalAmount,
@@ -125,7 +224,12 @@ export async function POST(request: NextRequest) {
           createdBy: createdBy || null,
           deliveryAddress: deliveryAddress || null,
           orderItems: {
-            create: orderItemsData,
+            create: resolvedItems.map((ri) => ({
+              productId: ri.productId,
+              quantity: ri.quantity,
+              unitPrice: ri.unitPrice,
+              totalPrice: ri.totalPrice,
+            })),
           },
         },
         include: {
@@ -134,29 +238,31 @@ export async function POST(request: NextRequest) {
         },
       })
 
-      // Create StockMovements and decrement product quantities
-      for (const item of items) {
-        const qty = Number(item.quantity)
-
-        // Create stock movement
+      // Stock movements + décrément pour les items basés sur un produit existant
+      // (les articles manuels "service" ne déduisent pas de stock)
+      for (const ri of resolvedItems) {
+        if (ri.isManual) continue // service — pas de stock
         await tx.stockMovement.create({
           data: {
             type: 'sale',
-            quantity: qty,
-            productId: item.productId,
+            quantity: ri.quantity,
+            productId: ri.productId,
             orderId: newOrder.id,
           },
         })
-
-        // Decrement product quantity
-        await tx.product.update({
-          where: { id: item.productId },
-          data: {
-            quantity: {
-              decrement: qty,
-            },
-          },
+        // Décrémenter le stock physique — clampé à 0
+        const prod = await tx.product.findUnique({
+          where: { id: ri.productId },
+          select: { quantity: true },
         })
+        if (prod) {
+          await tx.product.update({
+            where: { id: ri.productId },
+            data: {
+              quantity: Math.max(0, prod.quantity - ri.quantity),
+            },
+          })
+        }
       }
 
       return newOrder

@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { formatFCFA } from "@/lib/fcfa";
+import { useAuthStore } from "@/stores/use-auth-store";
 
 interface StockProduct {
   id: string;
@@ -42,21 +43,27 @@ export function StockDashboard() {
   const [lossOpen, setLossOpen] = useState(false);
   const [activeView, setActiveView] = useState<"dashboard" | "products">("dashboard");
 
+  const user = useAuthStore((s) => s.user);
+  const businessId = user?.businessId;
+
   // Fetch products
   const fetchProducts = useCallback(async () => {
     try {
-      const res = await fetch("/api/ecom-products");
+      const url = businessId
+        ? `/api/products?businessId=${encodeURIComponent(businessId)}`
+        : `/api/products`;
+      const res = await fetch(url);
       if (!res.ok) throw new Error("Failed to fetch");
       const data = await res.json();
       setProducts(
-        (data.products || []).map((p: StockProduct) => ({
-          id: p.id,
-          name: p.name,
-          quantity: p.quantity,
-          reservedQuantity: p.reservedQuantity || 0,
-          salePrice: p.salePrice,
-          minStockAlert: p.minStockAlert || 5,
-          category: p.category,
+        (data.products || []).map((p: Record<string, unknown>) => ({
+          id: String(p.id),
+          name: String(p.name ?? ""),
+          quantity: Number(p.quantity ?? 0),
+          reservedQuantity: Number(p.reservedQuantity ?? 0),
+          salePrice: Number(p.salePrice ?? 0),
+          minStockAlert: Number(p.minStockAlert ?? 5),
+          category: (p.category as string) ?? null,
         }))
       );
     } catch {
@@ -64,7 +71,7 @@ export function StockDashboard() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [businessId]);
 
   useEffect(() => {
     fetchProducts();

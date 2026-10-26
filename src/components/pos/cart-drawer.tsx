@@ -67,7 +67,11 @@ export function CartDrawer({ open, onOpenChange }: CartDrawerProps) {
         createdBy: user?.id ?? null,
         status: "completed",
         items: items.map((item) => ({
+          // On inclut productId ET name pour que l'API puisse :
+          //  - utiliser le produit existant si productId est valide
+          //  - créer un article manuel si productId est absent/invalide
           productId: item.productId,
+          name: item.productName,
           quantity: item.quantity,
           unitPrice: item.salePrice,
         })),

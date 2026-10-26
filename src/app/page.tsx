@@ -7,7 +7,7 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useConfigStore } from "@/stores/use-config-store";
 import { useAuthStore } from "@/stores/use-auth-store";
 import { useOnlineStatus } from "@/hooks/use-online-status";
@@ -50,6 +50,7 @@ import { ConnectivityBanner } from "@/components/layout/connectivity-banner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { ProductForm, type ProductFormData } from "@/components/products/product-form";
 import {
   ShoppingBag,
   Package,
@@ -69,6 +70,8 @@ import {
   Shield,
   LogOut,
   Brain,
+  Sparkles,
+  Rocket,
 } from "lucide-react";
 
 // --- Page Views ---
@@ -602,7 +605,147 @@ function AppView({
     );
   }
 
-  // Regular user → Main Dashboard
+  // Regular user → Main Dashboard (avec écran de bienvenue si pas de produits)
+  return <DashboardWithWelcome onLogout={onLogout} />;
+}
+
+// --- DashboardWithWelcome ---
+// Affiche un écran de bienvenue (getting started) si le business n'a aucun
+// produit. Une fois un produit ajouté OU le welcome ignoré, on bascule sur
+// le DashboardMain normal.
+function DashboardWithWelcome({ onLogout }: { onLogout: () => void }) {
+  const user = useAuthStore((s) => s.user);
+  const [productCount, setProductCount] = useState<number | null>(null);
+  const [welcomeDismissed, setWelcomeDismissed] = useState(false);
+  const [formOpen, setFormOpen] = useState(false);
+
+  const businessId = user?.businessId;
+
+  const fetchCount = useCallback(async () => {
+    if (!businessId) {
+      setProductCount(null);
+      return;
+    }
+    try {
+      const res = await fetch(`/api/products?businessId=${encodeURIComponent(businessId)}`);
+      if (res.ok) {
+        const data = (await res.json()) as { total?: number; products?: unknown[] };
+        setProductCount(data.total ?? (data.products?.length ?? 0));
+      } else {
+        setProductCount(null);
+      }
+    } catch {
+      setProductCount(null);
+    }
+  }, [businessId]);
+
+  useEffect(() => {
+    fetchCount();
+  }, [fetchCount]);
+
+  const handleCreateProduct = async (data: ProductFormData) => {
+    if (!businessId) return;
+    try {
+      const res = await fetch("/api/products", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...data, businessId }),
+      });
+      if (res.ok) {
+        // Rafraîchir le compteur → va basculer vers le dashboard normal
+        await fetchCount();
+        setFormOpen(false);
+      }
+    } catch {
+      // silently fail
+    }
+  };
+
+  // Tant qu'on ne connaît pas le nombre de produits, on montre un loader simple
+  if (productCount === null) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <p className="text-sm text-muted-foreground">Chargement…</p>
+      </div>
+    );
+  }
+
+  // Écran de bienvenue : business sans aucun produit + non ignoré
+  if (productCount === 0 && !welcomeDismissed) {
+    return (
+      <AppShell activeTab="home" onTabChange={() => { /* pas de navigation pendant l'onboarding */ }}>
+        <div className="px-4 py-8">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3 }}
+            className="max-w-md mx-auto text-center space-y-6"
+          >
+            <div className="flex justify-center">
+              <div className="w-20 h-20 rounded-3xl bg-yk-emerald/10 flex items-center justify-center">
+                <Sparkles className="w-10 h-10 text-yk-emerald" />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <h1 className="text-2xl font-bold">
+                Bienvenue {user?.name?.split(" ")[0] || ""} ! 👋
+              </h1>
+              <p className="text-muted-foreground text-sm">
+                Commençons par ajouter votre premier produit pour pouvoir
+                encaisser votre première vente.
+              </p>
+            </div>
+
+            <Card className="border-yk-emerald/20 bg-yk-emerald/5">
+              <CardContent className="p-5 space-y-4">
+                <div className="flex items-start gap-3">
+                  <div className="p-2 rounded-lg bg-yk-emerald/10 text-yk-emerald shrink-0">
+                    <Package className="w-5 h-5" />
+                  </div>
+                  <div className="text-left">
+                    <p className="font-semibold text-sm">Ajouter un produit</p>
+                    <p className="text-xs text-muted-foreground">
+                      Nom, prix, stock — en 30 secondes.
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  className="w-full gap-2"
+                  size="lg"
+                  onClick={() => setFormOpen(true)}
+                >
+                  <Plus className="w-4 h-4" />
+                  Ajouter un produit
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="w-full text-muted-foreground"
+                  onClick={() => setWelcomeDismissed(true)}
+                >
+                  Passer pour l&apos;instant
+                </Button>
+              </CardContent>
+            </Card>
+
+            <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
+              <Rocket className="w-3.5 h-3.5" />
+              <span>Vous pourrez aussi ajouter des produits plus tard.</span>
+            </div>
+          </motion.div>
+        </div>
+
+        <ProductForm
+          key="welcome-new"
+          open={formOpen}
+          onOpenChange={setFormOpen}
+          onSave={handleCreateProduct}
+        />
+      </AppShell>
+    );
+  }
+
   return <DashboardMain onLogout={onLogout} />;
 }
 

@@ -140,6 +140,8 @@ export async function POST(request: NextRequest) {
           email: result.user.email,
           name: result.user.name,
         },
+        businessId: result.business.id,
+        tenantId: result.tenant.id,
       },
       { status: 201 }
     )
