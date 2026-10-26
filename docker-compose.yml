@@ -1,0 +1,25 @@
+services:
+  yonukom:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=file:/app/data/yonukom.db
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET:-change-me}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY:-change-me}
+      - NEXT_PUBLIC_BASE_URL=${NEXT_PUBLIC_BASE_URL:-http://localhost:3000}
+    volumes:
+      - yonukom_data:/app/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+volumes:
+  yonukom_data:
