@@ -1,24 +1,48 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { useState, useEffect, useCallback } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import {
   ArrowRight,
   Play,
   Sparkles,
   Star,
-  ShieldCheck,
-  Smartphone,
-  Wallet,
-  Bell,
-  TrendingUp,
 } from "lucide-react";
 
 interface HeroProps {
   onSignup?: () => void;
 }
 
+const SLIDES = [
+  {
+    src: "/hero-slides/hero-slide-1.png",
+    alt: "Commerçant souriant devant son tableau de bord YonuKom sur ordinateur portable",
+  },
+  {
+    src: "/hero-slides/hero-slide-2.png",
+    alt: "Entrepreneuse africaine visualisant ses ventes et son stock depuis son smartphone avec YonuKom",
+  },
+  {
+    src: "/hero-slides/hero-slide-3.png",
+    alt: "Propriétaire de boutique consultant ses statistiques de croissance et son tableau de bord YonuKom",
+  },
+];
+
+const SLIDE_DURATION_MS = 4500;
+
 export function Hero({ onSignup }: HeroProps) {
+  const [currentSlide, setCurrentSlide] = useState(0);
+
+  const nextSlide = useCallback(() => {
+    setCurrentSlide((prev) => (prev + 1) % SLIDES.length);
+  }, []);
+
+  useEffect(() => {
+    const id = setInterval(nextSlide, SLIDE_DURATION_MS);
+    return () => clearInterval(id);
+  }, [nextSlide]);
+
   return (
     <section className="relative min-h-screen flex items-center overflow-hidden bg-[#F6F9FE] pt-24 sm:pt-28 pb-16 sm:pb-20">
       {/* Subtle blue gradient backdrop */}
@@ -190,118 +214,82 @@ export function Hero({ onSignup }: HeroProps) {
             </motion.div>
           </div>
 
-          {/* RIGHT: Dashboard mockup with floating payment cards */}
+          {/* RIGHT: Slideshow of generated hero illustrations (9:16 vertical) */}
           <motion.div
             initial={{ opacity: 0, scale: 0.92, y: 30 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.5, ease: "easeOut" }}
-            className="relative"
+            className="relative flex justify-center lg:justify-end"
           >
-            {/* Main dashboard card */}
-            <div className="relative bg-white rounded-3xl shadow-2xl shadow-[#338BE2]/15 border border-slate-200/50 overflow-hidden">
-              {/* Top bar (browser-like) */}
-              <div className="h-9 bg-slate-50 border-b border-slate-100 flex items-center px-4 gap-1.5">
-                <div className="w-2.5 h-2.5 rounded-full bg-red-400" />
-                <div className="w-2.5 h-2.5 rounded-full bg-amber-400" />
-                <div className="w-2.5 h-2.5 rounded-full bg-emerald-400" />
-                <div className="ml-3 px-2.5 py-0.5 rounded bg-white text-[9px] text-slate-400 border border-slate-100">
-                  app.yonukom.sn
-                </div>
-              </div>
+            {/* Slide container — 9:16 vertical aspect ratio */}
+            <div className="relative w-full max-w-[420px] aspect-[9/16] rounded-3xl overflow-hidden shadow-2xl shadow-[#338BE2]/25 border border-white/60 bg-white">
+              {/* Slide images with crossfade */}
+              <AnimatePresence mode="popLayout">
+                <motion.img
+                  key={currentSlide}
+                  src={SLIDES[currentSlide].src}
+                  alt={SLIDES[currentSlide].alt}
+                  initial={{ opacity: 0, scale: 1.04 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.98 }}
+                  transition={{ duration: 0.8, ease: "easeInOut" }}
+                  className="absolute inset-0 w-full h-full object-cover"
+                  loading="eager"
+                />
+              </AnimatePresence>
 
-              {/* Dashboard content */}
-              <div className="p-6 bg-gradient-to-br from-white to-[#F6F9FE]">
-                {/* Dashboard header */}
-                <div className="flex items-center justify-between mb-5">
-                  <div>
-                    <p className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold">
-                      Tableau de bord
-                    </p>
-                    <p className="text-lg font-bold text-slate-900">
-                      Bonjour, Awa
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <div className="w-9 h-9 rounded-xl bg-[#338BE2]/10 flex items-center justify-center">
-                      <Bell className="w-4 h-4 text-[#338BE2]" />
-                    </div>
-                    <div className="w-9 h-9 rounded-xl bg-emerald-100 flex items-center justify-center">
-                      <Wallet className="w-4 h-4 text-emerald-600" />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Balance card */}
-                <div className="bg-gradient-to-br from-[#338BE2] to-[#2074C6] rounded-2xl p-5 text-white mb-4 relative overflow-hidden">
-                  <div
-                    className="absolute inset-0 opacity-10"
-                    style={{
-                      backgroundImage: `radial-gradient(circle at 2px 2px, white 1px, transparent 0)`,
-                      backgroundSize: "24px 24px",
-                    }}
-                  />
-                  <div className="relative flex items-start justify-between">
-                    <div>
-                      <p className="text-xs text-white/70 uppercase tracking-wider font-semibold">
-                        Solde du jour
-                      </p>
-                      <p className="text-3xl font-extrabold mt-1">
-                        185 000 FCFA
-                      </p>
-                      <p className="text-xs text-white/80 mt-1 flex items-center gap-1">
-                        <TrendingUp className="w-3 h-3" />
-                        +24.5% cette semaine
-                      </p>
-                    </div>
-                    <div className="w-10 h-10 rounded-xl bg-white/15 backdrop-blur flex items-center justify-center">
-                      <Wallet className="w-5 h-5 text-white" />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Quick actions grid */}
-                <div className="grid grid-cols-3 gap-2.5">
-                  <div className="bg-white rounded-xl p-3 border border-slate-100 shadow-sm text-center">
-                    <div className="w-8 h-8 rounded-lg bg-[#338BE2]/10 flex items-center justify-center mx-auto mb-1.5">
-                      <Smartphone className="w-4 h-4 text-[#338BE2]" />
-                    </div>
-                    <p className="text-[10px] font-semibold text-slate-700">
-                      Paiement mobile
-                    </p>
-                    <p className="text-[9px] text-slate-400">Wave / OM</p>
-                  </div>
-                  <div className="bg-white rounded-xl p-3 border border-slate-100 shadow-sm text-center">
-                    <div className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center mx-auto mb-1.5">
-                      <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                    </div>
-                    <p className="text-[10px] font-semibold text-slate-700">
-                      Sécurisé
-                    </p>
-                    <p className="text-[9px] text-slate-400">Chiffré</p>
-                  </div>
-                  <div className="bg-white rounded-xl p-3 border border-slate-100 shadow-sm text-center">
-                    <div className="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center mx-auto mb-1.5">
-                      <TrendingUp className="w-4 h-4 text-amber-600" />
-                    </div>
-                    <p className="text-[10px] font-semibold text-slate-700">
-                      Analytics
-                    </p>
-                    <p className="text-[9px] text-slate-400">Temps réel</p>
-                  </div>
-                </div>
-              </div>
+              {/* Subtle gradient overlay for visual polish (bottom fade for legibility) */}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/15 via-transparent to-transparent pointer-events-none" />
             </div>
 
-            {/* Floating payment card 1 — top-left */}
+            {/* Slide indicators (dots) */}
+            <div className="absolute -bottom-7 left-1/2 -translate-x-1/2 flex items-center gap-2">
+              {SLIDES.map((slide, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => setCurrentSlide(i)}
+                  aria-label={`Voir l'illustration ${i + 1}`}
+                  className="group p-1.5"
+                >
+                  <motion.span
+                    animate={{
+                      width: i === currentSlide ? 28 : 8,
+                      backgroundColor:
+                        i === currentSlide ? "#338BE2" : "#CBD5E1",
+                    }}
+                    transition={{ duration: 0.3 }}
+                    className="block h-2 rounded-full"
+                  />
+                </button>
+              ))}
+            </div>
+
+            {/* Floating "Synchronisé" badge — top-right corner */}
             <motion.div
-              initial={{ opacity: 0, scale: 0.8, x: -20, y: -20 }}
-              animate={{ opacity: 1, scale: 1, x: 0, y: 0 }}
-              transition={{ duration: 0.5, delay: 1.0 }}
-              className="absolute -left-4 sm:-left-10 top-10 bg-white rounded-2xl shadow-xl shadow-[#338BE2]/15 p-3.5 border border-slate-100 w-[200px]"
+              initial={{ opacity: 0, scale: 0.6 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.4, delay: 1.2 }}
+              className="absolute top-4 right-4 sm:top-6 sm:-right-3 bg-white/95 backdrop-blur rounded-xl shadow-lg shadow-[#338BE2]/10 p-2 border border-slate-100"
             >
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center shrink-0">
-                  <Smartphone className="w-5 h-5 text-emerald-600" />
+              <div className="flex items-center gap-1.5">
+                <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="text-[10px] font-semibold text-slate-700">
+                  Synchronisé
+                </span>
+              </div>
+            </motion.div>
+
+            {/* Floating "Paiement reçu" badge — bottom-left corner */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.8, x: -20, y: 20 }}
+              animate={{ opacity: 1, scale: 1, x: 0, y: 0 }}
+              transition={{ duration: 0.5, delay: 1.5 }}
+              className="absolute bottom-4 left-4 sm:-left-6 bg-white rounded-2xl shadow-xl shadow-[#338BE2]/15 p-3 border border-slate-100 w-[170px]"
+            >
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-emerald-100 flex items-center justify-center shrink-0">
+                  <Sparkles className="w-4 h-4 text-emerald-600" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-[10px] text-slate-500 truncate">
@@ -311,53 +299,6 @@ export function Hero({ onSignup }: HeroProps) {
                     29 990 FCFA
                   </p>
                 </div>
-              </div>
-              <p className="text-[10px] text-emerald-600 font-medium mt-2 flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                Wave — Awa S.
-              </p>
-            </motion.div>
-
-            {/* Floating payment card 2 — bottom-right */}
-            <motion.div
-              initial={{ opacity: 0, scale: 0.8, x: 20, y: 20 }}
-              animate={{ opacity: 1, scale: 1, x: 0, y: 0 }}
-              transition={{ duration: 0.5, delay: 1.3 }}
-              className="absolute -right-4 sm:-right-10 -bottom-6 bg-white rounded-2xl shadow-xl shadow-[#338BE2]/15 p-3.5 border border-slate-100 w-[210px]"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-[#338BE2]/10 flex items-center justify-center shrink-0">
-                  <Wallet className="w-5 h-5 text-[#338BE2]" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-[10px] text-slate-500 truncate">
-                    Recharge crédit
-                  </p>
-                  <p className="text-sm font-bold text-slate-900">
-                    238 690 FCFA
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center justify-between mt-2">
-                <p className="text-[10px] text-slate-400">Orange Money</p>
-                <span className="text-[10px] font-semibold text-[#338BE2] bg-[#338BE2]/10 px-1.5 py-0.5 rounded">
-                  Confirmé
-                </span>
-              </div>
-            </motion.div>
-
-            {/* Floating notification badge — top-right */}
-            <motion.div
-              initial={{ opacity: 0, scale: 0.6 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.4, delay: 1.5 }}
-              className="absolute -right-3 top-1/3 bg-white rounded-xl shadow-lg shadow-[#338BE2]/10 p-2 border border-slate-100"
-            >
-              <div className="flex items-center gap-1.5">
-                <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                <span className="text-[10px] font-semibold text-slate-700">
-                  Synchronisé
-                </span>
               </div>
             </motion.div>
           </motion.div>
