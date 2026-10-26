@@ -1,49 +1,56 @@
 // ============================================================
 // YonuKom — API Onboarding
 // Sauvegarde la configuration générée par l'onboarding
+//
+// IMPORTANT : cette API ne crée PLUS de nouveau business ni de nouvel
+// utilisateur. L'utilisateur est déjà connecté (via /api/auth/register +
+// /api/auth/login), donc on met simplement à jour SON business existant
+// avec la config d'onboarding.
 // ============================================================
 
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import bcrypt from "bcryptjs";
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { businessType, team, payments, stock, equipment, config } = body as {
+    const { businessType, team, payments, stock, equipment, config, businessId } = body as {
       businessType: Record<string, unknown>;
       team: Record<string, unknown>;
       payments: Record<string, unknown>;
       stock: Record<string, unknown>;
       equipment: Record<string, unknown>;
       config: Record<string, unknown>;
+      businessId?: string;
     };
 
-    // Créer une Business avec la config
-    const business = await db.business.create({
+    // businessId est requis — l'utilisateur doit être connecté
+    if (!businessId) {
+      return NextResponse.json(
+        { error: "businessId requis. L'utilisateur doit être connecté avant l'onboarding." },
+        { status: 400 }
+      );
+    }
+
+    // Vérifier que le business existe
+    const existingBusiness = await db.business.findUnique({
+      where: { id: businessId },
+    });
+    if (!existingBusiness) {
+      return NextResponse.json(
+        { error: "Commerce introuvable. Veuillez vous reconnecter." },
+        { status: 404 }
+      );
+    }
+
+    // Mettre à jour le business existant avec la config d'onboarding
+    const updatedBusiness = await db.business.update({
+      where: { id: businessId },
       data: {
-        name: "Mon Business", // Sera mis à jour plus tard
-        type: (businessType.type as string) || "mixte",
+        name: existingBusiness.name || "Mon Commerce",
+        type: (businessType.type as string) || existingBusiness.type || "mixte",
         onboardingConfig: JSON.stringify(config),
         onboardingCompleted: true,
-        currency: "XOF",
-        country: "SN",
-      },
-    });
-
-    // Hash du mot de passe par défaut avec bcrypt (jamais de plaintext)
-    // ⚠️ Phase 4 : remplacer par un vrai flux d'authentification
-    const defaultPassword = "yonukom123";
-    const passwordHash = await bcrypt.hash(defaultPassword, 10);
-
-    // Créer le patron par défaut avec un email unique basé sur le business ID
-    const patron = await db.user.create({
-      data: {
-        email: `patron.${business.id}@yonukom.com`,
-        name: "Patron",
-        role: "patron",
-        password: passwordHash,
-        businessId: business.id,
       },
     });
 
@@ -59,22 +66,16 @@ export async function POST(request: NextRequest) {
             .filter(([_, v]) => v === true)
             .map(([k]) => k),
         }),
-        businessId: business.id,
+        businessId: businessId,
       },
     });
 
     return NextResponse.json({
       success: true,
-      businessId: business.id,
+      businessId: updatedBusiness.id,
       config,
-      user: {
-        id: patron.id,
-        email: patron.email,
-        name: patron.name,
-        role: patron.role,
-        businessId: business.id,
-        businessName: business.name,
-      },
+      // Pas de user retourné — l'utilisateur est déjà connecté via /api/auth/login
+      // et ne doit PAS être remplacé par un faux utilisateur.
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Erreur inconnue";

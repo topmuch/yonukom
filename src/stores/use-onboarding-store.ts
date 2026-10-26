@@ -117,7 +117,18 @@ export const useOnboardingStore = create<OnboardingStoreState>((set, get) => ({
         manageReservations: state.stock?.manageReservations,
       });
 
-      // Envoyer au serveur
+      // Récupérer le businessId de l'utilisateur actuellement connecté.
+      // L'utilisateur DOIT être connecté avant de faire l'onboarding
+      // (flux : signup → login → onboarding).
+      const { useAuthStore } = await import("@/stores/use-auth-store");
+      const currentUser = useAuthStore.getState().user;
+      if (!currentUser?.businessId) {
+        throw new Error(
+          "Vous devez être connecté pour configurer votre commerce. Veuillez vous reconnecter."
+        );
+      }
+
+      // Envoyer au serveur avec le businessId du user connecté
       const response = await fetch("/api/onboarding", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -128,35 +139,26 @@ export const useOnboardingStore = create<OnboardingStoreState>((set, get) => ({
           stock: state.stock,
           equipment: state.equipment,
           config,
+          businessId: currentUser.businessId,
         }),
       });
 
       if (!response.ok) {
-        throw new Error("Erreur lors de la sauvegarde");
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(
+          (errorData as any)?.error || "Erreur lors de la sauvegarde"
+        );
       }
 
-      // Récupérer l'utilisateur créé côté serveur pour auto-login
-      const data = (await response.json()) as {
-        user?: {
-          id: string;
-          email: string;
-          name: string;
-          role: "patron" | "gerant" | "vendeur" | "superadmin";
-          businessId: string;
-          businessName: string;
-        };
-      };
-
-      // Sauvegarder la config dans le store local
+      // Sauvegarder la config dans le store local → isOnboarded devient true
       const { useConfigStore } = await import("@/stores/use-config-store");
       useConfigStore.getState().saveConfig(config);
 
-      // Connecter automatiquement l'utilisateur fraîchement créé
-      // pour que l'auto-redirect vers /app fonctionne sans reload.
-      if (data.user) {
-        const { useAuthStore } = await import("@/stores/use-auth-store");
-        useAuthStore.getState().login(data.user);
-      }
+      // NE PAS appeler useAuthStore.login() ici — l'utilisateur est déjà
+      // connecté via /api/auth/login. L'ancien code appelait login() avec
+      // un faux utilisateur créé par /api/onboarding, ce qui écrasait la
+      // session réelle et causait des bugs (redirection vers landing page,
+      // utilisateur déconnecté, etc.).
 
       set({
         isCompleted: true,
