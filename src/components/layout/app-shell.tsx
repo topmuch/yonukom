@@ -24,6 +24,7 @@ import {
   Bell,
   X,
   History,
+  LogOut,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { Input } from "@/components/ui/input";
@@ -362,6 +363,14 @@ export function AppShell({ activeTab, onTabChange, children }: AppShellProps) {
                 </p>
                 <RoleBadge className="text-[8px]" />
               </div>
+              <button
+                onClick={() => useAuthStore.getState().logout()}
+                className="w-8 h-8 rounded-lg bg-white/10 hover:bg-red-500/80 flex items-center justify-center text-white/70 hover:text-white transition-colors shrink-0"
+                title="Déconnexion"
+                aria-label="Déconnexion"
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
             </div>
           )}
           <div className="flex items-center justify-between pt-1">
