@@ -98,7 +98,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
               transition={{ delay: 0.2, type: "spring", stiffness: 300 }}
               className="mx-auto"
             >
-              <CelebrationIllustration className="w-32 h-32 mx-auto" />
+              <CelebrationIllustration className="w-48 h-32 mx-auto" />
             </motion.div>
             <div className="space-y-2">
               <h1 className="text-3xl font-bold text-foreground">
@@ -203,7 +203,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
             >
               {/* Illustration visuelle de l'étape courante */}
               <div className="flex justify-center mb-4">
-                <StepIllustration step={step} className="w-28 h-28" />
+                <StepIllustration step={step} className="w-44 h-28" />
               </div>
               <StepComponent />
             </motion.div>

@@ -21,15 +21,17 @@ import { ROLE_LABELS } from "@/types";
 
 interface LoginScreenProps {
   onLoginSuccess: () => void;
+  successMessage?: string | null;
 }
 
-export function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
+export function LoginScreen({ onLoginSuccess, successMessage }: LoginScreenProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [mode, setMode] = useState<"login" | "demo">("demo");
+  const [info, setInfo] = useState<string | null>(successMessage ?? null);
+  const [mode, setMode] = useState<"login" | "demo">("login");
 
   const login = useAuthStore((s) => s.login);
 
@@ -61,6 +63,7 @@ export function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
 
     setLoading(true);
     setError(null);
+    setInfo(null);
 
     try {
       const res = await fetch("/api/auth/login", {
@@ -198,6 +201,17 @@ export function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
           <Card>
             <CardContent className="p-5">
               <form onSubmit={handleLogin} className="space-y-4">
+                {info && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -5 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 p-2.5 rounded-md flex items-center gap-2"
+                  >
+                    <Shield className="w-3.5 h-3.5 shrink-0" />
+                    <span>{info}</span>
+                  </motion.div>
+                )}
+
                 <div className="space-y-2">
                   <Label htmlFor="email" className="text-xs font-medium">
                     Email

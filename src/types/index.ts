@@ -207,7 +207,7 @@ export type FCFA = number; // Alias sémantique — toujours un entier
 
 // --- SUPERADMIN TYPES ---
 
-export type SuperadminPage = "overview" | "tenants" | "tenant-detail" | "subscriptions" | "analytics" | "settings" | "logs";
+export type SuperadminPage = "overview" | "tenants" | "tenant-detail" | "subscriptions" | "analytics" | "settings" | "logs" | "users";
 
 export type SubscriptionPlan = "starter" | "pro" | "enterprise";
 export type SubscriptionStatus = "active" | "expired" | "past_due" | "cancelled";

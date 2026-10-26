@@ -83,6 +83,9 @@ export default function Home() {
   // Page view state — starts at landing, changes via user actions or auto-login
   const [view, setView] = useState<PageView>("landing");
 
+  // Success message displayed on the login screen after a successful signup
+  const [signupSuccess, setSignupSuccess] = useState<string | null>(null);
+
   // Auto-redirect to app if already logged in (from localStorage hydration)
   // Use a ref to avoid re-running on every render
   const hasAutoRedirected = useState(false);
@@ -118,14 +121,17 @@ export default function Home() {
   };
 
   const handleGoToLogin = () => {
+    setSignupSuccess(null);
     setView("login");
   };
 
   const handleGoToSignup = () => {
+    setSignupSuccess(null);
     setView("signup");
   };
 
   const handleBackToHome = () => {
+    setSignupSuccess(null);
     setView("landing");
   };
 
@@ -189,6 +195,11 @@ export default function Home() {
             mode={effectiveView as "login" | "signup"}
             onLoginSuccess={handleLoginSuccess}
             onBackToHome={handleBackToHome}
+            signupSuccess={signupSuccess}
+            onSignupSuccess={(message) => {
+              setSignupSuccess(message || null);
+              setView("login");
+            }}
           />
         </motion.div>
       )}
@@ -216,10 +227,14 @@ function LoginOrSignupView({
   mode,
   onLoginSuccess,
   onBackToHome,
+  signupSuccess,
+  onSignupSuccess,
 }: {
   mode: "login" | "signup";
   onLoginSuccess: () => void;
   onBackToHome: () => void;
+  signupSuccess?: string | null;
+  onSignupSuccess: (message: string) => void;
 }) {
   const isOnboarded = useConfigStore((s) => s.isOnboarded);
   const user = useAuthStore((s) => s.user);
@@ -235,7 +250,13 @@ function LoginOrSignupView({
   }
 
   if (mode === "signup") {
-    return <SignupScreen onLoginSuccess={onLoginSuccess} onBackToHome={onBackToHome} />;
+    return (
+      <SignupScreen
+        onLoginSuccess={onLoginSuccess}
+        onBackToHome={onBackToHome}
+        onGotoLogin={onSignupSuccess}
+      />
+    );
   }
 
   return (
@@ -250,45 +271,95 @@ function LoginOrSignupView({
           ← Retour au site
         </Button>
       </div>
-      <LoginScreen onLoginSuccess={onLoginSuccess} />
+      <LoginScreen
+        onLoginSuccess={onLoginSuccess}
+        successMessage={signupSuccess ?? null}
+      />
     </div>
   );
 }
 
 // --- Signup Screen ---
 function SignupScreen({
-  onLoginSuccess,
+  onLoginSuccess: _onLoginSuccess,
   onBackToHome,
+  onGotoLogin,
 }: {
   onLoginSuccess: () => void;
   onBackToHome: () => void;
+  onGotoLogin: (successMessage: string) => void;
 }) {
+  const [step, setStep] = useState<1 | 2>(1);
+
+  // Step 1 fields
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [businessName, setBusinessName] = useState("");
+
+  // Step 2 fields
+  const [identifier, setIdentifier] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const login = useAuthStore((s) => s.login);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const canSubmitStep1 = Boolean(name && email && businessName);
+  const passwordsMatch = password.length > 0 && password === confirmPassword;
+  const canSubmitStep2 =
+    Boolean(identifier) && password.length >= 6 && passwordsMatch;
+
+  const handleStep1Submit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name || !email || !businessName) return;
-    setLoading(true);
+    if (!canSubmitStep1) return;
+    setError(null);
+    setStep(2);
+  };
 
-    // Create trial account
-    setTimeout(() => {
-      login({
-        id: `trial-${Date.now()}`,
-        email,
-        name,
-        phone,
-        role: "patron",
-        businessId: `biz-${Date.now()}`,
-        businessName,
+  const handleStep2Submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!canSubmitStep2) {
+      if (password.length > 0 && password !== confirmPassword) {
+        setError("Les mots de passe ne correspondent pas.");
+      } else if (password.length > 0 && password.length < 6) {
+        setError("Le mot de passe doit contenir au moins 6 caractères.");
+      } else {
+        setError("Veuillez remplir tous les champs.");
+      }
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const res = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name,
+          email,
+          phone,
+          businessName,
+          identifier,
+          password,
+        }),
       });
-      onLoginSuccess();
+
+      const data = await res.json().catch(() => ({}));
+
+      if (res.ok) {
+        // Redirect to login with success message — NO auto-login
+        onGotoLogin("Compte créé ! Connectez-vous.");
+      } else {
+        setError(data.error ?? "Échec de la création du compte");
+      }
+    } catch {
+      setError("Impossible de contacter le serveur. Vérifiez votre connexion.");
+    } finally {
       setLoading(false);
-    }, 800);
+    }
   };
 
   return (
@@ -303,9 +374,9 @@ function SignupScreen({
           variant="ghost"
           size="sm"
           className="mb-6 text-foreground/60 hover:text-foreground gap-1"
-          onClick={onBackToHome}
+          onClick={() => (step === 2 ? setStep(1) : onBackToHome())}
         >
-          ← Retour
+          ← {step === 2 ? "Retour" : "Retour"}
         </Button>
 
         {/* Header */}
@@ -313,75 +384,168 @@ function SignupScreen({
           <div className="w-16 h-16 rounded-2xl bg-yk-deep flex items-center justify-center mx-auto mb-4 shadow-lg">
             <span className="text-white font-bold text-2xl">YK</span>
           </div>
-          <h1 className="text-2xl font-bold text-yk-deep">Créer votre compte</h1>
+          <h1 className="text-2xl font-bold text-yk-deep">
+            {step === 1 ? "Créer votre compte" : "Sécuriser votre compte"}
+          </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            14 jours d&apos;essai gratuit — aucune carte requise
+            {step === 1
+              ? "14 jours d'essai gratuit — aucune carte requise"
+              : "Choisissez un identifiant et un mot de passe"}
           </p>
+        </div>
+
+        {/* Step indicator */}
+        <div className="flex items-center justify-center gap-2 mb-6">
+          <div className={`h-1.5 w-12 rounded-full ${step === 1 ? "bg-yk-deep" : "bg-yk-deep/40"}`} />
+          <div className={`h-1.5 w-12 rounded-full ${step === 2 ? "bg-yk-deep" : "bg-yk-deep/20"}`} />
         </div>
 
         <Card>
           <CardContent className="p-6">
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <label className="text-xs font-medium" htmlFor="signup-name">Nom complet</label>
-                <input
-                  id="signup-name"
-                  type="text"
-                  placeholder="Ibrahima Fall"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
-                  required
-                />
-              </div>
+            {step === 1 ? (
+              <form onSubmit={handleStep1Submit} className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-xs font-medium" htmlFor="signup-name">Nom complet</label>
+                  <input
+                    id="signup-name"
+                    type="text"
+                    placeholder="Ibrahima Fall"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className="w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                    required
+                  />
+                </div>
 
-              <div className="space-y-2">
-                <label className="text-xs font-medium" htmlFor="signup-email">Email</label>
-                <input
-                  id="signup-email"
-                  type="email"
-                  placeholder="ibrahima@yonukom.sn"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
-                  required
-                />
-              </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-medium" htmlFor="signup-email">Email</label>
+                  <input
+                    id="signup-email"
+                    type="email"
+                    placeholder="ibrahima@yonukom.sn"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                    required
+                  />
+                </div>
 
-              <div className="space-y-2">
-                <label className="text-xs font-medium" htmlFor="signup-phone">Téléphone (optionnel)</label>
-                <input
-                  id="signup-phone"
-                  type="tel"
-                  placeholder="+221 77 123 45 67"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  className="w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
-                />
-              </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-medium" htmlFor="signup-phone">Téléphone (optionnel)</label>
+                  <input
+                    id="signup-phone"
+                    type="tel"
+                    placeholder="+221 77 123 45 67"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    className="w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                  />
+                </div>
 
-              <div className="space-y-2">
-                <label className="text-xs font-medium" htmlFor="signup-biz">Nom du commerce</label>
-                <input
-                  id="signup-biz"
-                  type="text"
-                  placeholder="Boutique YonuKom"
-                  value={businessName}
-                  onChange={(e) => setBusinessName(e.target.value)}
-                  className="w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
-                  required
-                />
-              </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-medium" htmlFor="signup-biz">Nom du commerce</label>
+                  <input
+                    id="signup-biz"
+                    type="text"
+                    placeholder="Boutique YonuKom"
+                    value={businessName}
+                    onChange={(e) => setBusinessName(e.target.value)}
+                    className="w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                    required
+                  />
+                </div>
 
-              <Button
-                type="submit"
-                className="w-full bg-yk-deep hover:bg-yk-deep-light text-white font-medium gap-2"
-                disabled={loading || !name || !email || !businessName}
-              >
-                {loading ? "Création..." : "Commencer mon essai gratuit"}
-                {!loading && <ArrowRight className="w-4 h-4" />}
-              </Button>
-            </form>
+                <Button
+                  type="submit"
+                  className="w-full bg-yk-deep hover:bg-yk-deep-light text-white font-medium gap-2"
+                  disabled={!canSubmitStep1}
+                >
+                  Continuer
+                  <ArrowRight className="w-4 h-4" />
+                </Button>
+              </form>
+            ) : (
+              <form onSubmit={handleStep2Submit} className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-xs font-medium" htmlFor="signup-identifier">Identifiant</label>
+                  <input
+                    id="signup-identifier"
+                    type="text"
+                    placeholder="ibrahima.fall"
+                    value={identifier}
+                    onChange={(e) => setIdentifier(e.target.value)}
+                    className="w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                    required
+                    autoComplete="username"
+                  />
+                  <p className="text-[10px] text-muted-foreground">
+                    Utilisé pour vous connecter avec votre email.
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-xs font-medium" htmlFor="signup-password">Mot de passe</label>
+                  <div className="relative">
+                    <input
+                      id="signup-password"
+                      type={showPassword ? "text" : "password"}
+                      placeholder="••••••••"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 pr-10 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                      required
+                      autoComplete="new-password"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((s) => !s)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      aria-label={showPassword ? "Masquer" : "Afficher"}
+                    >
+                      {showPassword ? "Masquer" : "Afficher"}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-xs font-medium" htmlFor="signup-confirm">Confirmer le mot de passe</label>
+                  <input
+                    id="signup-confirm"
+                    type={showPassword ? "text" : "password"}
+                    placeholder="••••••••"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    className={`w-full h-9 rounded-md border bg-transparent px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 ${
+                      confirmPassword && !passwordsMatch
+                        ? "border-destructive focus:ring-destructive"
+                        : "border-input focus:ring-ring"
+                    }`}
+                    required
+                    autoComplete="new-password"
+                  />
+                  {confirmPassword && !passwordsMatch && (
+                    <p className="text-[10px] text-destructive">
+                      Les mots de passe ne correspondent pas.
+                    </p>
+                  )}
+                </div>
+
+                {error && (
+                  <p className="text-xs text-destructive bg-destructive/10 p-2 rounded-md">
+                    {error}
+                  </p>
+                )}
+
+                <Button
+                  type="submit"
+                  className="w-full bg-yk-deep hover:bg-yk-deep-light text-white font-medium gap-2"
+                  disabled={loading || !canSubmitStep2}
+                >
+                  {loading ? "Création du compte..." : "Créer mon compte"}
+                  {!loading && <ArrowRight className="w-4 h-4" />}
+                </Button>
+              </form>
+            )}
           </CardContent>
         </Card>
 
@@ -390,7 +554,7 @@ function SignupScreen({
           <button
             type="button"
             className="text-yk-deep hover:underline font-medium"
-            onClick={onBackToHome}
+            onClick={() => onGotoLogin("")}
           >
             Se connecter
           </button>

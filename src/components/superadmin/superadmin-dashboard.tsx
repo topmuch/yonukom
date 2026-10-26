@@ -33,6 +33,10 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   Home as HomeIcon,
+  Eye,
+  EyeOff,
+  UserPlus,
+  Phone,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -68,6 +72,7 @@ import {
 const NAV_ITEMS: { page: SuperadminPage; icon: typeof BarChart3; label: string }[] = [
   { page: "overview", icon: HomeIcon, label: "Vue d'ensemble" },
   { page: "tenants", icon: Building2, label: "Tenants" },
+  { page: "users", icon: Users, label: "Utilisateurs" },
   { page: "subscriptions", icon: CreditCard, label: "Abonnements" },
   { page: "analytics", icon: TrendingUp, label: "Analytics" },
   { page: "logs", icon: ScrollText, label: "Logs" },
@@ -328,6 +333,7 @@ export function SuperadminDashboard() {
                     onRefresh={fetchTenants}
                   />
                 )}
+                {activePage === "users" && <UsersPage />}
                 {activePage === "subscriptions" && <SubscriptionsPage />}
                 {activePage === "analytics" && <AnalyticsPage onRefresh={fetchMetrics} />}
                 {activePage === "logs" && <LogsPage />}
@@ -1966,6 +1972,464 @@ function LogsPage() {
           </CardContent>
         </Card>
       )}
+    </div>
+  );
+}
+
+// ============================================================
+// PAGE: USERS — list all platform users + create new
+// ============================================================
+
+interface AdminUserRow {
+  id: string;
+  name: string;
+  email: string;
+  phone?: string | null;
+  role: string;
+  status: string;
+  businessId?: string | null;
+  tenantId?: string | null;
+  createdAt?: string;
+}
+
+const ROLE_BADGE_COLORS: Record<string, string> = {
+  superadmin: "bg-[#338BE2]/10 text-[#338BE2] border-[#338BE2]/20",
+  patron: "bg-emerald-100 text-emerald-700 border-emerald-200",
+  gerant: "bg-amber-100 text-amber-700 border-amber-200",
+  vendeur: "bg-slate-100 text-slate-700 border-slate-200",
+};
+
+const ROLE_LABELS_FR: Record<string, string> = {
+  superadmin: "Superadmin",
+  patron: "Patron",
+  gerant: "Gérant",
+  vendeur: "Vendeur",
+  employee: "Employé",
+};
+
+function UsersPage() {
+  const [users, setUsers] = useState<AdminUserRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [roleFilter, setRoleFilter] = useState("all");
+  const [search, setSearch] = useState("");
+
+  // New user dialog state
+  const [createOpen, setCreateOpen] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
+  const [form, setForm] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    role: "patron" as string,
+    password: "",
+  });
+
+  const setField = <K extends keyof typeof form>(key: K, value: (typeof form)[K]) => {
+    setForm((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const resetForm = () => {
+    setForm({
+      name: "",
+      email: "",
+      phone: "",
+      role: "patron",
+      password: "",
+    });
+    setCreateError(null);
+    setShowPassword(false);
+  };
+
+  const fetchUsers = useCallback(async () => {
+    setLoading(true);
+    try {
+      const url =
+        roleFilter !== "all"
+          ? `/api/superadmin/users?role=${roleFilter}`
+          : "/api/superadmin/users";
+      const res = await fetch(url);
+      if (res.ok) {
+        const data = (await res.json()) as AdminUserRow[];
+        setUsers(data);
+      }
+    } catch (err) {
+      console.error("Failed to fetch users:", err);
+    } finally {
+      setLoading(false);
+    }
+  }, [roleFilter]);
+
+  useEffect(() => {
+    fetchUsers();
+  }, [fetchUsers]);
+
+  const handleCreate = async () => {
+    if (!form.name || !form.email || !form.password || !form.role) {
+      setCreateError("Tous les champs obligatoires doivent être remplis.");
+      return;
+    }
+    if (form.password.length < 6) {
+      setCreateError("Le mot de passe doit contenir au moins 6 caractères.");
+      return;
+    }
+    setCreating(true);
+    setCreateError(null);
+    try {
+      const res = await fetch("/api/superadmin/users", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.error ?? "Échec de la création de l'utilisateur");
+      }
+      setCreateOpen(false);
+      resetForm();
+      await fetchUsers();
+    } catch (err) {
+      setCreateError(
+        err instanceof Error ? err.message : "Erreur inconnue"
+      );
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const filteredUsers = users.filter((u) => {
+    if (!search) return true;
+    const q = search.toLowerCase();
+    return (
+      u.name.toLowerCase().includes(q) ||
+      u.email.toLowerCase().includes(q) ||
+      (u.phone ?? "").toLowerCase().includes(q)
+    );
+  });
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900">Utilisateurs</h1>
+          <p className="text-slate-500 text-sm">
+            {users.length} utilisateurs enregistrés
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={fetchUsers}
+            disabled={loading}
+            className="bg-white border-slate-200 hover:bg-[#338BE2]/5 hover:border-[#338BE2]/30 hover:text-[#338BE2]"
+          >
+            <RefreshCw
+              className={`w-4 h-4 mr-1.5 ${loading ? "animate-spin" : ""}`}
+            />
+            Actualiser
+          </Button>
+          <Button
+            size="sm"
+            onClick={() => {
+              resetForm();
+              setCreateOpen(true);
+            }}
+            className="bg-[#338BE2] hover:bg-[#2074C6] text-white shadow-md shadow-[#338BE2]/25"
+          >
+            <UserPlus className="w-4 h-4 mr-1.5" />
+            Nouvel utilisateur
+          </Button>
+        </div>
+      </div>
+
+      {/* Filters row */}
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="relative flex-1 max-w-md">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          <Input
+            placeholder="Rechercher par nom, email ou téléphone..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-9 bg-white border-slate-200"
+          />
+        </div>
+        <Select value={roleFilter} onValueChange={setRoleFilter}>
+          <SelectTrigger className="w-[180px] bg-white border-slate-200">
+            <SelectValue placeholder="Rôle" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Tous les rôles</SelectItem>
+            <SelectItem value="superadmin">Superadmin</SelectItem>
+            <SelectItem value="patron">Patron</SelectItem>
+            <SelectItem value="gerant">Gérant</SelectItem>
+            <SelectItem value="vendeur">Vendeur</SelectItem>
+            <SelectItem value="employee">Employé</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Users table */}
+      <Card className="bg-white border border-slate-200/60">
+        <CardContent className="p-0">
+          {loading ? (
+            <div className="p-6 space-y-2">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="h-12 bg-slate-200 rounded animate-pulse" />
+              ))}
+            </div>
+          ) : filteredUsers.length === 0 ? (
+            <div className="py-12 text-center">
+              <Users className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+              <p className="text-slate-500">Aucun utilisateur trouvé</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-slate-100 bg-[#F6F9FE]">
+                    <th className="text-left font-semibold text-slate-500 px-4 py-3 uppercase tracking-wider text-[10px]">
+                      Nom
+                    </th>
+                    <th className="text-left font-semibold text-slate-500 px-2 py-3 uppercase tracking-wider text-[10px]">
+                      Email
+                    </th>
+                    <th className="text-left font-semibold text-slate-500 px-2 py-3 uppercase tracking-wider text-[10px]">
+                      Rôle
+                    </th>
+                    <th className="text-left font-semibold text-slate-500 px-2 py-3 uppercase tracking-wider text-[10px]">
+                      Statut
+                    </th>
+                    <th className="text-right font-semibold text-slate-500 px-4 py-3 uppercase tracking-wider text-[10px]">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredUsers.map((u, i) => (
+                    <motion.tr
+                      key={u.id}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ delay: i * 0.02 }}
+                      className="border-b border-slate-50 last:border-0 hover:bg-[#F6F9FE]/60 transition-colors"
+                    >
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-8 h-8 rounded-full bg-[#338BE2]/10 flex items-center justify-center text-[#338BE2] font-bold text-xs">
+                            {u.name.charAt(0).toUpperCase()}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="font-medium text-slate-900 truncate">
+                              {u.name}
+                            </p>
+                            {u.phone && (
+                              <p className="text-[10px] text-slate-500 flex items-center gap-1 truncate">
+                                <Phone className="w-2.5 h-2.5" />
+                                {u.phone}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-2 py-3">
+                        <span className="text-slate-600 flex items-center gap-1.5">
+                          <Mail className="w-3 h-3 text-slate-400" />
+                          {u.email}
+                        </span>
+                      </td>
+                      <td className="px-2 py-3">
+                        <Badge
+                          variant="outline"
+                          className={`text-[10px] ${ROLE_BADGE_COLORS[u.role] ?? ""}`}
+                        >
+                          {ROLE_LABELS_FR[u.role] ?? u.role}
+                        </Badge>
+                      </td>
+                      <td className="px-2 py-3">
+                        {u.status === "active" ? (
+                          <Badge className="bg-emerald-100 text-emerald-700 border border-emerald-200 text-[10px]">
+                            Actif
+                          </Badge>
+                        ) : (
+                          <Badge className="bg-rose-100 text-rose-700 border border-rose-200 text-[10px]">
+                            Inactif
+                          </Badge>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-xs hover:bg-[#338BE2]/5 hover:text-[#338BE2] gap-1"
+                          onClick={() => {
+                            // For now, just visual — full edit dialog can come later
+                          }}
+                        >
+                          <Shield className="w-3.5 h-3.5" />
+                          Détails
+                        </Button>
+                      </td>
+                    </motion.tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* --- Dialog : Nouvel utilisateur --- */}
+      <Dialog
+        open={createOpen}
+        onOpenChange={(open) => {
+          setCreateOpen(open);
+          if (!open) resetForm();
+        }}
+      >
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-slate-900">
+              Créer un nouvel utilisateur
+            </DialogTitle>
+            <DialogDescription>
+              Ajoutez un utilisateur à la plateforme. Le mot de passe sera
+              chiffré avec bcrypt.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="user-name">Nom complet</Label>
+              <Input
+                id="user-name"
+                placeholder="Ibrahima Fall"
+                value={form.name}
+                onChange={(e) => setField("name", e.target.value)}
+                disabled={creating}
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="user-email">Email</Label>
+                <Input
+                  id="user-email"
+                  type="email"
+                  placeholder="ibrahima@yonukom.sn"
+                  value={form.email}
+                  onChange={(e) => setField("email", e.target.value)}
+                  disabled={creating}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="user-phone">Téléphone</Label>
+                <Input
+                  id="user-phone"
+                  type="tel"
+                  placeholder="+221 77 123 45 67"
+                  value={form.phone}
+                  onChange={(e) => setField("phone", e.target.value)}
+                  disabled={creating}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="user-role">Rôle</Label>
+              <Select
+                value={form.role}
+                onValueChange={(val) => setField("role", val)}
+                disabled={creating}
+              >
+                <SelectTrigger id="user-role" className="w-full">
+                  <SelectValue placeholder="Sélectionner un rôle" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="superadmin">Superadmin</SelectItem>
+                  <SelectItem value="patron">Patron</SelectItem>
+                  <SelectItem value="gerant">Gérant</SelectItem>
+                  <SelectItem value="vendeur">Vendeur</SelectItem>
+                  <SelectItem value="employee">Employé</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="user-password">Mot de passe</Label>
+              <div className="relative">
+                <Input
+                  id="user-password"
+                  type={showPassword ? "text" : "password"}
+                  placeholder="••••••••"
+                  value={form.password}
+                  onChange={(e) => setField("password", e.target.value)}
+                  disabled={creating}
+                  className="pr-10"
+                  autoComplete="new-password"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((s) => !s)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
+                  aria-label={showPassword ? "Masquer" : "Afficher"}
+                >
+                  {showPassword ? (
+                    <EyeOff className="w-4 h-4" />
+                  ) : (
+                    <Eye className="w-4 h-4" />
+                  )}
+                </button>
+              </div>
+              <p className="text-[10px] text-slate-500">
+                Minimum 6 caractères.
+              </p>
+            </div>
+
+            {createError && (
+              <p className="text-sm text-destructive">{createError}</p>
+            )}
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setCreateOpen(false);
+                resetForm();
+              }}
+              disabled={creating}
+            >
+              Annuler
+            </Button>
+            <Button
+              onClick={handleCreate}
+              disabled={
+                creating ||
+                !form.name ||
+                !form.email ||
+                !form.password ||
+                !form.role
+              }
+              className="bg-[#338BE2] hover:bg-[#2074C6] text-white"
+            >
+              {creating ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
+                  Création...
+                </>
+              ) : (
+                <>
+                  <UserPlus className="w-4 h-4 mr-1.5" />
+                  Créer l'utilisateur
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
