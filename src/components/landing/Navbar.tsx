@@ -12,18 +12,18 @@ import {
 import {
   Menu,
   ArrowLeft,
-  LayoutDashboard,
-  Sparkles,
   X,
+  ArrowRight,
 } from "lucide-react";
 
 const navLinks = [
+  { label: "À propos", href: "#about" },
   { label: "Fonctionnalités", href: "#features" },
   { label: "Tarifs", href: "#pricing" },
   { label: "FAQ", href: "#faq" },
 ];
 
-const sectionIds = ["features", "pricing", "faq"];
+const sectionIds = ["about", "features", "pricing", "faq"];
 
 interface NavbarProps {
   onLogin?: () => void;
@@ -118,32 +118,28 @@ export function Navbar({
       transition={{ duration: 0.5, ease: "easeOut" }}
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
         scrolled
-          ? "bg-white/85 backdrop-blur-xl shadow-[0_4px_24px_-8px_rgba(51,139,226,0.15)] border-b border-[#338BE2]/10"
-          : "bg-transparent"
+          ? "bg-white/85 backdrop-blur-xl shadow-[0_4px_24px_-8px_rgba(51,139,226,0.15)] border-b border-[#338BE2]/10 py-2"
+          : "bg-transparent py-3"
       }`}
     >
       <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16 sm:h-20">
+        <div className="flex items-center justify-between h-14 sm:h-16">
           {/* Logo */}
           <button
             type="button"
             onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-            className="flex items-center gap-2.5 group"
+            className="flex items-center gap-2.5 group shrink-0"
           >
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#338BE2] to-[#2074C6] flex items-center justify-center group-hover:scale-105 transition-transform shadow-md shadow-[#338BE2]/30">
-              <span className="text-white font-bold text-sm">YK</span>
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-[#338BE2] to-[#2074C6] flex items-center justify-center group-hover:scale-105 transition-transform shadow-md shadow-[#338BE2]/30">
+              <span className="text-white font-bold text-sm sm:text-base">YK</span>
             </div>
-            <span
-              className={`text-xl font-bold tracking-tight transition-colors ${
-                scrolled ? "text-slate-900" : "text-slate-900"
-              }`}
-            >
+            <span className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900">
               YonuKom
             </span>
           </button>
 
           {/* Desktop Nav Links (center) */}
-          <div className="hidden md:flex items-center gap-1 absolute left-1/2 -translate-x-1/2">
+          <div className="hidden lg:flex items-center gap-1">
             {navLinks.map((link) => {
               const sectionId = link.href.replace("#", "");
               const isActive = activeSection === sectionId;
@@ -171,7 +167,7 @@ export function Navbar({
           </div>
 
           {/* Desktop CTAs (right) */}
-          <div className="hidden md:flex items-center gap-2">
+          <div className="hidden lg:flex items-center gap-3">
             <Button
               variant="ghost"
               size="sm"
@@ -182,10 +178,11 @@ export function Navbar({
             </Button>
             <Button
               size="sm"
-              className="bg-[#338BE2] hover:bg-[#2074C6] text-white font-medium shadow-md shadow-[#338BE2]/25"
+              className="bg-[#338BE2] hover:bg-[#2074C6] text-white font-semibold shadow-md shadow-[#338BE2]/25 gap-1.5 h-10 px-5 rounded-full"
               onClick={onSignup}
             >
-              S&rsquo;inscrire
+              Commencer
+              <ArrowRight className="w-4 h-4" />
             </Button>
           </div>
 
@@ -195,7 +192,7 @@ export function Navbar({
               <Button
                 variant="ghost"
                 size="icon"
-                className="md:hidden text-slate-900"
+                className="lg:hidden text-slate-900"
                 aria-label="Ouvrir le menu"
               >
                 <Menu className="w-6 h-6" />
@@ -240,7 +237,6 @@ export function Navbar({
                       onClick={(e) => handleNavClick(e, link.href)}
                       className="flex items-center gap-3 w-full text-left py-3 px-4 text-base font-medium text-slate-700 hover:text-[#338BE2] hover:bg-[#338BE2]/5 rounded-xl transition-all"
                     >
-                      <LayoutDashboard className="w-4 h-4 text-[#338BE2]/60" />
                       {link.label}
                     </motion.button>
                   ))}
@@ -259,14 +255,14 @@ export function Navbar({
                     Se connecter
                   </Button>
                   <Button
-                    className="w-full bg-[#338BE2] hover:bg-[#2074C6] text-white font-medium shadow-md shadow-[#338BE2]/25"
+                    className="w-full bg-[#338BE2] hover:bg-[#2074C6] text-white font-medium shadow-md shadow-[#338BE2]/25 gap-1.5"
                     onClick={() => {
                       setMobileOpen(false);
                       onSignup?.();
                     }}
                   >
-                    <Sparkles className="w-4 h-4" />
-                    S&rsquo;inscrire gratuitement
+                    Commencer
+                    <ArrowRight className="w-4 h-4" />
                   </Button>
                 </div>
               </div>

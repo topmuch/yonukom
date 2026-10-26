@@ -18,9 +18,15 @@ import { OnboardingWizard } from "@/components/onboarding/onboarding-wizard";
 import { Navbar } from "@/components/landing/Navbar";
 import { Hero } from "@/components/landing/Hero";
 import { Features } from "@/components/landing/Features";
-import { OfflineDemo } from "@/components/landing/OfflineDemo";
-import { Security } from "@/components/landing/Security";
+import { Benefits } from "@/components/landing/Benefits";
+import { HowItWorks } from "@/components/landing/HowItWorks";
+import { Statistics } from "@/components/landing/Statistics";
+import { MoreBenefits } from "@/components/landing/MoreBenefits";
+import { GlobalTransfer } from "@/components/landing/GlobalTransfer";
+import { Referral } from "@/components/landing/Referral";
+import { CompleteSolutions } from "@/components/landing/CompleteSolutions";
 import { Testimonials } from "@/components/landing/Testimonials";
+import { BigStat } from "@/components/landing/BigStat";
 import { Pricing } from "@/components/landing/Pricing";
 import { FAQ } from "@/components/landing/FAQ";
 import { FinalCTA } from "@/components/landing/FinalCTA";
@@ -153,9 +159,15 @@ export default function Home() {
           <main className="flex-1">
             <Hero onSignup={handleGoToSignup} />
             <Features onSignup={handleGoToSignup} />
-            <OfflineDemo />
-            <Security />
+            <Benefits onSignup={handleGoToSignup} />
+            <HowItWorks onSignup={handleGoToSignup} />
+            <Statistics />
+            <MoreBenefits onSignup={handleGoToSignup} />
+            <GlobalTransfer onSignup={handleGoToSignup} />
+            <Referral onSignup={handleGoToSignup} />
+            <CompleteSolutions onSignup={handleGoToSignup} />
             <Testimonials />
+            <BigStat />
             <Pricing onSignup={handleGoToSignup} />
             <FAQ />
             <FinalCTA onSignup={handleGoToSignup} />

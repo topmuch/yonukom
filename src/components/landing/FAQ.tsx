@@ -30,11 +30,15 @@ const faqs = [
     q: "Comment se passe le support technique ?",
     a: "Nous offrons un support WhatsApp 7j/7 pour tous les utilisateurs. Les clients Pro et Entreprise bénéficient d'un support prioritaire avec temps de réponse garanti.",
   },
+  {
+    q: "Acceptez-vous les paiements mobiles ?",
+    a: "Oui, YonuKom prend en charge Wave, Orange Money et Free Money dans tous les pays d'Afrique de l'Ouest où nous opérons.",
+  },
 ];
 
 export function FAQ() {
   return (
-    <section id="faq" className="py-20 sm:py-28 lg:py-32 bg-[#F6F9FE] relative">
+    <section id="faq" className="py-20 sm:py-24 lg:py-28 bg-white relative">
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Section header */}
         <motion.div
@@ -56,7 +60,7 @@ export function FAQ() {
               fréquentes
             </span>
           </h2>
-          <p className="mt-4 text-lg text-slate-500">
+          <p className="mt-4 text-base sm:text-lg text-slate-500 leading-relaxed">
             Tout ce que vous devez savoir avant de commencer.
           </p>
         </motion.div>

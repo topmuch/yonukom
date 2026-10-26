@@ -74,7 +74,10 @@ const plans: PricingPlan[] = [
 
 export function Pricing({ onSignup }: { onSignup?: () => void }) {
   return (
-    <section id="pricing" className="py-20 sm:py-28 lg:py-32 bg-white relative overflow-hidden">
+    <section
+      id="pricing"
+      className="py-20 sm:py-24 lg:py-28 bg-[#F6F9FE] relative overflow-hidden"
+    >
       {/* Decorative background */}
       <div
         className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] rounded-full blur-3xl opacity-30 pointer-events-none"
@@ -105,7 +108,7 @@ export function Pricing({ onSignup }: { onSignup?: () => void }) {
               adaptés à l&apos;Afrique
             </span>
           </h2>
-          <p className="mt-4 text-lg text-slate-500 leading-relaxed">
+          <p className="mt-4 text-base sm:text-lg text-slate-500 leading-relaxed">
             Pas de surprise. Des prix en FCFA, sans engagement, avec 14 jours
             d&apos;essai gratuit.
           </p>
