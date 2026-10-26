@@ -17,15 +17,15 @@ interface HeroProps {
 const SLIDES = [
   {
     src: "/hero-slides/hero-slide-1.png",
-    alt: "Commerçant souriant devant son tableau de bord YonuKom sur ordinateur portable",
+    alt: "Serveuse souriante dans un restaurant utilisant son smartphone pour encaisser — YonuKom adapté à la restauration",
   },
   {
     src: "/hero-slides/hero-slide-2.png",
-    alt: "Entrepreneuse africaine visualisant ses ventes et son stock depuis son smartphone avec YonuKom",
+    alt: "Entrepreneuse africaine en live-shopping de vêtements sur les réseaux sociaux depuis sa boutique — YonuKom pour le e-commerce",
   },
   {
     src: "/hero-slides/hero-slide-3.png",
-    alt: "Propriétaire de boutique consultant ses statistiques de croissance et son tableau de bord YonuKom",
+    alt: "Vendeuse dans une boutique de cosmétiques utilisant son smartphone pour gérer ses ventes — YonuKom pour le commerce de détail",
   },
 ];
 
