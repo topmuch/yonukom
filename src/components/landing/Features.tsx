@@ -22,7 +22,7 @@ const features: Feature[] = [
     color: "text-[#338BE2]",
     bg: "bg-[#338BE2]/10",
     image:
-      "https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=400&h=300&fit=crop",
+      "/images/feature-payment.jpg",
     imageFallback: "https://picsum.photos/seed/payment-mobile/400/300",
     alt: "Paiement mobile sur smartphone",
   },
@@ -33,7 +33,7 @@ const features: Feature[] = [
     color: "text-[#10B981]",
     bg: "bg-[#10B981]/10",
     image:
-      "https://images.unsplash.com/photo-1556761175-b413da4baf72?w=400&h=300&fit=crop",
+      "/images/feature-pos.jpg",
     imageFallback: "https://picsum.photos/seed/pos-cash-register/400/300",
     alt: "Caisse enregistreuse point de vente",
   },
@@ -44,7 +44,7 @@ const features: Feature[] = [
     color: "text-amber-500",
     bg: "bg-amber-100",
     image:
-      "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=400&h=300&fit=crop",
+      "/images/feature-analytics.jpg",
     imageFallback: "https://picsum.photos/seed/analytics-dashboard/400/300",
     alt: "Tableau de bord analytique",
   },
@@ -55,7 +55,7 @@ const features: Feature[] = [
     color: "text-[#B7BEDA]",
     bg: "bg-[#B7BEDA]/20",
     image:
-      "https://images.unsplash.com/photo-1563013544-824ae1b704d3?w=400&h=300&fit=crop",
+      "/images/feature-security.jpg",
     imageFallback: "https://picsum.photos/seed/security-shield/400/300",
     alt: "Sécurité et protection des données",
   },
