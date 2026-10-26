@@ -67,7 +67,7 @@ const plans: PricingPlan[] = [
       "SLA garanti",
     ],
     cta: "Nous contacter",
-    ctaHref: "#contact",
+    ctaHref: "/contact",
     ctaVariant: "outline",
   },
 ];
@@ -201,13 +201,20 @@ export function Pricing({ onSignup }: { onSignup?: () => void }) {
                     }`}
                     asChild
                   >
-                    <button
-                      type="button"
-                      onClick={plan.ctaHref === "/signup" ? onSignup : undefined}
-                    >
-                      {plan.cta}
-                      <ArrowRight className="w-4 h-4" />
-                    </button>
+                    {plan.ctaHref === "/signup" ? (
+                      <button
+                        type="button"
+                        onClick={onSignup}
+                      >
+                        {plan.cta}
+                        <ArrowRight className="w-4 h-4" />
+                      </button>
+                    ) : (
+                      <a href={plan.ctaHref}>
+                        {plan.cta}
+                        <ArrowRight className="w-4 h-4" />
+                      </a>
+                    )}
                   </Button>
                 </CardFooter>
               </Card>

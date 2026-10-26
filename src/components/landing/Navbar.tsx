@@ -92,10 +92,11 @@ export function Navbar({
               className="flex items-center gap-2 group"
               type="button"
             >
-              <div className="w-8 h-8 rounded-lg bg-[#338BE2] flex items-center justify-center group-hover:scale-105 transition-transform shadow-sm shadow-[#338BE2]/30">
-                <span className="text-white font-bold text-xs">YK</span>
-              </div>
-              <span className="text-base font-bold text-slate-900">YonuKom</span>
+              <img
+                src="/brand/logo.png"
+                alt="YonuKom"
+                className="h-8 w-auto object-contain group-hover:scale-105 transition-transform"
+              />
             </button>
             <Button
               variant="ghost"
@@ -202,14 +203,11 @@ export function Navbar({
               <div className="flex flex-col h-full">
                 {/* Header */}
                 <div className="flex items-center justify-between p-6 border-b border-slate-100">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#338BE2] to-[#2074C6] flex items-center justify-center shadow-md shadow-[#338BE2]/30">
-                      <span className="text-white font-bold text-sm">YK</span>
-                    </div>
-                    <span className="text-lg font-bold text-slate-900">
-                      YonuKom
-                    </span>
-                  </div>
+                  <img
+                    src="/brand/logo.png"
+                    alt="YonuKom"
+                    className="h-9 w-auto object-contain"
+                  />
                   <Button
                     variant="ghost"
                     size="icon"

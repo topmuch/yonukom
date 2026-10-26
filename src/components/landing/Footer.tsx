@@ -12,40 +12,41 @@ import {
   ArrowUp,
   X,
   ShieldCheck,
+  Phone,
 } from "lucide-react";
 
 const footerSections = [
   {
     title: "Produit",
     links: [
-      { label: "Fonctionnalités", href: "#features" },
-      { label: "Tarifs", href: "#pricing" },
-      { label: "FAQ", href: "#faq" },
-      { label: "Démo", href: "#" },
+      { label: "Fonctionnalités", href: "/#features" },
+      { label: "Tarifs", href: "/#pricing" },
+      { label: "FAQ", href: "/#faq" },
+      { label: "À propos", href: "/a-propos" },
     ],
   },
   {
     title: "Entreprise",
     links: [
-      { label: "À propos", href: "#about" },
-      { label: "Blog", href: "#" },
-      { label: "Carrières", href: "#" },
-      { label: "Contact", href: "#contact" },
+      { label: "À propos", href: "/a-propos" },
+      { label: "Contact", href: "/contact" },
+      { label: "Mentions légales", href: "/mentions-legales" },
+      { label: "CGU", href: "/cgu" },
     ],
   },
   {
     title: "Légal",
     links: [
-      { label: "Conditions d'utilisation", href: "#" },
-      { label: "Politique de confidentialité", href: "#" },
-      { label: "Mentions légales", href: "#" },
-      { label: "Cookies", href: "#" },
+      { label: "Conditions d'utilisation", href: "/cgu" },
+      { label: "Politique de confidentialité", href: "/confidentialite" },
+      { label: "Mentions légales", href: "/mentions-legales" },
+      { label: "Cookies", href: "/confidentialite#cookies" },
     ],
   },
 ];
 
 const socialLinks = [
-  { icon: MessageCircle, href: "#", label: "WhatsApp" },
+  { icon: MessageCircle, href: "https://wa.me/221783821822", label: "WhatsApp" },
   { icon: Facebook, href: "#", label: "Facebook" },
   { icon: Instagram, href: "#", label: "Instagram" },
 ];
@@ -70,7 +71,7 @@ export function Footer() {
   };
 
   return (
-    <footer id="contact" className="bg-slate-950 text-white relative overflow-hidden">
+    <footer className="bg-slate-950 text-white relative overflow-hidden">
       {/* Decorative gradient */}
       <div
         className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] rounded-full blur-3xl opacity-20 pointer-events-none"
@@ -85,11 +86,11 @@ export function Footer() {
         <div className="py-12 sm:py-16 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-10 lg:gap-8">
           {/* Brand column */}
           <div className="lg:col-span-2 space-y-5">
-            <div className="flex items-center gap-2.5">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#338BE2] to-[#2074C6] flex items-center justify-center shadow-md shadow-[#338BE2]/30">
-                <img src="/brand/logo-white.png" alt="YonuKom" className="h-7 w-auto" />
-              </div>
-            </div>
+            <img
+              src="/brand/logo-white.png"
+              alt="YonuKom"
+              className="h-10 w-auto object-contain"
+            />
             <p className="text-sm text-slate-400 leading-relaxed max-w-xs">
               Le logiciel de caisse et de gestion qui s&apos;adapte aux
               commerçants d&apos;Afrique de l&apos;Ouest. Ultra-rapide,
@@ -98,15 +99,22 @@ export function Footer() {
 
             <div className="space-y-2 pt-2">
               <a
-                href="mailto:contact@yonukom.sn"
+                href="mailto:contact@2mails.com"
                 className="flex items-center gap-2 text-sm text-slate-400 hover:text-[#5BA5EA] transition-colors"
               >
                 <Mail className="w-4 h-4" />
-                contact@yonukom.sn
+                contact@2mails.com
+              </a>
+              <a
+                href="tel:+221783821822"
+                className="flex items-center gap-2 text-sm text-slate-400 hover:text-[#5BA5EA] transition-colors"
+              >
+                <Phone className="w-4 h-4" />
+                +221 78 382 18 22
               </a>
               <p className="flex items-center gap-2 text-sm text-slate-400">
                 <MapPin className="w-4 h-4" />
-                Dakar, Sénégal
+                2m Sicap Foire, Dakar, Sénégal
               </p>
             </div>
 
