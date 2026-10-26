@@ -223,16 +223,16 @@ export function Hero({ onSignup }: HeroProps) {
           >
             {/* Slide container — 9:16 vertical aspect ratio */}
             <div className="relative w-full max-w-[420px] aspect-[9/16] rounded-3xl overflow-hidden shadow-2xl shadow-[#338BE2]/25 border border-white/60 bg-white">
-              {/* Slide images with crossfade */}
+              {/* Slide images with slide-down transition (new image enters from top, old exits to bottom) */}
               <AnimatePresence mode="popLayout">
                 <motion.img
                   key={currentSlide}
                   src={SLIDES[currentSlide].src}
                   alt={SLIDES[currentSlide].alt}
-                  initial={{ opacity: 0, scale: 1.04 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.98 }}
-                  transition={{ duration: 0.8, ease: "easeInOut" }}
+                  initial={{ y: "-100%", opacity: 0.4 }}
+                  animate={{ y: "0%", opacity: 1 }}
+                  exit={{ y: "100%", opacity: 0.4 }}
+                  transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
                   className="absolute inset-0 w-full h-full object-cover"
                   loading="eager"
                 />
