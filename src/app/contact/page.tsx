@@ -11,12 +11,31 @@ import { LegalPageLayout } from "@/components/landing/LegalPageLayout";
 export default function ContactPage() {
   const [form, setForm] = useState({ name: "", email: "", message: "" });
   const [sent, setSent] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSent(true);
-    setTimeout(() => setSent(false), 5000);
-    setForm({ name: "", email: "", message: "" });
+    setError(null);
+    setLoading(true);
+    try {
+      const res = await fetch("/api/contact/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Erreur lors de l'envoi");
+      }
+      setSent(true);
+      setTimeout(() => setSent(false), 6000);
+      setForm({ name: "", email: "", message: "" });
+    } catch (err: any) {
+      setError(err.message || "Erreur lors de l'envoi du message");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -130,12 +149,17 @@ export default function ContactPage() {
                 Remplissez ce formulaire et nous vous répondrons par email sous
                 24h.
               </p>
-              {sent && (
+                {sent && (
                 <div className="mb-4 p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm flex items-start gap-2">
                   <Send className="w-4 h-4 mt-0.5 shrink-0" />
                   <span>
                     Votre message a été envoyé ! Nous vous répondrons sous 24h.
                   </span>
+                </div>
+              )}
+              {error && (
+                <div className="mb-4 p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-sm">
+                  {error}
                 </div>
               )}
               <form onSubmit={handleSubmit} className="space-y-4">
@@ -178,10 +202,20 @@ export default function ContactPage() {
                 </div>
                 <Button
                   type="submit"
+                  disabled={loading}
                   className="w-full bg-[#338BE2] hover:bg-[#2074C6] text-white gap-2"
                 >
-                  <Send className="w-4 h-4" />
-                  Envoyer
+                  {loading ? (
+                    <>
+                      <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                      Envoi en cours...
+                    </>
+                  ) : (
+                    <>
+                      <Send className="w-4 h-4" />
+                      Envoyer
+                    </>
+                  )}
                 </Button>
               </form>
             </div>

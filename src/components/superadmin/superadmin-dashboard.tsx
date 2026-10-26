@@ -75,6 +75,7 @@ const NAV_ITEMS: { page: SuperadminPage; icon: typeof BarChart3; label: string }
   { page: "users", icon: Users, label: "Utilisateurs" },
   { page: "subscriptions", icon: CreditCard, label: "Abonnements" },
   { page: "analytics", icon: TrendingUp, label: "Analytics" },
+  { page: "messages", icon: Mail, label: "Messages" },
   { page: "logs", icon: ScrollText, label: "Logs" },
   { page: "settings", icon: SettingsIcon, label: "Paramètres" },
 ];
@@ -336,6 +337,7 @@ export function SuperadminDashboard() {
                 {activePage === "users" && <UsersPage />}
                 {activePage === "subscriptions" && <SubscriptionsPage />}
                 {activePage === "analytics" && <AnalyticsPage onRefresh={fetchMetrics} />}
+                {activePage === "messages" && <MessagesPage />}
                 {activePage === "logs" && <LogsPage />}
                 {activePage === "settings" && <SettingsPage />}
               </motion.div>
@@ -2519,6 +2521,296 @@ function SettingsPage() {
           </div>
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+// ============================================================
+// MESSAGES PAGE — messages reçus du formulaire de contact
+// ============================================================
+
+interface ContactMessageItem {
+  id: string;
+  name: string;
+  email: string;
+  message: string;
+  status: "new" | "read" | "archived";
+  adminNote: string | null;
+  createdAt: string;
+}
+
+function MessagesPage() {
+  const [messages, setMessages] = useState<ContactMessageItem[]>([]);
+  const [counts, setCounts] = useState<Record<string, number>>({ new: 0, read: 0, archived: 0 });
+  const [filter, setFilter] = useState<"all" | "new" | "read" | "archived">("all");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [selected, setSelected] = useState<ContactMessageItem | null>(null);
+
+  const fetchMessages = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const qs = filter === "all" ? "" : `?status=${filter}`;
+      const res = await fetch(`/api/superadmin/messages${qs}`);
+      if (!res.ok) throw new Error("Erreur lors du chargement");
+      const data = await res.json();
+      setMessages(data.messages || []);
+      setCounts(data.counts || { new: 0, read: 0, archived: 0 });
+    } catch (err: any) {
+      setError(err.message || "Erreur");
+    } finally {
+      setLoading(false);
+    }
+  }, [filter]);
+
+  useEffect(() => {
+    fetchMessages();
+  }, [fetchMessages]);
+
+  const updateStatus = async (id: string, status: "new" | "read" | "archived") => {
+    await fetch(`/api/superadmin/messages/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status }),
+    });
+    fetchMessages();
+    if (selected?.id === id) {
+      setSelected((s) => (s ? { ...s, status } : s));
+    }
+  };
+
+  const deleteMessage = async (id: string) => {
+    if (!confirm("Supprimer ce message définitivement ?")) return;
+    await fetch(`/api/superadmin/messages/${id}`, { method: "DELETE" });
+    if (selected?.id === id) setSelected(null);
+    fetchMessages();
+  };
+
+  const openMessage = (msg: ContactMessageItem) => {
+    setSelected(msg);
+    if (msg.status === "new") {
+      updateStatus(msg.id, "read");
+    }
+  };
+
+  const formatDate = (iso: string) => {
+    const d = new Date(iso);
+    return d.toLocaleString("fr-FR", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Header + stats */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
+            <Mail className="w-6 h-6 text-[#338BE2]" />
+            Messages de contact
+          </h2>
+          <p className="text-sm text-slate-500 mt-1">
+            Messages reçus depuis le formulaire de la page /contact
+          </p>
+        </div>
+        <button
+          onClick={fetchMessages}
+          disabled={loading}
+          className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 text-sm font-medium disabled:opacity-50"
+        >
+          <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+          Rafraîchir
+        </button>
+      </div>
+
+      {/* Stats cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <button
+          onClick={() => setFilter("all")}
+          className={`text-left p-4 rounded-xl border transition-all ${
+            filter === "all"
+              ? "bg-[#338BE2]/5 border-[#338BE2]/30"
+              : "bg-white border-slate-200 hover:border-slate-300"
+          }`}
+        >
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Total</p>
+          <p className="text-2xl font-bold text-slate-900 mt-1">
+            {(counts.new || 0) + (counts.read || 0) + (counts.archived || 0)}
+          </p>
+        </button>
+        <button
+          onClick={() => setFilter("new")}
+          className={`text-left p-4 rounded-xl border transition-all ${
+            filter === "new"
+              ? "bg-[#338BE2]/5 border-[#338BE2]/30"
+              : "bg-white border-slate-200 hover:border-slate-300"
+          }`}
+        >
+          <p className="text-xs font-semibold uppercase tracking-wide text-[#338BE2]">Non lus</p>
+          <p className="text-2xl font-bold text-[#338BE2] mt-1">{counts.new || 0}</p>
+        </button>
+        <button
+          onClick={() => setFilter("read")}
+          className={`text-left p-4 rounded-xl border transition-all ${
+            filter === "read"
+              ? "bg-emerald-50 border-emerald-200"
+              : "bg-white border-slate-200 hover:border-slate-300"
+          }`}
+        >
+          <p className="text-xs font-semibold uppercase tracking-wide text-emerald-600">Lus</p>
+          <p className="text-2xl font-bold text-emerald-700 mt-1">{counts.read || 0}</p>
+        </button>
+        <button
+          onClick={() => setFilter("archived")}
+          className={`text-left p-4 rounded-xl border transition-all ${
+            filter === "archived"
+              ? "bg-slate-100 border-slate-300"
+              : "bg-white border-slate-200 hover:border-slate-300"
+          }`}
+        >
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Archivés</p>
+          <p className="text-2xl font-bold text-slate-700 mt-1">{counts.archived || 0}</p>
+        </button>
+      </div>
+
+      {error && (
+        <div className="p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-sm">
+          {error}
+        </div>
+      )}
+
+      {/* Messages list + detail panel */}
+      <div className="grid lg:grid-cols-2 gap-4">
+        {/* List */}
+        <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+          <div className="p-4 border-b border-slate-100 flex items-center justify-between">
+            <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wide">
+              {filter === "all" ? "Tous les messages" : filter === "new" ? "Non lus" : filter === "read" ? "Lus" : "Archivés"}
+            </h3>
+            <span className="text-xs text-slate-500">{messages.length}</span>
+          </div>
+          <div className="max-h-[600px] overflow-y-auto">
+            {loading ? (
+              <div className="p-8 text-center">
+                <Loader2 className="w-6 h-6 text-slate-400 mx-auto animate-spin" />
+                <p className="text-sm text-slate-500 mt-2">Chargement...</p>
+              </div>
+            ) : messages.length === 0 ? (
+              <div className="p-12 text-center">
+                <Mail className="w-10 h-10 text-slate-300 mx-auto" />
+                <p className="text-sm text-slate-500 mt-3">Aucun message pour ce filtre</p>
+              </div>
+            ) : (
+              <ul className="divide-y divide-slate-100">
+                {messages.map((m) => (
+                  <li key={m.id}>
+                    <button
+                      onClick={() => openMessage(m)}
+                      className={`w-full text-left p-4 hover:bg-slate-50 transition-colors ${
+                        selected?.id === m.id ? "bg-[#338BE2]/5" : ""
+                      }`}
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className={`w-2 h-2 rounded-full mt-2 shrink-0 ${
+                          m.status === "new" ? "bg-[#338BE2] animate-pulse" : "bg-slate-300"
+                        }`} />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-2">
+                            <p className={`text-sm truncate ${
+                              m.status === "new" ? "font-bold text-slate-900" : "font-medium text-slate-700"
+                            }`}>
+                              {m.name}
+                            </p>
+                            <span className="text-[10px] text-slate-400 shrink-0">
+                              {formatDate(m.createdAt)}
+                            </span>
+                          </div>
+                          <p className="text-xs text-slate-500 truncate mt-0.5">{m.email}</p>
+                          <p className="text-xs text-slate-600 mt-1 line-clamp-2">{m.message}</p>
+                        </div>
+                      </div>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+
+        {/* Detail panel */}
+        <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden lg:sticky lg:top-4 h-fit">
+          {selected ? (
+            <div className="p-6 space-y-4">
+              <div className="flex items-start justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-[#338BE2] flex items-center justify-center text-white font-bold">
+                    {selected.name.charAt(0).toUpperCase()}
+                  </div>
+                  <div>
+                    <p className="font-bold text-slate-900">{selected.name}</p>
+                    <a href={`mailto:${selected.email}`} className="text-sm text-[#338BE2] hover:underline">
+                      {selected.email}
+                    </a>
+                  </div>
+                </div>
+                <span className={`text-[10px] font-semibold uppercase px-2 py-1 rounded-full ${
+                  selected.status === "new" ? "bg-[#338BE2]/10 text-[#338BE2]" :
+                  selected.status === "read" ? "bg-emerald-100 text-emerald-700" :
+                  "bg-slate-100 text-slate-600"
+                }`}>
+                  {selected.status === "new" ? "Non lu" : selected.status === "read" ? "Lu" : "Archivé"}
+                </span>
+              </div>
+
+              <div className="text-xs text-slate-400">
+                Reçu le {formatDate(selected.createdAt)}
+              </div>
+
+              <div className="bg-slate-50 rounded-xl p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-2">Message</p>
+                <p className="text-sm text-slate-800 whitespace-pre-wrap leading-relaxed">
+                  {selected.message}
+                </p>
+              </div>
+
+              {/* Actions */}
+              <div className="flex flex-wrap items-center gap-2 pt-2">
+                <a
+                  href={`mailto:${selected.email}?subject=Re: Votre message à YonuKom&body=Bonjour ${encodeURIComponent(selected.name)},%0D%0A%0D%0AMerci pour votre message.%0D%0A%0D%0A`}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#338BE2] hover:bg-[#2074C6] text-white text-xs font-semibold"
+                >
+                  <Mail className="w-3.5 h-3.5" />
+                  Répondre par email
+                </a>
+                <button
+                  onClick={() => updateStatus(selected.id, selected.status === "archived" ? "read" : "archived")}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 text-xs font-semibold"
+                >
+                  {selected.status === "archived" ? "Désarchiver" : "Archiver"}
+                </button>
+                <button
+                  onClick={() => deleteMessage(selected.id)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-rose-200 text-rose-600 hover:bg-rose-50 text-xs font-semibold ml-auto"
+                >
+                  Supprimer
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="p-12 text-center">
+              <Mail className="w-10 h-10 text-slate-300 mx-auto" />
+              <p className="text-sm text-slate-500 mt-3">
+                Sélectionnez un message pour voir le détail
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

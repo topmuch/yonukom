@@ -525,3 +525,26 @@ model PlatformLog {
   @@index([category])
   @@index([createdAt])
 }
+
+/// Messages envoyés depuis le formulaire de contact de la page /contact.
+/// Accessibles en lecture par le superadmin via le bouton "Messages".
+model ContactMessage {
+  id          String   @id @default(cuid())
+  /// Nom complet du contact
+  name        String
+  /// Email du contact
+  email       String
+  /// Contenu du message
+  message     String
+  /// Statut: "new" (non lu) | "read" (lu) | "archived"
+  status      String   @default("new")
+  /// Note interne du superadmin (optionnel)
+  adminNote   String?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([status])
+  @@index([createdAt])
+  @@index([email])
+}

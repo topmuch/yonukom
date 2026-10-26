@@ -14,71 +14,46 @@ interface FinalCTAProps {
   onSignup?: () => void;
 }
 
-// QR code visual — stylized pixel grid resembling a QR code
+// QR code pointing to the PWA install URL.
+// Uses the public api.qrserver.com service which renders a real, scannable QR
+// code on the fly. When scanned with any smartphone camera, it opens the
+// YonuKom web app (which is a PWA — the browser will offer "Add to home
+// screen" = install the app, no Play Store needed).
 function QRCodeVisual() {
-  // 21x21 grid pattern (typical QR code size)
-  const size = 21;
-  // Deterministic pattern based on position
-  const isFilled = (r: number, c: number) => {
-    // Corner finder patterns (7x7) — top-left, top-right, bottom-left
-    const isFinder = (or: number, oc: number) => {
-      const dr = r - or;
-      const dc = c - oc;
-      if (dr < 0 || dr > 6 || dc < 0 || dc > 6) return null;
-      // outer ring + inner 3x3
-      if (dr === 0 || dr === 6 || dc === 0 || dc === 6) return true;
-      if (dr >= 2 && dr <= 4 && dc >= 2 && dc <= 4) return true;
-      return false;
-    };
-    const tl = isFinder(0, 0);
-    if (tl !== null) return tl;
-    const tr = isFinder(0, size - 7);
-    if (tr !== null) return tr;
-    const bl = isFinder(size - 7, 0);
-    if (bl !== null) return bl;
-    // Alignment pattern (bottom-right) — 5x5
-    const ar = r - (size - 9);
-    const ac = c - (size - 9);
-    if (ar >= 0 && ar <= 4 && ac >= 0 && ac <= 4) {
-      if (ar === 0 || ar === 4 || ac === 0 || ac === 4) return true;
-      if (ar === 2 && ac === 2) return true;
-      return false;
-    }
-    // Timing patterns
-    if (r === 6 || c === 6) return (r + c) % 2 === 0;
-    // Pseudo-random data
-    return (r * 7 + c * 11 + (r ^ c)) % 3 === 0;
-  };
+  // PWA URL = the live site root, where the manifest.json + service worker
+  // are registered. Scanning this code opens the site on the user's phone,
+  // and the browser prompts them to install the PWA.
+  const pwaUrl = "https://yonukom.qrtags.pro/";
+
+  // QR Server API: returns a PNG QR code at the requested size, with quiet zone
+  const qrSrc = `https://api.qrserver.com/v1/create-qr-code/?size=240x240&margin=8&color=1E293B&bgcolor=FFFFFF&data=${encodeURIComponent(
+    pwaUrl
+  )}`;
 
   return (
-    <div className="bg-white p-4 rounded-2xl shadow-lg border border-slate-100">
-      <div
-        className="grid gap-0.5"
-        style={{
-          gridTemplateColumns: `repeat(${size}, 1fr)`,
-          width: "180px",
-          height: "180px",
-        }}
-      >
-        {Array.from({ length: size * size }).map((_, i) => {
-          const r = Math.floor(i / size);
-          const c = i % size;
-          const filled = isFilled(r, c);
-          return (
-            <div
-              key={i}
-              className={filled ? "bg-slate-900" : "bg-white"}
-            />
-          );
-        })}
-      </div>
+    <a
+      href={pwaUrl}
+      target="_blank"
+      rel="noopener noreferrer"
+      aria-label="Scanner ce QR code pour installer l'application YonuKom"
+      className="block bg-white p-4 rounded-2xl shadow-lg border border-slate-100 hover:shadow-xl transition-shadow"
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={qrSrc}
+        alt="QR code — scannez pour installer l'application YonuKom"
+        width={180}
+        height={180}
+        loading="lazy"
+        className="block"
+      />
       <div className="mt-3 flex items-center justify-center gap-1.5">
         <QrCode className="w-3.5 h-3.5 text-[#338BE2]" />
         <span className="text-[10px] font-semibold text-slate-600 uppercase tracking-wider">
-          Scannez pour télécharger
+          Scannez pour installer
         </span>
       </div>
-    </div>
+    </a>
   );
 }
 

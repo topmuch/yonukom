@@ -17,14 +17,15 @@ import {
 } from "lucide-react";
 
 const navLinks = [
-  { label: "À propos", href: "#about" },
-  { label: "Fonctionnalités", href: "#features" },
-  { label: "Tarifs", href: "#pricing" },
-  { label: "FAQ", href: "#faq" },
-      { label: "Contact", href: "/contact" },
+  { label: "YonuKom", href: "/yonukom" },
+  { label: "À propos", href: "/a-propos" },
+  { label: "Fonctionnalités", href: "/fonctionnalites" },
+  { label: "Tarifs", href: "/tarifs" },
+  { label: "FAQ", href: "/faq" },
+  { label: "Contact", href: "/contact" },
 ];
 
-const sectionIds = ["about", "features", "pricing", "faq"];
+const sectionIds: string[] = []; // plus aucune section à suivre — tout est en multi-pages
 
 interface NavbarProps {
   onLogin?: () => void;
@@ -73,6 +74,13 @@ export function Navbar({
 
   const handleNavClick = useCallback(
     (e: React.MouseEvent, href: string) => {
+      // Les liens qui commencent par "/" sont des routes réelles (pas des ancres)
+      // On laisse le navigateur faire la navigation normale
+      if (href.startsWith("/")) {
+        setMobileOpen(false);
+        return; // ne pas preventDefault — navigation naturelle vers la route
+      }
+      // Les liens qui commencent par "#" sont des ancres vers une section de la page
       e.preventDefault();
       const id = href.replace("#", "");
       scrollToSection(id);

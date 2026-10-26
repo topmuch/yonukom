@@ -19,10 +19,10 @@ const footerSections = [
   {
     title: "Produit",
     links: [
-      { label: "Fonctionnalités", href: "/#features" },
-      { label: "Tarifs", href: "/#pricing" },
-      { label: "FAQ", href: "/#faq" },
-      { label: "À propos", href: "/a-propos" },
+      { label: "YonuKom — Concept", href: "/yonukom" },
+      { label: "Fonctionnalités", href: "/fonctionnalites" },
+      { label: "Tarifs", href: "/tarifs" },
+      { label: "FAQ", href: "/faq" },
     ],
   },
   {
