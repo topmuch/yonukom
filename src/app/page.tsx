@@ -82,7 +82,6 @@ type PageView = "landing" | "login" | "signup" | "app";
 export default function Home() {
   const user = useAuthStore((s) => s.user);
   const authLoaded = useAuthStore((s) => s.isLoaded);
-  const isOnboarded = useConfigStore((s) => s.isOnboarded);
   const configLoaded = useConfigStore((s) => s.isLoaded);
 
   // Page view state — starts at landing, changes via user actions or auto-login
@@ -91,15 +90,17 @@ export default function Home() {
   // Success message displayed on the login screen after a successful signup
   const [signupSuccess, setSignupSuccess] = useState<string | null>(null);
 
-  // Auto-redirect to app if already logged in (from localStorage hydration)
-  // Use a ref to avoid re-running on every render
+  // Auto-redirect to app if already logged in (from localStorage hydration).
+  // On redirige dès qu'un user est présent en localStorage, peu importe
+  // isOnboarded. La vue "app" gère elle-même l'onboarding si isOnboarded=false
+  // (elle affiche alors OnboardingWizard). Cela évite que LoginOrSignupView
+  // ne se mette à afficher l'onboarding à la place du formulaire de login/signup.
   const hasAutoRedirected = useState(false);
   if (
     !hasAutoRedirected[0] &&
     authLoaded &&
     configLoaded &&
     user &&
-    isOnboarded &&
     view === "landing"
   ) {
     hasAutoRedirected[1](true);
@@ -107,12 +108,21 @@ export default function Home() {
   }
 
   // CRITICAL: When user becomes null (logout), immediately switch back to landing
-  // with NO transition delay. This ensures the app view unmounts instantly.
+  // with NO transition delay. This ensures the app view unounts instantly.
   // We compute the effective view synchronously (during render) AND mirror it
   // into state via useEffect so the change persists across re-renders.
   useEffect(() => {
     if (!user && view === "app") {
       setView("landing");
+    }
+  }, [user, view]);
+
+  // Si l'utilisateur est déjà connecté (via login ou hydratation localStorage)
+  // mais que view est encore "login" ou "signup", on bascule en "app".
+  // Cela évite qu'un user connecté reste bloqué sur la page de login/signup.
+  useEffect(() => {
+    if (user && (view === "login" || view === "signup")) {
+      setView("app");
     }
   }, [user, view]);
 
@@ -241,18 +251,11 @@ function LoginOrSignupView({
   signupSuccess?: string | null;
   onSignupSuccess: (message: string) => void;
 }) {
-  const isOnboarded = useConfigStore((s) => s.isOnboarded);
-  const user = useAuthStore((s) => s.user);
-
-  // After login, check onboarding
-  if (user && !isOnboarded) {
-    return (
-      <div className="min-h-screen bg-background">
-        <Navbar variant="app" onBackToHome={onBackToHome} />
-        <OnboardingWizard onComplete={onLoginSuccess} />
-      </div>
-    );
-  }
+  // IMPORTANT : LoginOrSignupView ne doit JAMAIS afficher OnboardingWizard.
+  // Si l'utilisateur arrive ici, c'est qu'il n'est PAS encore connecté
+  // (sinon l'auto-redirect l'aurait envoyé en vue "app" qui gère elle-même
+  // l'onboarding). On affiche donc simplement SignupScreen ou LoginScreen
+  // selon le mode demandé.
 
   if (mode === "signup") {
     return (
