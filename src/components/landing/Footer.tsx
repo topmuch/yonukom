@@ -87,9 +87,8 @@ export function Footer() {
           <div className="lg:col-span-2 space-y-5">
             <div className="flex items-center gap-2.5">
               <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#338BE2] to-[#2074C6] flex items-center justify-center shadow-md shadow-[#338BE2]/30">
-                <span className="text-white font-bold text-sm">YK</span>
+                <img src="/brand/logo-white.png" alt="YonuKom" className="h-7 w-auto" />
               </div>
-              <span className="text-xl font-bold tracking-tight">YonuKom</span>
             </div>
             <p className="text-sm text-slate-400 leading-relaxed max-w-xs">
               Le logiciel de caisse et de gestion qui s&apos;adapte aux

@@ -149,7 +149,7 @@ export function AppShell({ activeTab, onTabChange, children }: AppShellProps) {
         <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <div className={`w-9 h-9 rounded-xl bg-gradient-to-br ${activeTabConfig.gradient} flex items-center justify-center shadow-md`}>
-              <span className="text-white font-bold text-sm">YK</span>
+              <img src="/brand/logo-white.png" alt="YonuKom" className="h-7 w-auto" />
             </div>
             <div className="flex flex-col">
               <span className="font-bold text-base leading-tight text-slate-900">

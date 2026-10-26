@@ -21,6 +21,7 @@ const navLinks = [
   { label: "Fonctionnalités", href: "#features" },
   { label: "Tarifs", href: "#pricing" },
   { label: "FAQ", href: "#faq" },
+      { label: "Contact", href: "/contact" },
 ];
 
 const sectionIds = ["about", "features", "pricing", "faq"];
@@ -130,10 +131,8 @@ export function Navbar({
             onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
             className="flex items-center gap-2.5 group shrink-0"
           >
-            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-[#338BE2] to-[#2074C6] flex items-center justify-center group-hover:scale-105 transition-transform shadow-md shadow-[#338BE2]/30">
-              <span className="text-white font-bold text-sm sm:text-base">YK</span>
+            <img src="/brand/logo.png" alt="YonuKom" className="h-8 sm:h-10 w-auto object-contain group-hover:scale-105 transition-transform" />
             </div>
-            <span className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900">
               YonuKom
             </span>
           </button>
