@@ -1,5 +1,5 @@
 // ============================================================
-// YonuKom — AppShell (Phase 5) — Premium Blue Theme
+// YonuKom — AppShell (Phase 5) — Premium Blue Theme + Vibrant accents
 // Main application shell wrapping the dashboard after onboarding.
 // Blue sidebar + sticky header with search + bottom nav (mobile)
 // Tabs are dynamic based on active modules (config)
@@ -23,26 +23,91 @@ import {
   Search,
   Bell,
   X,
+  History,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { Input } from "@/components/ui/input";
 
-export type TabId = "home" | "pos" | "stock" | "orders" | "pipeline" | "settings";
+export type TabId =
+  | "home"
+  | "pos"
+  | "stock"
+  | "orders"
+  | "history"
+  | "pipeline"
+  | "settings";
 
 interface TabConfig {
   id: TabId;
   label: string;
   icon: React.ElementType;
+  /** Tailwind gradient classes (from-x to-y) used as accent */
+  gradient: string;
+  /** Solid accent color used on the mobile bottom nav indicator */
+  accent: string;
+  /** Hex used for the desktop sidebar active icon color */
+  color: string;
 }
 
 // All possible tabs — filtered dynamically per business config
+// Each tab carries its own vibrant accent color (POS=blue, Stock=emerald, etc.)
 const ALL_TABS: TabConfig[] = [
-  { id: "home", label: "Accueil", icon: Home },
-  { id: "pos", label: "Vente", icon: ShoppingBag },
-  { id: "stock", label: "Stock", icon: Package },
-  { id: "orders", label: "Commandes", icon: ClipboardList },
-  { id: "pipeline", label: "Pipeline", icon: Building2 },
-  { id: "settings", label: "Paramètres", icon: Settings },
+  {
+    id: "home",
+    label: "Accueil",
+    icon: Home,
+    gradient: "from-blue-500 to-indigo-500",
+    accent: "bg-blue-500",
+    color: "#3B82F6",
+  },
+  {
+    id: "pos",
+    label: "Vente",
+    icon: ShoppingBag,
+    gradient: "from-[#338BE2] to-cyan-500",
+    accent: "bg-[#338BE2]",
+    color: "#338BE2",
+  },
+  {
+    id: "stock",
+    label: "Stock",
+    icon: Package,
+    gradient: "from-emerald-500 to-teal-500",
+    accent: "bg-emerald-500",
+    color: "#10B981",
+  },
+  {
+    id: "orders",
+    label: "Commandes",
+    icon: ClipboardList,
+    gradient: "from-amber-500 to-orange-500",
+    accent: "bg-amber-500",
+    color: "#F59E0B",
+  },
+  {
+    id: "history",
+    label: "Historique",
+    icon: History,
+    gradient: "from-rose-500 to-pink-500",
+    accent: "bg-rose-500",
+    color: "#F43F5E",
+  },
+  {
+    id: "pipeline",
+    label: "Pipeline",
+    icon: Building2,
+    gradient: "from-violet-500 to-purple-500",
+    accent: "bg-violet-500",
+    color: "#8B5CF6",
+  },
+  {
+    id: "settings",
+    label: "Paramètres",
+    icon: Settings,
+    gradient: "from-slate-500 to-slate-700",
+    accent: "bg-slate-500",
+    color: "#64748B",
+  },
 ];
 
 interface AppShellProps {
@@ -72,8 +137,9 @@ export function AppShell({ activeTab, onTabChange, children }: AppShellProps) {
     return ALL_TABS.filter((t) => t.id !== "pipeline");
   }, [config?.pipeline_b2b, config?.ecommerce_social]);
 
-  const activeTabLabel =
-    tabs.find((t) => t.id === activeTab)?.label ?? "Accueil";
+  const activeTabConfig =
+    tabs.find((t) => t.id === activeTab) ?? ALL_TABS[0];
+  const activeTabLabel = activeTabConfig.label;
 
   return (
     <div className="min-h-screen flex flex-col bg-[#F6F9FE]">
@@ -81,7 +147,7 @@ export function AppShell({ activeTab, onTabChange, children }: AppShellProps) {
       <header className="lg:hidden sticky top-0 z-40 bg-white/85 backdrop-blur-xl border-b border-[#338BE2]/10">
         <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#338BE2] to-[#2074C6] flex items-center justify-center shadow-md shadow-[#338BE2]/30">
+            <div className={`w-9 h-9 rounded-xl bg-gradient-to-br ${activeTabConfig.gradient} flex items-center justify-center shadow-md`}>
               <span className="text-white font-bold text-sm">YK</span>
             </div>
             <div className="flex flex-col">
@@ -167,8 +233,9 @@ export function AppShell({ activeTab, onTabChange, children }: AppShellProps) {
                   flex flex-col items-center justify-center gap-1
                   min-h-[56px] min-w-[48px] flex-1 py-2
                   transition-colors duration-150 relative
-                  ${isActive ? "text-[#338BE2]" : "text-slate-400 hover:text-slate-600"}
+                  ${isActive ? "text-slate-900" : "text-slate-400 hover:text-slate-600"}
                 `}
+                style={isActive ? { color: tab.color } : undefined}
               >
                 {isActive ? (
                   <motion.div
@@ -178,7 +245,7 @@ export function AppShell({ activeTab, onTabChange, children }: AppShellProps) {
                     <Icon className="w-5 h-5" strokeWidth={2.4} />
                     <motion.div
                       layoutId="nav-indicator"
-                      className="absolute -bottom-1 h-0.5 w-5 rounded-full bg-[#338BE2]"
+                      className={`absolute -bottom-1 h-0.5 w-5 rounded-full ${tab.accent}`}
                       transition={{ type: "spring", stiffness: 350, damping: 30 }}
                     />
                   </motion.div>
@@ -194,7 +261,7 @@ export function AppShell({ activeTab, onTabChange, children }: AppShellProps) {
         </div>
       </nav>
 
-      {/* ---- Desktop Sidebar (lg+) — BLUE — matches uploaded dashboard ---- */}
+      {/* ---- Desktop Sidebar (lg+) — BLUE with vibrant per-tab accents ---- */}
       <aside className="hidden lg:flex fixed left-0 top-0 bottom-0 w-60 bg-gradient-to-b from-[#338BE2] to-[#2074C6] text-white shadow-[8px_0_24px_-12px_rgba(51,139,226,0.4)] flex-col z-40">
         {/* Logo header */}
         <div className="px-5 py-5 flex items-center gap-2.5 border-b border-white/15">
@@ -225,7 +292,7 @@ export function AppShell({ activeTab, onTabChange, children }: AppShellProps) {
           </div>
         </div>
 
-        {/* Nav — white-on-blue */}
+        {/* Nav — white-on-blue, with vibrant accent for the active item */}
         <nav
           className="flex-1 py-3 px-3 space-y-1 overflow-y-auto"
           role="tablist"
@@ -247,20 +314,32 @@ export function AppShell({ activeTab, onTabChange, children }: AppShellProps) {
                 onClick={() => onTabChange(tab.id)}
                 className={`
                   w-full flex items-center gap-3 px-3 py-2.5 rounded-xl
-                  transition-all duration-150 min-h-[44px] font-medium text-sm
+                  transition-all duration-150 min-h-[44px] font-medium text-sm relative overflow-hidden
                   ${
                     isActive
-                      ? "bg-white text-[#338BE2] shadow-md"
+                      ? "bg-white text-slate-900 shadow-md"
                       : "text-white/90 hover:bg-white/15 hover:text-white"
                   }
                 `}
               >
-                <Icon className="w-5 h-5" strokeWidth={isActive ? 2.4 : 1.8} />
-                <span>{tab.label}</span>
+                {/* Vibrant gradient strip on the left for active items */}
+                {isActive && (
+                  <span
+                    className={`absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b ${tab.gradient}`}
+                  />
+                )}
+                {/* Icon — colored when active */}
+                <Icon
+                  className="w-5 h-5 relative z-10"
+                  strokeWidth={isActive ? 2.4 : 1.8}
+                  style={isActive ? { color: tab.color } : undefined}
+                />
+                <span className="relative z-10">{tab.label}</span>
                 {isActive && (
                   <motion.span
                     layoutId="sidebar-active-dot"
-                    className="ml-auto w-1.5 h-1.5 rounded-full bg-[#338BE2]"
+                    className="ml-auto w-1.5 h-1.5 rounded-full"
+                    style={{ backgroundColor: tab.color }}
                   />
                 )}
               </button>

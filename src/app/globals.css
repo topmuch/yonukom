@@ -52,6 +52,11 @@
   --color-yk-amber-light: var(--yk-amber-light);
   --color-yk-lavender: var(--yk-lavender);
   --color-yk-surface: var(--yk-surface);
+  /* Vibrant accent tokens */
+  --color-yk-coral: var(--yk-coral);
+  --color-yk-mint: var(--yk-mint);
+  --color-yk-sun: var(--yk-sun);
+  --color-yk-grape: var(--yk-grape);
 }
 
 /* ============================================================
@@ -75,6 +80,12 @@
   --yk-amber-light: oklch(0.90 0.10 55);    /* Orange clair */
   --yk-lavender: oklch(0.79 0.043 256);     /* #B7BEDA Lavande claire */
   --yk-surface: oklch(0.985 0.005 250);     /* #F6F9FE Bleu très clair (page bg) */
+
+  /* Vibrant accent tokens — more colorful palette */
+  --yk-coral: #FF6B6B;                       /* Corail chaleureux */
+  --yk-mint: #4ECDC4;                        /* Menthe fraîche */
+  --yk-sun: #FFE66D;                         /* Soleil (jaune doux) */
+  --yk-grape: #A78BFA;                       /* Raisin lavande */
 
   /* shadcn/ui tokens mapped to YonuKom palette */
   --background: oklch(0.985 0.005 250);      /* #F6F9FE Bleu très clair */
@@ -124,6 +135,12 @@
   --yk-amber-light: oklch(0.85 0.10 55);
   --yk-lavender: oklch(0.45 0.05 256);
   --yk-surface: oklch(0.18 0.02 257);
+
+  /* Vibrant accents (dark variant — slightly brighter for contrast) */
+  --yk-coral: #FF8585;
+  --yk-mint: #5DD9D0;
+  --yk-sun: #FFEC85;
+  --yk-grape: #B79BFB;
 
   --background: oklch(0.21 0.03 257);        /* #0F172A Bleu nuit foncé */
   --foreground: oklch(0.96 0.005 250);
@@ -202,3 +219,58 @@
 .animate-pulse-offline {
   animation: pulse-offline 2s ease-in-out infinite;
 }
+
+/* ============================================================
+   YonuKom — Vibrant gradient utilities
+   ============================================================ */
+
+.bg-gradient-warm {
+  background-image: linear-gradient(135deg, #FF6B6B 0%, #FFB4A2 50%, #FF8FA3 100%);
+}
+.bg-gradient-cool {
+  background-image: linear-gradient(135deg, #338BE2 0%, #4ECDC4 100%);
+}
+.bg-gradient-sunset {
+  background-image: linear-gradient(135deg, #FF6B6B 0%, #A78BFA 100%);
+}
+.bg-gradient-mint {
+  background-image: linear-gradient(135deg, #4ECDC4 0%, #10B981 100%);
+}
+.bg-gradient-grape {
+  background-image: linear-gradient(135deg, #A78BFA 0%, #6366F1 100%);
+}
+.bg-gradient-sun {
+  background-image: linear-gradient(135deg, #FFE66D 0%, #FF9F1C 100%);
+}
+
+/* Text gradient helpers (use sparingly) */
+.text-gradient-warm {
+  background-image: linear-gradient(135deg, #FF6B6B 0%, #FFB4A2 50%, #FF8FA3 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.text-gradient-cool {
+  background-image: linear-gradient(135deg, #338BE2 0%, #4ECDC4 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Subtle gradient card backgrounds (very low opacity overlays) */
+.card-gradient-warm {
+  background-image:
+    linear-gradient(135deg, rgba(255, 107, 107, 0.06), rgba(167, 139, 250, 0.06)),
+    var(--card);
+}
+.card-gradient-cool {
+  background-image:
+    linear-gradient(135deg, rgba(51, 139, 226, 0.06), rgba(78, 205, 196, 0.06)),
+    var(--card);
+}
+.card-gradient-sunset {
+  background-image:
+    linear-gradient(135deg, rgba(255, 107, 107, 0.06), rgba(167, 139, 250, 0.06)),
+    var(--card);
+}
+

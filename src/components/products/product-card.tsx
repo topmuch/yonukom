@@ -1,6 +1,6 @@
 // ============================================================
 // YonuKom — Product Card
-// Displays product info with stock color coding
+// Displays product info with stock color coding + image preview
 // ============================================================
 
 "use client";
@@ -9,6 +9,7 @@ import { formatFCFA } from "@/lib/fcfa";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { motion } from "framer-motion";
+import { Package } from "lucide-react";
 
 export interface ProductCardData {
   id: string;
@@ -22,6 +23,7 @@ export interface ProductCardData {
   productType?: string;
   unitType?: string;
   minStockAlert?: number;
+  imageUrl?: string | null;
 }
 
 interface ProductCardProps {
@@ -35,9 +37,26 @@ function getStockBadge(quantity: number, minAlert: number): { label: string; cla
   return { label: `${quantity} en stock`, className: "bg-yk-emerald/10 text-yk-emerald border-yk-emerald/20" };
 }
 
+// Subtle gradient based on category for the placeholder (no image)
+const CATEGORY_GRADIENTS: Record<string, string> = {
+  Plats: "from-orange-400/30 to-rose-400/30",
+  Boissons: "from-cyan-400/30 to-blue-400/30",
+  Epicerie: "from-amber-400/30 to-orange-400/30",
+  Cosmetiques: "from-pink-400/30 to-fuchsia-400/30",
+  Vetements: "from-violet-400/30 to-indigo-400/30",
+  Electronique: "from-slate-400/30 to-cyan-400/30",
+  Autre: "from-emerald-400/30 to-teal-400/30",
+};
+
+function placeholderGradient(category?: string | null): string {
+  return CATEGORY_GRADIENTS[category ?? ""] ?? "from-primary/20 to-yk-emerald/20";
+}
+
 export function ProductCard({ product, onClick }: ProductCardProps) {
   const minAlert = product.minStockAlert ?? 5;
   const stock = getStockBadge(product.quantity, minAlert);
+  const hasImage = Boolean(product.imageUrl);
+  const gradient = placeholderGradient(product.category);
 
   return (
     <motion.div
@@ -47,19 +66,41 @@ export function ProductCard({ product, onClick }: ProductCardProps) {
       transition={{ duration: 0.15 }}
     >
       <Card
-        className="cursor-pointer hover:shadow-md transition-shadow"
+        className="cursor-pointer hover:shadow-md transition-shadow overflow-hidden"
         onClick={() => onClick?.(product)}
       >
+        {/* --- Image (or colorful gradient placeholder) --- */}
+        <div className={`relative w-full aspect-square bg-gradient-to-br ${gradient}`}>
+          {hasImage ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={product.imageUrl as string}
+              alt={product.name}
+              className="w-full h-full object-cover"
+              loading="lazy"
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center">
+              <Package className="w-10 h-10 text-foreground/40" strokeWidth={1.5} />
+            </div>
+          )}
+
+          {/* Category badge overlaid on image */}
+          {product.category && (
+            <Badge
+              variant="outline"
+              className="absolute top-2 left-2 text-[10px] px-1.5 py-0 bg-white/85 backdrop-blur-sm border-white/50"
+            >
+              {product.category}
+            </Badge>
+          )}
+        </div>
+
         <CardContent className="p-3 space-y-1.5">
-          {/* Name + category */}
-          <div className="flex items-start justify-between gap-2">
-            <h3 className="font-semibold text-sm leading-tight line-clamp-2">{product.name}</h3>
-            {product.category && (
-              <Badge variant="outline" className="text-[10px] px-1.5 py-0 shrink-0">
-                {product.category}
-              </Badge>
-            )}
-          </div>
+          {/* Name */}
+          <h3 className="font-semibold text-sm leading-tight line-clamp-2 min-h-[2.5rem]">
+            {product.name}
+          </h3>
 
           {/* SKU */}
           {product.sku && (

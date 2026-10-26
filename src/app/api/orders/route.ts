@@ -26,8 +26,15 @@ export async function GET(request: NextRequest) {
     const orders = await db.order.findMany({
       where,
       include: {
-        orderItems: true,
+        orderItems: {
+          include: {
+            product: {
+              select: { id: true, name: true, imageUrl: true },
+            },
+          },
+        },
         customer: true,
+        payments: true,
       },
       orderBy: {
         createdAt: 'desc',

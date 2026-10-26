@@ -35,6 +35,7 @@ import { ScrollToTop } from "@/components/landing/ScrollToTop";
 import { AppShell, type TabId } from "@/components/layout/app-shell";
 import { PosScreen } from "@/components/pos/pos-screen";
 import { OrderKanban } from "@/components/orders/order-kanban";
+import { OrderHistory } from "@/components/orders/order-history";
 import { PipelineKanban } from "@/components/pipeline/pipeline-kanban";
 import { CreditDashboard } from "@/components/pipeline/credit-dashboard";
 import { QuoteForm } from "@/components/pipeline/quote-form";
@@ -759,6 +760,7 @@ function DashboardMain({ onLogout }: { onLogout: () => void }) {
       {activeTab === "pos" && <PosScreen />}
       {activeTab === "stock" && <StockTab />}
       {activeTab === "orders" && <OrdersTab />}
+      {activeTab === "history" && <HistoryTab />}
       {activeTab === "pipeline" && <PipelineTab />}
       {activeTab === "settings" && <SettingsTab onLogout={onLogout} />}
     </AppShell>
@@ -898,6 +900,15 @@ function StockTab() {
 
 function OrdersTab() {
   return <div className="px-4 py-6 space-y-4"><ConnectivityBanner /><OrderKanban /></div>;
+}
+
+function HistoryTab() {
+  return (
+    <div className="px-4 py-6 space-y-4">
+      <ConnectivityBanner />
+      <OrderHistory />
+    </div>
+  );
 }
 
 function PipelineTab() {

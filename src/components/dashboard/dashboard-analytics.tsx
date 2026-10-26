@@ -30,8 +30,6 @@ import {
 import { motion } from "framer-motion";
 import { formatFCFA } from "@/lib/fcfa";
 import {
-  BarChart,
-  Bar,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -40,8 +38,8 @@ import {
   PieChart,
   Pie,
   Cell,
-  LineChart,
-  Line,
+  AreaChart,
+  Area,
 } from "recharts";
 
 interface AnalyticsData {
@@ -68,6 +66,12 @@ const PAYMENT_COLORS: Record<string, string> = {
   cheque: "#F59E0B",
   virement: "#8B5CF6",
 };
+
+// Vibrant palette used for daily revenue bars (rotating, day of week)
+const DAILY_BAR_COLORS = ["#338BE2", "#4ECDC4", "#FF6B6B", "#FFE66D", "#A78BFA", "#10B981", "#F59E0B"];
+
+// Palette for top products progress bars
+const TOP_PRODUCT_COLORS = ["#338BE2", "#4ECDC4", "#A78BFA", "#FF6B6B", "#F59E0B", "#10B981", "#6366F1", "#FF6600"];
 
 const PAYMENT_LABELS: Record<string, string> = {
   wave: "Wave",
@@ -261,7 +265,14 @@ export function DashboardAnalytics() {
               <h3 className="text-sm font-semibold mb-3">Chiffre d&apos;affaires par jour</h3>
               {dailyRevenue.length > 1 ? (
                 <ResponsiveContainer width="100%" height={220}>
-                  <BarChart data={dailyRevenue} margin={{ top: 5, right: 5, left: -15, bottom: 5 }}>
+                  <AreaChart data={dailyRevenue} margin={{ top: 5, right: 5, left: -15, bottom: 5 }}>
+                    <defs>
+                      <linearGradient id="ykRevenueGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#338BE2" stopOpacity={0.45} />
+                        <stop offset="60%" stopColor="#4ECDC4" stopOpacity={0.25} />
+                        <stop offset="100%" stopColor="#4ECDC4" stopOpacity={0.05} />
+                      </linearGradient>
+                    </defs>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
                     <XAxis
                       dataKey="date"
@@ -287,8 +298,16 @@ export function DashboardAnalytics() {
                       }}
                       contentStyle={{ fontSize: 12, borderRadius: 8 }}
                     />
-                    <Bar dataKey="revenue" fill="var(--color-primary)" radius={[4, 4, 0, 0]} />
-                  </BarChart>
+                    <Area
+                      type="monotone"
+                      dataKey="revenue"
+                      stroke="#338BE2"
+                      strokeWidth={2.5}
+                      fill="url(#ykRevenueGradient)"
+                      dot={{ r: 3, fill: "#4ECDC4", strokeWidth: 0 }}
+                      activeDot={{ r: 5, fill: "#FF6B6B", strokeWidth: 0 }}
+                    />
+                  </AreaChart>
                 </ResponsiveContainer>
               ) : (
                 <div className="h-[220px] flex items-center justify-center">
@@ -354,6 +373,7 @@ export function DashboardAnalytics() {
                 {topProducts.map((product, i) => {
                   const maxRevenue = topProducts[0]?.revenue || 1;
                   const percentage = Math.round((product.revenue / maxRevenue) * 100);
+                  const color = TOP_PRODUCT_COLORS[i % TOP_PRODUCT_COLORS.length];
                   return (
                     <div key={i} className="space-y-1">
                       <div className="flex items-center justify-between">
@@ -370,7 +390,10 @@ export function DashboardAnalytics() {
                             initial={{ width: 0 }}
                             animate={{ width: `${percentage}%` }}
                             transition={{ duration: 0.5, delay: i * 0.05 }}
-                            className="h-full bg-primary rounded-full"
+                            className="h-full rounded-full"
+                            style={{
+                              background: `linear-gradient(90deg, ${color}, ${color}DD)`,
+                            }}
                           />
                         </div>
                         <span className="text-[9px] text-muted-foreground w-8 text-right">

@@ -112,14 +112,18 @@ export function CartDrawer({ open, onOpenChange }: CartDrawerProps) {
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="bottom" className="h-[85vh] max-h-[600px] rounded-t-2xl">
-        <SheetHeader className="pb-2">
+      <SheetContent side="bottom" className="h-[85vh] max-h-[600px] rounded-t-2xl p-0">
+        {/* Warm gradient header strip */}
+        <div className="h-1.5 w-full bg-gradient-to-r from-yk-coral via-yk-sun to-yk-emerald" />
+        <SheetHeader className="pb-2 pt-3 px-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <ShoppingCart className="w-5 h-5 text-primary" />
+              <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#338BE2] to-cyan-500 flex items-center justify-center shadow-md shadow-[#338BE2]/30">
+                <ShoppingCart className="w-4 h-4 text-white" />
+              </div>
               <SheetTitle className="text-lg">Panier</SheetTitle>
               {itemCount > 0 && (
-                <Badge variant="secondary" className="text-xs">
+                <Badge variant="secondary" className="text-xs bg-yk-emerald/10 text-yk-emerald border-yk-emerald/20">
                   {itemCount} article{itemCount > 1 ? "s" : ""}
                 </Badge>
               )}
@@ -142,15 +146,19 @@ export function CartDrawer({ open, onOpenChange }: CartDrawerProps) {
 
         {/* Customer info */}
         {customer && (
-          <div className="px-4 py-2 bg-yk-emerald/5 rounded-lg mx-4 mb-2 flex items-center gap-2">
-            <User className="w-4 h-4 text-yk-emerald" />
-            <span className="text-sm font-medium text-yk-emerald">{customer.name}</span>
-            {customer.phone && (
-              <>
-                <Phone className="w-3 h-3 text-muted-foreground ml-1" />
-                <span className="text-xs text-muted-foreground">{customer.phone}</span>
-              </>
-            )}
+          <div className="mx-4 mb-2 px-3 py-2 rounded-xl bg-gradient-to-r from-yk-emerald/10 to-yk-mint/10 border border-yk-emerald/20 flex items-center gap-2">
+            <div className="w-7 h-7 rounded-full bg-yk-emerald/20 flex items-center justify-center shrink-0">
+              <User className="w-3.5 h-3.5 text-yk-emerald" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <span className="text-sm font-medium text-yk-emerald truncate block">{customer.name}</span>
+              {customer.phone && (
+                <span className="text-[11px] text-muted-foreground flex items-center gap-1">
+                  <Phone className="w-3 h-3" />
+                  {customer.phone}
+                </span>
+              )}
+            </div>
           </div>
         )}
 
@@ -158,7 +166,9 @@ export function CartDrawer({ open, onOpenChange }: CartDrawerProps) {
         <ScrollArea className="flex-1 px-4 -mx-4">
           {items.length === 0 ? (
             <div className="py-12 text-center">
-              <ShoppingCart className="w-10 h-10 text-muted-foreground/40 mx-auto mb-3" />
+              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-muted to-muted/40 flex items-center justify-center mx-auto mb-3">
+                <ShoppingCart className="w-8 h-8 text-muted-foreground/60" />
+              </div>
               <p className="text-muted-foreground text-sm">Le panier est vide</p>
               <p className="text-muted-foreground/60 text-xs mt-1">
                 Appuyez sur un produit pour l&apos;ajouter
@@ -186,12 +196,12 @@ export function CartDrawer({ open, onOpenChange }: CartDrawerProps) {
 
         {/* Footer with total + checkout */}
         {items.length > 0 && (
-          <SheetFooter className="border-t border-border pt-3 gap-2">
-            <div className="flex items-center justify-between w-full mb-2">
+          <SheetFooter className="border-t border-border pt-3 gap-2 px-4">
+            <div className="flex items-center justify-between w-full mb-1">
               <span className="text-sm text-muted-foreground">Total</span>
               <motion.span
                 key={total}
-                initial={{ scale: 1.1, color: "oklch(0.57 0.17 162)" }}
+                initial={{ scale: 1.1, color: "#10B981" }}
                 animate={{ scale: 1, color: "inherit" }}
                 transition={{ duration: 0.2 }}
                 className="text-2xl font-bold text-yk-emerald"
@@ -203,7 +213,7 @@ export function CartDrawer({ open, onOpenChange }: CartDrawerProps) {
               onClick={handleCheckout}
               size="lg"
               disabled={isCheckingOut}
-              className="w-full min-h-[48px] text-base font-semibold gap-2"
+              className="w-full min-h-[52px] text-base font-semibold gap-2 bg-gradient-to-r from-yk-emerald to-yk-mint hover:from-yk-emerald/90 hover:to-yk-mint/90 text-white shadow-lg shadow-yk-emerald/30 border-0 transition-all active:scale-[0.98]"
             >
               {isCheckingOut ? (
                 <>
@@ -333,18 +343,19 @@ export function CartButton({ itemCount, total, onClick }: CartButtonProps) {
       initial={{ y: 100 }}
       animate={{ y: 0 }}
       transition={{ type: "spring", stiffness: 300, damping: 25 }}
+      whileTap={{ scale: 0.98 }}
     >
       <Button
         onClick={onClick}
         size="lg"
-        className="w-full min-h-[48px] text-base font-semibold shadow-lg relative"
+        className="w-full min-h-[52px] text-base font-semibold shadow-lg shadow-[#338BE2]/30 relative bg-gradient-to-r from-[#338BE2] to-cyan-500 hover:from-[#338BE2]/90 hover:to-cyan-500/90 border-0"
       >
         <ShoppingCart className="w-5 h-5 mr-2" />
         <span>Voir le panier</span>
         {itemCount > 0 && (
           <Badge
             variant="secondary"
-            className="ml-2 bg-primary-foreground/20 text-primary-foreground border-0"
+            className="ml-2 bg-white/20 text-white border-0"
           >
             {itemCount}
           </Badge>

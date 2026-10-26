@@ -51,6 +51,7 @@ export function ProductList() {
           productType: (p.productType as string) ?? "standard",
           unitType: (p.unitType as string) ?? "piece",
           minStockAlert: Number(p.minStockAlert ?? 5),
+          imageUrl: (p.imageUrl as string) ?? null,
         }))
       );
     } catch {
@@ -119,6 +120,7 @@ export function ProductList() {
               productType: (newProduct.productType as string) ?? "standard",
               unitType: (newProduct.unitType as string) ?? "piece",
               minStockAlert: Number(newProduct.minStockAlert ?? 5),
+              imageUrl: (newProduct.imageUrl as string) ?? null,
             },
             ...prev,
           ]);

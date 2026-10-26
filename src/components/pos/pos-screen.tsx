@@ -116,8 +116,8 @@ export function PosScreen() {
               }
             }}
           >
-            <SelectTrigger className="flex-1 h-11" aria-label="Sélectionner un client">
-              <User className="w-4 h-4 text-muted-foreground mr-1" />
+            <SelectTrigger className="flex-1 h-11 bg-gradient-to-r from-[#338BE2]/5 to-cyan-500/5 border-[#338BE2]/20" aria-label="Sélectionner un client">
+              <User className="w-4 h-4 text-[#338BE2] mr-1" />
               <SelectValue placeholder="Client comptoir" />
             </SelectTrigger>
             <SelectContent>
@@ -135,7 +135,12 @@ export function PosScreen() {
           </Select>
 
           {/* Scan button */}
-          <Button variant="outline" size="icon" className="h-11 w-11 shrink-0" aria-label="Scanner un code-barres">
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-11 w-11 shrink-0 bg-gradient-to-br from-yk-amber/5 to-yk-coral/5 border-yk-amber/30 hover:bg-yk-amber/10 hover:border-yk-amber/40 text-yk-amber"
+            aria-label="Scanner un code-barres"
+          >
             <ScanBarcode className="w-5 h-5" />
           </Button>
         </div>
@@ -143,20 +148,26 @@ export function PosScreen() {
         {/* Category tabs (if not restaurant mode) */}
         {!isRestaurantMode && categoryList.length > 1 && (
           <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-none">
-            {categoryList.map((cat) => (
-              <Button
-                key={cat}
-                variant={activeCategory === cat ? "default" : "outline"}
-                size="sm"
-                onClick={() => setActiveCategory(cat)}
-                className={`
-                  shrink-0 text-xs px-3 h-8 rounded-full
-                  ${activeCategory === cat ? "bg-primary text-primary-foreground" : ""}
-                `}
-              >
-                {categoryLabels[cat] ?? cat}
-              </Button>
-            ))}
+            {categoryList.map((cat) => {
+              const isActive = activeCategory === cat;
+              return (
+                <Button
+                  key={cat}
+                  variant={isActive ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setActiveCategory(cat)}
+                  className={`
+                    shrink-0 text-xs px-3 h-8 rounded-full transition-all
+                    ${isActive
+                      ? "bg-gradient-to-r from-[#338BE2] to-cyan-500 text-white border-0 shadow-md shadow-[#338BE2]/20"
+                      : "hover:border-[#338BE2]/30 hover:text-[#338BE2]"
+                    }
+                  `}
+                >
+                  {categoryLabels[cat] ?? cat}
+                </Button>
+              );
+            })}
           </div>
         )}
       </div>
