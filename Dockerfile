@@ -24,4 +24,13 @@ ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 ENV DATABASE_URL=file:/app/data/yonukom.db
 
-CMD sh -c "mkdir -p /app/data && export DATABASE_URL=file:/app/data/yonukom.db && npx prisma db push --skip-generate 2>/dev/null || true && bun run prisma/seed-superadmin.ts 2>/dev/null || true && exec node .next/standalone/server.js"
+CMD sh -c "mkdir -p /app/data && export DATABASE_URL=file:/app/data/yonukom.db && \
+    if [ ! -f /app/data/yonukom.db ]; then \
+        echo 'DB does not exist yet — initializing schema + seeding demo data'; \
+        npx prisma db push --skip-generate --accept-data-loss 2>&1 || true; \
+        bun run prisma/seed-superadmin.ts 2>/dev/null || true; \
+    else \
+        echo 'DB already exists — applying schema migrations without touching data'; \
+        npx prisma db push --skip-generate 2>&1 || true; \
+    fi && \
+    exec node .next/standalone/server.js"
