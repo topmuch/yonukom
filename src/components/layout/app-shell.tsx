@@ -153,7 +153,6 @@ export function AppShell({ activeTab, onTabChange, children }: AppShellProps) {
             </div>
             <div className="flex flex-col">
               <span className="font-bold text-base leading-tight text-slate-900">
-                YonuKom
               </span>
               {user && (
                 <span className="text-[10px] text-slate-500 leading-tight">
@@ -267,11 +266,10 @@ export function AppShell({ activeTab, onTabChange, children }: AppShellProps) {
         {/* Logo header */}
         <div className="px-5 py-5 flex items-center gap-2.5 border-b border-white/15">
           <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center shadow-md">
-            <span className="text-[#338BE2] font-bold text-base">YK</span>
+            <img src="/brand/logo-white.png" alt="YonuKom" className="h-6 w-auto" />
           </div>
           <div className="flex flex-col">
             <span className="font-bold text-base leading-tight text-white">
-              YonuKom
             </span>
             {user && (
               <span className="text-[10px] text-white/70 leading-tight truncate max-w-[150px]">

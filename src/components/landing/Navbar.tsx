@@ -132,9 +132,6 @@ export function Navbar({
             className="flex items-center gap-2.5 group shrink-0"
           >
             <img src="/brand/logo.png" alt="YonuKom" className="h-8 sm:h-10 w-auto object-contain group-hover:scale-105 transition-transform" />
-            </div>
-              YonuKom
-            </span>
           </button>
 
           {/* Desktop Nav Links (center) */}
