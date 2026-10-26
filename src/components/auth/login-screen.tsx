@@ -16,6 +16,7 @@ import { Separator } from "@/components/ui/separator";
 import { Landmark, Eye, EyeOff, Loader2, Shield } from "lucide-react";
 import { motion } from "framer-motion";
 import { useAuthStore } from "@/stores/use-auth-store";
+import { useConfigStore } from "@/stores/use-config-store";
 import type { UserRole } from "@/types";
 import { ROLE_LABELS } from "@/types";
 
@@ -34,6 +35,7 @@ export function LoginScreen({ onLoginSuccess, successMessage }: LoginScreenProps
   const [mode, setMode] = useState<"login" | "demo">("login");
 
   const login = useAuthStore((s) => s.login);
+  const loadConfig = useConfigStore((s) => s.loadConfig);
 
   // Demo login (quick role selection)
   const handleDemoLogin = (role: UserRole) => {
@@ -52,6 +54,35 @@ export function LoginScreen({ onLoginSuccess, successMessage }: LoginScreenProps
       businessId: role === "superadmin" ? "" : "demo",
       businessName: role === "superadmin" ? "YonuKom Platform" : "YonuKom Demo",
     });
+
+    // Pour les comptes démo, on marque l'onboarding comme complété
+    // (sinon le user tombe sur l'onboarding wizard à chaque fois).
+    // Les comptes démo sont là pour tester l'app, pas pour refaire l'onboarding.
+    if (role !== "superadmin") {
+      // Charge une config démo minimale pour que l'app fonctionne
+      try {
+        loadConfig(
+          JSON.stringify({
+            businessType: "mixte",
+            paymentMethods: ["cash", "wave", "orange_money"],
+            primaryPaymentMethod: "cash",
+            trackStock: true,
+            lowStockAlert: true,
+            alertThreshold: 5,
+            teamRoles: ["patron", "vendeur"],
+            needCashRegister: true,
+            language: "fr",
+            useReceiptPrinter: false,
+            useBarcodeScanner: false,
+            manageReservations: false,
+          })
+        );
+      } catch {
+        useConfigStore.setState({ isOnboarded: false, isLoaded: true });
+      }
+    } else {
+      useConfigStore.setState({ isOnboarded: true, isLoaded: true });
+    }
 
     onLoginSuccess();
   };
@@ -76,6 +107,18 @@ export function LoginScreen({ onLoginSuccess, successMessage }: LoginScreenProps
 
       if (res.ok && data.user) {
         login(data.user);
+
+        // Charger la config d'onboarding si elle existe côté serveur.
+        // Si pas de config → isOnboarded reste false → onboarding wizard s'affiche.
+        // Si config présente → isOnboarded=true → app shell directement.
+        if (typeof data.onboardingConfig === "string" && data.onboardingConfig) {
+          loadConfig(data.onboardingConfig);
+        } else {
+          // Pas encore onboarded → on marque comme chargé mais isOnboarded=false
+          // pour que le wizard s'affiche
+          useConfigStore.setState({ isOnboarded: false, isLoaded: true });
+        }
+
         onLoginSuccess();
       } else {
         setError(data.error || "Erreur de connexion");

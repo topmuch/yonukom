@@ -54,8 +54,18 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     if (typeof window !== "undefined") {
       try {
         localStorage.removeItem("yonukom_user");
+        // Vider aussi la config d'onboarding pour qu'au prochain login
+        // on la recharge depuis le serveur (et pas depuis l'ancienne session).
+        localStorage.removeItem("yonukom_config");
       } catch {
         /* ignore */
+      }
+      // Reset du config store aussi (sinon isOnboarded reste true en mémoire)
+      try {
+        const { useConfigStore } = require("@/stores/use-config-store");
+        useConfigStore.getState().resetConfig();
+      } catch {
+        /* ignore — peut échouer si config store pas encore chargé */
       }
     }
   },

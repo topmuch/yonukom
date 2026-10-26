@@ -43,6 +43,7 @@ import { StockDashboard } from "@/components/stock/stock-dashboard";
 import { CustomerList } from "@/components/customers/customer-list";
 import { CashSessionManager } from "@/components/cash/cash-session-manager";
 import { AuditLogViewer } from "@/components/audit/audit-log-viewer";
+import { BusinessProfileEditor } from "@/components/settings/business-profile-editor";
 import { DashboardAnalytics } from "@/components/dashboard/dashboard-analytics";
 import { IntelligenceFeed } from "@/components/intelligence/intelligence-feed";
 import { TrendChart } from "@/components/intelligence/trend-chart";
@@ -937,7 +938,7 @@ function PipelineTab() {
 function SettingsTab({ onLogout }: { onLogout: () => void }) {
   const isB2B = useConfigStore((s) => s.config?.pipeline_b2b ?? false);
   const user = useAuthStore((s) => s.user);
-  const [activeSection, setActiveSection] = useState<"main" | "cash" | "audit">("main");
+  const [activeSection, setActiveSection] = useState<"main" | "cash" | "audit" | "profile">("main");
 
   return (
     <div className="px-4 py-6 space-y-4">
@@ -958,6 +959,7 @@ function SettingsTab({ onLogout }: { onLogout: () => void }) {
         )}
         <div className="flex gap-2 mb-3">
           <Button variant={activeSection === "main" ? "default" : "outline"} size="sm" className="text-xs" onClick={() => setActiveSection("main")}>Clients</Button>
+          <Button variant={activeSection === "profile" ? "default" : "outline"} size="sm" className="text-xs gap-1" onClick={() => setActiveSection("profile")}><Building2 className="w-3.5 h-3.5" />Profil</Button>
           <PermissionGuard permission="canCloseCashSession" fallback={null}>
             <Button variant={activeSection === "cash" ? "default" : "outline"} size="sm" className="text-xs gap-1" onClick={() => setActiveSection("cash")}><Landmark className="w-3.5 h-3.5" />Caisse</Button>
           </PermissionGuard>
@@ -967,6 +969,7 @@ function SettingsTab({ onLogout }: { onLogout: () => void }) {
         </div>
       </motion.div>
       {activeSection === "main" && (<>{<CustomerList />}{isB2B && (<motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="pt-4"><div className="flex items-center gap-2 mb-3"><CreditCard className="w-5 h-5 text-primary" /><h3 className="font-semibold">Crédit B2B</h3></div><CreditDashboard /></motion.div>)}</>)}
+      {activeSection === "profile" && <BusinessProfileEditor />}
       {activeSection === "cash" && (<PermissionGuard permission="canCloseCashSession" showLocked lockedMessage="Seul le Gérant ou Patron peut gérer la caisse."><CashSessionManager /></PermissionGuard>)}
       {activeSection === "audit" && (<PermissionGuard permission="canViewAuditLog" showLocked lockedMessage="Seul le Gérant ou Patron peut voir le journal d'audit."><AuditLogViewer /></PermissionGuard>)}
     </div>

@@ -27,17 +27,13 @@ import { Badge } from "@/components/ui/badge";
 import { User, ScanBarcode } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
-// --- Mock customers for the selector ---
-const MOCK_CUSTOMERS = [
-  { id: "walk-in", name: "Client comptoir", phone: "" },
-  { id: "c1", name: "Fatou Diallo", phone: "+221 77 123 45 67" },
-  { id: "c2", name: "Moussa Sow", phone: "+221 78 987 65 43" },
-  { id: "c3", name: "Aïssatou Ba", phone: "+221 76 555 12 34" },
-];
+// --- Walk-in customer fallback (when no real customers in DB yet) ---
+const WALK_IN_CUSTOMER = { id: "walk-in", name: "Client comptoir", phone: "" };
 
 export function PosScreen() {
   // --- State ---
   const [products, setProducts] = useState<ProductItem[]>([]);
+  const [customers, setCustomers] = useState<{ id: string; name: string; phone?: string }[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [cartOpen, setCartOpen] = useState(false);
   const [activeCategory, setActiveCategory] = useState("all");
@@ -50,9 +46,12 @@ export function PosScreen() {
   const clearCustomer = useCartStore((s) => s.clearCustomer);
   const isRestaurantMode = useConfigStore((s) => s.isRestaurantActive());
 
-  // Business courant — nécessaire pour filtrer les produits
+  // Business courant — nécessaire pour filtrer les produits et clients
   const user = useAuthStore((s) => s.user);
   const businessId = user?.businessId;
+
+  // Liste combinée : "Client comptoir" + vrais clients du business
+  const customerOptions = [WALK_IN_CUSTOMER, ...customers];
 
   // --- Fetch products ---
   const fetchProducts = useCallback(async () => {
@@ -76,9 +75,37 @@ export function PosScreen() {
     }
   }, [businessId]);
 
+  // --- Fetch customers (real ones from DB, filtered by businessId) ---
+  const fetchCustomers = useCallback(async () => {
+    if (!businessId) {
+      setCustomers([]);
+      return;
+    }
+    try {
+      const res = await fetch(`/api/customers?businessId=${encodeURIComponent(businessId)}`);
+      if (res.ok) {
+        const data = await res.json();
+        // L'API retourne un array de Customer ou { customers: [...] }
+        const list = Array.isArray(data) ? data : (data.customers ?? []);
+        setCustomers(
+          list.map((c: any) => ({
+            id: c.id,
+            name: c.name,
+            phone: c.phone ?? undefined,
+          }))
+        );
+      } else {
+        setCustomers([]);
+      }
+    } catch {
+      setCustomers([]);
+    }
+  }, [businessId]);
+
   useEffect(() => {
     fetchProducts();
-  }, [fetchProducts]);
+    fetchCustomers();
+  }, [fetchProducts, fetchCustomers]);
 
   // --- Categories ---
   const categories = products.reduce<Set<string>>((acc, p) => {
@@ -111,7 +138,7 @@ export function PosScreen() {
               if (val === "walk-in") {
                 clearCustomer();
               } else {
-                const found = MOCK_CUSTOMERS.find((c) => c.id === val);
+                const found = customerOptions.find((c) => c.id === val);
                 if (found) setCustomer(found);
               }
             }}
@@ -121,7 +148,7 @@ export function PosScreen() {
               <SelectValue placeholder="Client comptoir" />
             </SelectTrigger>
             <SelectContent>
-              {MOCK_CUSTOMERS.map((c) => (
+              {customerOptions.map((c) => (
                 <SelectItem key={c.id} value={c.id}>
                   {c.name}
                   {c.phone && (

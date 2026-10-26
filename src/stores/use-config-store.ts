@@ -51,6 +51,9 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
     try {
       const config = JSON.parse(configJson) as ModuleConfig;
       set({ config, isOnboarded: true, isLoaded: true });
+      if (typeof window !== "undefined") {
+        localStorage.setItem("yonukom_config", JSON.stringify(config));
+      }
     } catch {
       set({ isOnboarded: false, isLoaded: true });
     }

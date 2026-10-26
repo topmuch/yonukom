@@ -26,9 +26,9 @@ ENV DATABASE_URL=file:/app/data/yonukom.db
 
 CMD sh -c "mkdir -p /app/data && export DATABASE_URL=file:/app/data/yonukom.db && \
     if [ ! -f /app/data/yonukom.db ]; then \
-        echo 'DB does not exist yet — initializing schema + seeding demo data'; \
+        echo 'DB does not exist yet — initializing schema only (no demo data)'; \
         npx prisma db push --skip-generate --accept-data-loss 2>&1 || true; \
-        bun run prisma/seed-superadmin.ts 2>/dev/null || true; \
+        echo 'DB schema created. To seed superadmin demo data, run: bun run prisma/seed-superadmin.ts'; \
     else \
         echo 'DB already exists — applying schema migrations without touching data'; \
         npx prisma db push --skip-generate 2>&1 || true; \

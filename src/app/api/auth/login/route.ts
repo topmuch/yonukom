@@ -92,6 +92,10 @@ export async function POST(request: NextRequest) {
         businessId: user.businessId,
         businessName: user.business.name,
       },
+      // Inclure la config d'onboarding du business pour que le frontend
+      // puisse savoir si l'utilisateur a déjà fait l'onboarding ou non.
+      // Si null → nouvel utilisateur → onboarding à refaire.
+      onboardingConfig: user.business.onboardingConfig ?? null,
     })
   } catch (error) {
     console.error('Error during login:', error)

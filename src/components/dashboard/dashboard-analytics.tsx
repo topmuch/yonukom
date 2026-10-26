@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { formatFCFA } from "@/lib/fcfa";
+import { useAuthStore } from "@/stores/use-auth-store";
 import {
   XAxis,
   YAxis,
@@ -86,29 +87,44 @@ export function DashboardAnalytics() {
   const [data, setData] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState<"today" | "week" | "month">("week");
+  const user = useAuthStore((s) => s.user);
 
   const fetchAnalytics = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/analytics?businessId=demo&period=${period}`);
+      // Utiliser le vrai businessId de l'utilisateur connecté.
+      // Si pas de user ou pas de businessId → on affiche un état vide (pas de mock).
+      const businessId = user?.businessId;
+      if (!businessId || businessId === "demo") {
+        // Pas de businessId valide → nouvel utilisateur, dashboard vide
+        setData(getEmptyAnalytics(period));
+        return;
+      }
+
+      const res = await fetch(`/api/analytics?businessId=${encodeURIComponent(businessId)}&period=${period}`);
       if (res.ok) {
         const analytics = await res.json();
-        // Si les métriques sont vides (pas de données en DB), utiliser les données mock
-        if (analytics.metrics && analytics.metrics.totalRevenue === 0 && analytics.metrics.orderCount === 0) {
-          setData(getMockAnalytics(period));
+        // Si pas de données en DB (nouveau compte), afficher un état vide propret
+        // plutôt que des données fictives qui donnent une fausse impression.
+        if (
+          analytics.metrics &&
+          analytics.metrics.totalRevenue === 0 &&
+          analytics.metrics.orderCount === 0
+        ) {
+          setData(getEmptyAnalytics(period));
         } else {
           setData(analytics);
         }
       } else {
-        setData(getMockAnalytics(period));
+        setData(getEmptyAnalytics(period));
       }
     } catch {
-      // Use mock data
-      setData(getMockAnalytics(period));
+      // Erreur réseau → afficher un état vide plutôt que des données mock
+      setData(getEmptyAnalytics(period));
     } finally {
       setLoading(false);
     }
-  }, [period]);
+  }, [period, user?.businessId]);
 
   useEffect(() => {
     fetchAnalytics();
@@ -441,7 +457,10 @@ export function DashboardAnalytics() {
 }
 
 // Mock analytics
-function getMockAnalytics(period: string): AnalyticsData {
+// Retourne un état vide propre pour les nouveaux comptes / pas de données.
+// On n'utilise PLUS de données fictives (mock) car ça donne une fausse
+// impression de chiffre d'affaires à des commerçants qui n'ont encore rien vendu.
+function getEmptyAnalytics(period: string): AnalyticsData {
   const now = new Date();
   const days = period === "month" ? 30 : period === "week" ? 7 : 1;
 
@@ -451,45 +470,32 @@ function getMockAnalytics(period: string): AnalyticsData {
     d.setDate(d.getDate() - i);
     dailyRevenue.push({
       date: d.toISOString().split("T")[0],
-      revenue: Math.floor(Math.random() * 150000 + 50000),
-      orders: Math.floor(Math.random() * 15 + 3),
+      revenue: 0,
+      orders: 0,
     });
   }
 
-  const totalRevenue = dailyRevenue.reduce((s, d) => s + d.revenue, 0);
-  const totalOrders = dailyRevenue.reduce((s, d) => s + d.orders, 0);
-
   return {
     period,
+    startDate: new Date(now.getTime() - days * 86400000).toISOString(),
+    endDate: now.toISOString(),
     metrics: {
-      totalRevenue,
-      totalPaid: Math.round(totalRevenue * 0.72),
-      totalRemaining: Math.round(totalRevenue * 0.28),
-      orderCount: totalOrders,
-      avgOrderValue: totalOrders > 0 ? Math.round(totalRevenue / totalOrders) : 0,
-      cancelledOrders: Math.floor(totalOrders * 0.05),
+      totalRevenue: 0,
+      totalPaid: 0,
+      totalRemaining: 0,
+      orderCount: 0,
+      avgOrderValue: 0,
+      cancelledOrders: 0,
     },
     paymentBreakdown: {
-      wave: Math.round(totalRevenue * 0.35),
-      orange_money: Math.round(totalRevenue * 0.25),
-      cash: Math.round(totalRevenue * 0.3),
-      cb: Math.round(totalRevenue * 0.1),
+      wave: 0,
+      orange_money: 0,
+      cash: 0,
+      cb: 0,
     },
-    topProducts: [
-      { name: "Thiébou Rouge", revenue: 125000, quantity: 45 },
-      { name: "Riz 25kg", revenue: 98000, quantity: 14 },
-      { name: "Huile 5L", revenue: 75000, quantity: 25 },
-      { name: "Sucre 1kg", revenue: 45000, quantity: 90 },
-      { name: "Savon 500g", revenue: 32000, quantity: 64 },
-      { name: "Café Touba", revenue: 28000, quantity: 56 },
-      { name: "Lait concentré", revenue: 24000, quantity: 48 },
-      { name: "Attiéké 1kg", revenue: 18000, quantity: 18 },
-    ],
+    topProducts: [],
     dailyRevenue,
-    lowStockProducts: [
-      { id: "1", name: "Savon 500g", quantity: 0, minStockAlert: 5, salePrice: 500 },
-      { id: "2", name: "Café Touba", quantity: 3, minStockAlert: 10, salePrice: 500 },
-      { id: "3", name: "Lait concentré", quantity: 4, minStockAlert: 8, salePrice: 500 },
-    ],
+    lowStockProducts: [],
   };
 }
+

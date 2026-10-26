@@ -14,8 +14,11 @@ export async function GET(request: NextRequest) {
     const period = searchParams.get('period') || 'today'
 
     if (!businessId) {
-      // Return mock analytics for demo when no businessId
-      return NextResponse.json(getMockAnalytics(period))
+      // Pas de businessId → retourner un état vide (PLUS de données mock).
+      // Les nouveaux comptes et les visiteurs non connectés doivent voir
+      // un dashboard vide, pas des chiffres aléatoires qui faussent la
+      // perception du commerçant.
+      return NextResponse.json(getEmptyAnalytics(period))
     }
 
     // Calculate date range based on period
@@ -160,8 +163,11 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// Mock analytics for demo mode
-function getMockAnalytics(period: string) {
+// État vide pour les nouveaux comptes et les visiteurs non connectés.
+// On ne retourne PLUS de données mock aléatoires : un nouveau commerçant
+// doit voir 0 FCFA partout, pas un faux chiffre d'affaires qui pourrait
+// le faire douter de la fiabilité du logiciel.
+function getEmptyAnalytics(period: string) {
   const now = new Date()
   const days = period === 'month' ? 30 : period === 'week' ? 7 : 1
 
@@ -171,47 +177,31 @@ function getMockAnalytics(period: string) {
     d.setDate(d.getDate() - i)
     dailyRevenue.push({
       date: d.toISOString().split('T')[0],
-      revenue: Math.floor(Math.random() * 150000 + 50000),
-      orders: Math.floor(Math.random() * 15 + 3),
+      revenue: 0,
+      orders: 0,
     })
   }
-
-  const totalRevenue = dailyRevenue.reduce((s, d) => s + d.revenue, 0)
-  const totalOrders = dailyRevenue.reduce((s, d) => s + d.orders, 0)
 
   return {
     period,
     startDate: new Date(now.getTime() - days * 86400000).toISOString(),
     endDate: now.toISOString(),
     metrics: {
-      totalRevenue,
-      totalPaid: Math.round(totalRevenue * 0.72),
-      totalRemaining: Math.round(totalRevenue * 0.28),
-      orderCount: totalOrders,
-      avgOrderValue: totalOrders > 0 ? Math.round(totalRevenue / totalOrders) : 0,
-      cancelledOrders: Math.floor(totalOrders * 0.05),
+      totalRevenue: 0,
+      totalPaid: 0,
+      totalRemaining: 0,
+      orderCount: 0,
+      avgOrderValue: 0,
+      cancelledOrders: 0,
     },
     paymentBreakdown: {
-      wave: Math.round(totalRevenue * 0.35),
-      orange_money: Math.round(totalRevenue * 0.25),
-      cash: Math.round(totalRevenue * 0.3),
-      cb: Math.round(totalRevenue * 0.1),
+      wave: 0,
+      orange_money: 0,
+      cash: 0,
+      cb: 0,
     },
-    topProducts: [
-      { name: 'Thiébou Rouge', revenue: 125000, quantity: 45 },
-      { name: 'Riz 25kg', revenue: 98000, quantity: 14 },
-      { name: 'Huile 5L', revenue: 75000, quantity: 25 },
-      { name: 'Sucre 1kg', revenue: 45000, quantity: 90 },
-      { name: 'Savon 500g', revenue: 32000, quantity: 64 },
-      { name: 'Café Touba', revenue: 28000, quantity: 56 },
-      { name: 'Lait concentré', revenue: 24000, quantity: 48 },
-      { name: 'Attiéké 1kg', revenue: 18000, quantity: 18 },
-    ],
+    topProducts: [],
     dailyRevenue,
-    lowStockProducts: [
-      { id: '1', name: 'Savon 500g', quantity: 0, minStockAlert: 5, salePrice: 500 },
-      { id: '2', name: 'Café Touba', quantity: 3, minStockAlert: 10, salePrice: 500 },
-      { id: '3', name: 'Lait concentré', quantity: 4, minStockAlert: 8, salePrice: 500 },
-    ],
+    lowStockProducts: [],
   }
 }
