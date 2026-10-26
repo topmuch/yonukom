@@ -20,42 +20,42 @@ const STEP_IMAGES: Record<
   { src: string; fallback: string; alt: string }
 > = {
   restaurant: {
-    src: "https://images.unsplash.com/photo-1517248135467-4c7edcad3434?w=400&h=300&fit=crop",
+    src: "/images/onboarding/restaurant.jpg",
     fallback: "https://picsum.photos/seed/restaurant/400/300",
     alt: "Intérieur de restaurant",
   },
   boutique: {
-    src: "https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=400&h=300&fit=crop",
+    src: "/images/onboarding/boutique.jpg",
     fallback: "https://picsum.photos/seed/boutique/400/300",
     alt: "Boutique de détail",
   },
   service: {
-    src: "https://images.unsplash.com/photo-1497366216548-37526070297c?w=400&h=300&fit=crop",
+    src: "/images/onboarding/service.jpg",
     fallback: "https://picsum.photos/seed/service/400/300",
     alt: "Bureau service entreprise",
   },
   team: {
-    src: "https://images.unsplash.com/photo-1600880292203-757bb62b4baf?w=400&h=300&fit=crop",
+    src: "/images/onboarding/team.jpg",
     fallback: "https://picsum.photos/seed/team/400/300",
     alt: "Équipe en collaboration",
   },
   payment: {
-    src: "https://images.unsplash.com/photo-1563013544-824ae1b704d3?w=400&h=300&fit=crop",
+    src: "/images/onboarding/payment.jpg",
     fallback: "https://picsum.photos/seed/payment/400/300",
     alt: "Paiement par carte bancaire",
   },
   stock: {
-    src: "https://images.unsplash.com/photo-1553413077-190dd305871c?w=400&h=300&fit=crop",
+    src: "/images/onboarding/stock.jpg",
     fallback: "https://picsum.photos/seed/stock/400/300",
     alt: "Entrepôt et inventaire",
   },
   equipment: {
-    src: "https://images.unsplash.com/photo-1556761175-5973dc0f32e7?w=400&h=300&fit=crop",
+    src: "/images/onboarding/equipment.jpg",
     fallback: "https://picsum.photos/seed/equipment/400/300",
     alt: "Matériel de caisse",
   },
   celebration: {
-    src: "https://images.unsplash.com/photo-1530103862676-de8c9debad1d?w=400&h=300&fit=crop",
+    src: "/images/onboarding/celebration.jpg",
     fallback: "https://picsum.photos/seed/celebration/400/300",
     alt: "Célébration et succès",
   },

@@ -180,7 +180,7 @@ export function Features({ onSignup }: FeaturesProps) {
                       fallback={feature.imageFallback}
                       alt={feature.alt}
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t from-white via-white/0 to-transparent pointer-events-none" />
+                    
                     <div className="absolute top-3 left-3">
                       <div
                         className={`w-9 h-9 rounded-xl ${feature.bg} ${feature.color} flex items-center justify-center text-xs font-bold border border-white/60 backdrop-blur shadow-sm`}
@@ -191,7 +191,7 @@ export function Features({ onSignup }: FeaturesProps) {
                   </div>
 
                   <CardContent className="p-6 sm:p-7 space-y-4 relative">
-                    <div className="absolute inset-0 bg-gradient-to-br from-[#338BE2]/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
+                    
                     <h3 className="text-lg font-bold text-slate-900 group-hover:text-[#338BE2] transition-colors">
                       {feature.title}
                     </h3>
