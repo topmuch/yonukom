@@ -585,33 +585,37 @@ export function CartPanelContent({
                 </Badge>
               )}
 
-              {/* Payment buttons grid (2×2) */}
+              {/* Payment buttons grid (2×2) — toujours visibles, désactivés si panier vide */}
               {!cashClosed && (
                 <div className="grid grid-cols-2 gap-2">
-                  {PAYMENT_BUTTONS.map(({ value, label, Icon, className }) => (
-                    <motion.button
-                      key={value}
-                      type="button"
-                      onClick={() => handleCheckout(value)}
-                      disabled={isCheckingOut}
-                      whileTap={{ scale: 0.97 }}
-                      className={`
-                        ${className}
-                        text-white font-semibold rounded-xl h-14
-                        flex items-center justify-center gap-2
-                        transition-colors disabled:opacity-60 disabled:cursor-not-allowed
-                        shadow-sm
-                      `}
-                      aria-label={`Encaisser en ${label}`}
-                    >
-                      {isCheckingOut ? (
-                        <Loader2 className="w-5 h-5 animate-spin" />
-                      ) : (
-                        <Icon className="w-5 h-5" />
-                      )}
-                      <span className="text-sm">{label}</span>
-                    </motion.button>
-                  ))}
+                  {PAYMENT_BUTTONS.map(({ value, label, Icon, className }) => {
+                    const isDisabled = isCheckingOut || items.length === 0;
+                    return (
+                      <motion.button
+                        key={value}
+                        type="button"
+                        onClick={() => handleCheckout(value)}
+                        disabled={isDisabled}
+                        whileTap={isDisabled ? undefined : { scale: 0.97 }}
+                        className={`
+                          ${className}
+                          text-white font-semibold rounded-xl h-14
+                          flex items-center justify-center gap-2
+                          transition-all
+                          ${isDisabled ? "opacity-40 cursor-not-allowed grayscale" : "shadow-sm hover:brightness-110"}
+                        `}
+                        aria-label={`Encaisser en ${label}`}
+                        title={items.length === 0 ? "Ajoutez un produit au panier d'abord" : `Encaisser en ${label}`}
+                      >
+                        {isCheckingOut ? (
+                          <Loader2 className="w-5 h-5 animate-spin" />
+                        ) : (
+                          <Icon className="w-5 h-5" />
+                        )}
+                        <span className="text-sm">{label}</span>
+                      </motion.button>
+                    );
+                  })}
                 </div>
               )}
 

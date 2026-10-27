@@ -259,18 +259,14 @@ export function PosScreen({ onNavigateToCash }: { onNavigateToCash?: () => void 
         </aside>
       </div>
 
-      {/* ---- Mobile : Floating cart button ---- */}
-      <AnimatePresence>
-        {cartItemCount > 0 && !cartOpen && (
-          <div className="lg:hidden px-3 pb-3 pt-2 shrink-0">
-            <CartButton
-              itemCount={cartItemCount}
-              total={cartTotal}
-              onClick={() => setCartOpen(true)}
-            />
-          </div>
-        )}
-      </AnimatePresence>
+      {/* ---- Mobile : Floating cart button (always visible, even with empty cart) ---- */}
+      <div className="lg:hidden px-3 pb-3 pt-2 shrink-0">
+        <CartButton
+          itemCount={cartItemCount}
+          total={cartTotal}
+          onClick={() => setCartOpen(true)}
+        />
+      </div>
 
       {/* ---- Mobile : Bottom Sheet cart ---- */}
       <CartDrawer
