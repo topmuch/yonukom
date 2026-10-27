@@ -94,7 +94,9 @@ export async function POST(request: NextRequest) {
       businessId: user.businessId,
     })
 
-    return NextResponse.json({
+    // Set JWT as HTTP-only cookie so the browser sends it automatically
+    // with every request. The middleware reads it from the cookie.
+    const response = NextResponse.json({
       user: {
         id: user.id,
         email: user.email,
@@ -104,12 +106,19 @@ export async function POST(request: NextRequest) {
         businessId: user.businessId,
         businessName: user.business?.name ?? '',
       },
-      // Inclure la config d'onboarding du business pour que le frontend
-      // puisse savoir si l'utilisateur a déjà fait l'onboarding ou non.
-      // Si null → nouvel utilisateur → onboarding à refaire.
       onboardingConfig: user.business?.onboardingConfig ?? null,
       token,
     })
+
+    response.cookies.set("yonukom_token", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 7 * 24 * 60 * 60, // 7 days
+      path: "/",
+    })
+
+    return response
   } catch (error) {
     console.error('Error during login:', error)
     return NextResponse.json(

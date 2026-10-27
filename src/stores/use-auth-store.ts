@@ -66,9 +66,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       try {
         localStorage.removeItem("yonukom_user");
         localStorage.removeItem("yonukom_token");
-        // Vider aussi la config d'onboarding pour qu'au prochain login
-        // on la recharge depuis le serveur (et pas depuis l'ancienne session).
         localStorage.removeItem("yonukom_config");
+        // Appeler l'API logout pour vider le cookie HTTP-only
+        // (fire-and-forget, ne bloque pas la déconnexion)
+        fetch("/api/auth/logout", { method: "POST" }).catch(() => {});
       } catch {
         /* ignore */
       }
