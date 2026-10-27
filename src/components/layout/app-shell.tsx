@@ -34,6 +34,7 @@ import {
   Calculator,
   Landmark,
   Tag,
+  Menu,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { Input } from "@/components/ui/input";
@@ -234,9 +235,13 @@ export function AppShell({ activeTab, onTabChange, children }: AppShellProps) {
   const config = useConfigStore((s) => s.config);
   const user = useAuthStore((s) => s.user);
   const [searchQuery, setSearchQuery] = useState("");
+  const [menuSheetOpen, setMenuSheetOpen] = useState(false);
   const { logoUrl } = useBusinessLogo(user?.businessId);
   const businessName = user?.businessName ?? "YonuKom";
   const businessInitial = businessName.trim().charAt(0).toUpperCase() || "Y";
+
+  // Mode plein écran pour le POS — masque le sidebar et occupe toute la largeur
+  const isFullscreen = activeTab === "pos";
 
   // Dynamic tabs based on active modules
   const tabs = useMemo(() => {
@@ -293,10 +298,25 @@ export function AppShell({ activeTab, onTabChange, children }: AppShellProps) {
         </div>
       </header>
 
+      {/* ---- Floating menu button (visible only in fullscreen POS mode on desktop) ---- */}
+      {isFullscreen && (
+        <button
+          type="button"
+          onClick={() => onTabChange("home")}
+          className="hidden lg:flex fixed top-4 left-4 z-50 items-center gap-2 px-3 py-2 rounded-xl bg-background/90 backdrop-blur-md border border-border shadow-md text-sm font-medium hover:bg-accent transition-colors"
+          aria-label="Retour au menu"
+          title="Retour au menu principal"
+        >
+          <Menu className="w-4 h-4" />
+          <span className="hidden xl:inline">Menu</span>
+        </button>
+      )}
+
       {/* ---- Content Area ---- */}
-      <main className="flex-1 max-w-7xl mx-auto w-full pb-20 lg:pb-6 lg:ml-60">
+      <main className={`flex-1 mx-auto w-full pb-20 lg:pb-6 ${isFullscreen ? "max-w-none lg:ml-0" : "max-w-7xl lg:ml-60"}`}>
         {/* ---- Desktop Header (sticky top bar with search) ---- */}
-        <header className="hidden lg:flex sticky top-0 z-30 px-6 py-3.5 items-center justify-between bg-background/85 backdrop-blur-xl border-b border-primary/10">
+        {/* Masqué en mode plein écran (POS) car le POS a sa propre barre de recherche */}
+        <header className={`hidden sticky top-0 z-30 px-6 py-3.5 items-center justify-between bg-background/85 backdrop-blur-xl border-b border-primary/10 ${isFullscreen ? "lg:hidden" : "lg:flex"}`}>
           <div className="flex items-center gap-3 flex-1 max-w-md">
             <div className="relative w-full">
               <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -386,7 +406,7 @@ export function AppShell({ activeTab, onTabChange, children }: AppShellProps) {
       </nav>
 
       {/* ---- Desktop Sidebar (lg+) — BLUE with vibrant per-tab accents ---- */}
-      <aside className="hidden lg:flex fixed left-0 top-0 bottom-0 w-60 bg-gradient-to-b from-[#338BE2] to-[#2074C6] text-white shadow-[8px_0_24px_-12px_rgba(51,139,226,0.4)] flex-col z-40">
+      <aside className={`hidden fixed left-0 top-0 bottom-0 w-60 bg-gradient-to-b from-[#338BE2] to-[#2074C6] text-white shadow-[8px_0_24px_-12px_rgba(51,139,226,0.4)] flex-col z-40 ${isFullscreen ? "lg:hidden" : "lg:flex"}`}>
         {/* Logo header */}
         <div className="px-5 py-4 flex items-center gap-2.5 border-b border-white/15">
           {logoUrl ? (

@@ -171,7 +171,7 @@ export function PosScreen({ onNavigateToCash }: { onNavigateToCash?: () => void 
   }, [categories, products]);
 
   return (
-    <div className="flex flex-col h-full lg:h-[calc(100vh-4rem)]">
+    <div className="flex flex-col h-full lg:h-screen">
       <ConnectivityBanner />
 
       {/* ---- Top Bar : Search + Categories ---- */}

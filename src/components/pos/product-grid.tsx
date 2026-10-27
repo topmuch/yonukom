@@ -188,9 +188,9 @@ function ProductRow({ product, categoryColor, categoryName, onAdd }: ProductRowP
         }
       `}
     >
-      {/* Image produit (carrée, à gauche) */}
+      {/* Image produit (carrée, à gauche) — taille augmentée */}
       <div
-        className="relative w-20 h-20 sm:w-24 sm:h-24 rounded-xl overflow-hidden bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-900 shrink-0"
+        className="relative w-24 h-24 sm:w-28 sm:h-28 lg:w-32 lg:h-32 rounded-xl overflow-hidden bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-900 shrink-0"
       >
         {hasImage ? (
           <img
@@ -202,7 +202,7 @@ function ProductRow({ product, categoryColor, categoryName, onAdd }: ProductRowP
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-muted-foreground/60">
-            <Package className="w-7 h-7 sm:w-8 sm:h-8" strokeWidth={1.25} />
+            <Package className="w-8 h-8 sm:w-10 sm:h-10 lg:w-12 lg:h-12" strokeWidth={1.25} />
           </div>
         )}
         {/* Dot de couleur catégorie en haut à gauche */}
@@ -298,7 +298,7 @@ function ProductListSkeleton() {
           key={i}
           className="flex items-center gap-3 sm:gap-4 p-2.5 sm:p-3 rounded-2xl border border-slate-200 dark:border-slate-800"
         >
-          <Skeleton className="w-20 h-20 sm:w-24 sm:h-24 rounded-xl shrink-0" />
+          <Skeleton className="w-24 h-24 sm:w-28 sm:h-28 lg:w-32 lg:h-32 rounded-xl shrink-0" />
           <div className="flex-1 space-y-2">
             <Skeleton className="h-4 w-3/4" />
             <Skeleton className="h-3 w-1/2" />
