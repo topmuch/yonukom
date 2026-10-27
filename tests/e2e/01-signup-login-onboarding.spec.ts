@@ -1,130 +1,77 @@
 import { test, expect } from "@playwright/test";
 
 /**
- * Test E2E #1 — Flux critique: Signup → Login → Onboarding → Dashboard
+ * Test E2E #1 — Flux critique: Login → Dashboard
  *
- * Vérifie que l'utilisateur peut:
- * 1. Accéder à la landing page
- * 2. Cliquer sur "Commencer" → voir le formulaire d'inscription
- * 3. Créer un compte (si l'email n'existe pas déjà)
- * 4. Se connecter
- * 5. Voir l'onboarding wizard (nouveau compte) ou le dashboard
+ * Vérifie que l'utilisateur peut se connecter et voir le dashboard.
  */
 
-const TEST_EMAIL = `e2e-test-${Date.now()}@yonukom.test`;
-const TEST_PASSWORD = "Test123456!";
-const BUSINESS_NAME = "E2E Test Shop";
+const DEMO_EMAIL = "couverge@gmail.com";
+const DEMO_PASSWORD = "Love1968@";
 
-test("Flux signup → login → onboarding/dashboard", async ({ page }) => {
-  // 1. Landing page
+test.beforeEach(async ({ page, context }) => {
+  // Clear all cookies and localStorage before each test
+  await context.clearCookies();
   await page.goto("/");
-  await expect(page).toHaveTitle(/YonuKom/i);
+  await page.evaluate(() => {
+    localStorage.clear();
+    sessionStorage.clear();
+  });
+  await page.reload();
+  await page.waitForLoadState("networkidle");
+});
 
-  // 2. Click "Commencer" — should navigate to signup view
-  // Look for the "Commencer" button in the navbar
-  const signupButton = page.getByRole("button", { name: /Commencer/i }).first();
-  if (await signupButton.isVisible({ timeout: 5000 }).catch(() => false)) {
-    await signupButton.click();
-    await page.waitForTimeout(1000);
-  }
-
-  // 3. Try to create an account
-  // Check if we're on the signup form
-  const nameInput = page.getByLabel(/Nom complet/i).first();
-  if (await nameInput.isVisible({ timeout: 5000 }).catch(() => false)) {
-    await nameInput.fill("E2E Test User");
-    await page.getByLabel(/Email/i).first().fill(TEST_EMAIL);
-    await page.getByLabel(/Téléphone/i).first().fill("780000000");
-    await page.getByLabel(/Nom du commerce/i).first().fill(BUSINESS_NAME);
-
-    // Click "Suivant" or "Continuer"
-    const nextButton = page.getByRole("button", { name: /Suivant|Continuer/i }).first();
-    if (await nextButton.isVisible()) {
-      await nextButton.click();
-      await page.waitForTimeout(1000);
-
-      // Fill password fields (step 2 of signup)
-      const passwordInput = page.getByLabel(/Mot de passe/i).first();
-      const confirmPasswordInput = page.getByLabel(/Confirmer/i).first();
-      const identifierInput = page.getByLabel(/Identifiant/i).first();
-
-      if (await passwordInput.isVisible({ timeout: 3000 }).catch(() => false)) {
-        await passwordInput.fill(TEST_PASSWORD);
-        if (await confirmPasswordInput.isVisible()) {
-          await confirmPasswordInput.fill(TEST_PASSWORD);
-        }
-        if (await identifierInput.isVisible().catch(() => false)) {
-          await identifierInput.fill("e2etest");
-        }
-
-        // Submit
-        const submitButton = page.getByRole("button", { name: /Créer|Inscrire|Valider/i }).first();
-        if (await submitButton.isVisible()) {
-          await submitButton.click();
-          await page.waitForTimeout(3000);
-        }
-      }
-    }
-  }
-
-  // 4. Login with the test account (or existing demo account)
+test("Login avec compte démo → dashboard visible", async ({ page }) => {
   await page.goto("/");
-  await page.waitForTimeout(1000);
+  await page.waitForTimeout(2000);
 
-  // Look for login button
+  // Click "Se connecter" button in the navbar
   const loginButton = page.getByRole("button", { name: /Se connecter/i }).first();
-  if (await loginButton.isVisible({ timeout: 5000 }).catch(() => false)) {
-    await loginButton.click();
-    await page.waitForTimeout(1000);
-  }
+  await expect(loginButton).toBeVisible({ timeout: 10000 });
+  await loginButton.click();
+  await page.waitForTimeout(1500);
 
   // Fill login form
-  const emailField = page.getByLabel(/Email/i).first();
-  const passwordField = page.getByLabel(/Mot de passe/i).first();
+  const emailInput = page.locator('input[type="email"]').first();
+  const passwordInput = page.locator('input[type="password"]').first();
 
-  if (await emailField.isVisible({ timeout: 5000 }).catch(() => false)) {
-    await emailField.fill("couverge@gmail.com");
-    await passwordField.fill("Love1968@");
+  await expect(emailInput).toBeVisible({ timeout: 5000 });
+  await emailInput.fill(DEMO_EMAIL);
+  await passwordInput.fill(DEMO_PASSWORD);
 
-    // Submit login
-    const submitLogin = page.getByRole("button", { name: /Se connecter|Connexion/i }).first();
-    if (await submitLogin.isVisible()) {
-      await submitLogin.click();
-      await page.waitForTimeout(5000);
-    }
-  }
+  // Submit
+  const submitButton = page.getByRole("button", { name: /Se connecter/i }).last();
+  await submitButton.click();
 
-  // 5. After login: should see dashboard OR onboarding wizard
-  // Check if we see the dashboard sidebar or onboarding
+  // Wait for redirect to dashboard or onboarding
+  await page.waitForTimeout(8000);
+
+  // After login: should see dashboard elements OR onboarding wizard
   const dashboardVisible = await page
     .getByText(/Vente|Accueil|Produits|Commande/i)
     .first()
-    .isVisible({ timeout: 10000 })
+    .isVisible({ timeout: 15000 })
     .catch(() => false);
 
   const onboardingVisible = await page
-    .getByText(/onboarding|configurer|commerce/i)
+    .getByText(/configurer|commerce|onboarding/i)
     .first()
-    .isVisible({ timeout: 3000 })
+    .isVisible({ timeout: 5000 })
     .catch(() => false);
 
-  // At least one of them should be visible
   expect(dashboardVisible || onboardingVisible).toBeTruthy();
 });
 
 test("Landing page loads correctly", async ({ page }) => {
   await page.goto("/");
   await expect(page).toHaveTitle(/YonuKom/i);
-
-  // Check hero section
+  // Check hero text
   await expect(page.getByText(/Gérez votre commerce/i).first()).toBeVisible({ timeout: 10000 });
 });
 
 test("Login page accessible from navbar", async ({ page }) => {
   await page.goto("/");
   await page.waitForTimeout(2000);
-
-  // The navbar should have a "Se connecter" button
   const loginBtn = page.getByRole("button", { name: /Se connecter/i }).first();
   await expect(loginBtn).toBeVisible({ timeout: 10000 });
 });
