@@ -18,6 +18,13 @@ const PAYMENT_LABELS: Record<string, string> = {
   virement: 'Virement',
 }
 
+// Étiquettes lisibles des types de commande
+const ORDER_TYPE_LABELS: Record<string, string> = {
+  dine_in: 'Sur place',
+  takeaway: 'À emporter',
+  delivery: 'Livraison',
+}
+
 function escapeHtml(s: string | null | undefined): string {
   if (!s) return ''
   return s
@@ -109,6 +116,14 @@ export async function GET(
     const paymentLabel = mainPayment
       ? (PAYMENT_LABELS[mainPayment.method] ?? mainPayment.method)
       : 'Non spécifié'
+
+    // Type de commande + frais de livraison
+    const orderTypeLabel =
+      ORDER_TYPE_LABELS[order.orderType] ??
+      (order.orderType === 'delivery' ? 'Livraison' : 'Sur place')
+    const deliveryFee =
+      typeof order.deliveryFee === 'number' ? order.deliveryFee : 0
+    const showDeliveryLine = order.orderType === 'delivery' && deliveryFee > 0
 
     // Construction des lignes d'articles
     const itemsRows = order.orderItems
@@ -241,10 +256,11 @@ export async function GET(
 
     <hr />
 
-    <!-- Date + N° commande + caissier -->
+    <!-- Date + N° commande + caissier + type -->
     <div class="section">
       <div class="row" style="display:flex;justify-content:space-between;">
         <span>${escapeHtml(formatDate(order.createdAt))}</span>
+        <span class="bold">${escapeHtml(orderTypeLabel)}</span>
       </div>
       <div class="row" style="display:flex;justify-content:space-between;">
         <span class="muted">Ticket N°</span>
@@ -279,13 +295,18 @@ export async function GET(
     <!-- Totaux -->
     <div class="totals">
       <div class="row"><span>Sous-total</span><span>${formatFCFA(order.subtotal)}</span></div>
+      ${showDeliveryLine ? `<div class="row"><span>Livraison</span><span>${formatFCFA(deliveryFee)}</span></div>` : ''}
       <div class="row total"><span>TOTAL</span><span>${formatFCFA(order.totalAmount)}</span></div>
     </div>
 
     <hr />
 
-    <!-- Paiement -->
+    <!-- Type de commande + Paiement -->
     <div class="section">
+      <div class="row" style="display:flex;justify-content:space-between;">
+        <span class="muted">Type</span>
+        <span class="bold">${escapeHtml(orderTypeLabel)}</span>
+      </div>
       <div class="row" style="display:flex;justify-content:space-between;">
         <span class="muted">Paiement</span>
         <span class="bold">${escapeHtml(paymentLabel)}</span>

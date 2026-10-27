@@ -1,8 +1,20 @@
 // ============================================================
-// YonuKom — POS Screen
-// Écran principal de vente — le cœur de YonuKom
-// Objectif : une vente complète en < 15 secondes
-// Layout mobile-first : barre recherche + grille produits + tiroir panier
+// YonuKom — POS Screen (Caisse)
+// Écran principal de vente — style Tap Touch (3 colonnes desktop)
+//
+// Layout desktop (lg+) :
+//   ┌────────────────────────────────────────────────────────┐
+//   │  [Search bar]      [Categories chips — scrollable]       │  ← sticky top
+//   ├──────────────────────────────────────┬───────────────────┤
+//   │                                      │                   │
+//   │  PRODUCT GRID (3-4 cols)             │  CART PANEL        │  ← sticky right
+//   │                                      │  (full height)    │
+//   └──────────────────────────────────────┴───────────────────┘
+//
+// Layout mobile :
+//   - Top: search + scrollable categories
+//   - Middle: product grid (2 cols)
+//   - Bottom: floating "Panier (N items)" → opens bottom Sheet
 // ============================================================
 
 "use client";
@@ -12,18 +24,16 @@ import { useCartStore } from "@/stores/use-cart-store";
 import { useConfigStore } from "@/stores/use-config-store";
 import { useAuthStore } from "@/stores/use-auth-store";
 import { ProductGrid, type ProductItem } from "@/components/pos/product-grid";
-import { CartDrawer, CartButton } from "@/components/pos/cart-drawer";
+import {
+  CartDrawer,
+  CartButton,
+  CartPanelContent,
+} from "@/components/pos/cart-drawer";
 import { QuickSale } from "@/components/pos/quick-sale";
 import { ConnectivityBanner } from "@/components/layout/connectivity-banner";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { User, ScanBarcode } from "lucide-react";
+import { Search, ScanBarcode } from "lucide-react";
 import { AnimatePresence } from "framer-motion";
 
 // --- Walk-in customer fallback (when no real customers in DB yet) ---
@@ -44,21 +54,18 @@ export function PosScreen({ onNavigateToCash }: { onNavigateToCash?: () => void 
   const [isLoading, setIsLoading] = useState(true);
   const [cartOpen, setCartOpen] = useState(false);
   const [activeCategory, setActiveCategory] = useState("all");
+  const [searchQuery, setSearchQuery] = useState("");
 
   // --- Stores ---
   const cartTotal = useCartStore((s) => s.total);
   const cartItemCount = useCartStore((s) => s.itemCount);
-  const cartCustomer = useCartStore((s) => s.customer);
-  const setCustomer = useCartStore((s) => s.setCustomer);
-  const clearCustomer = useCartStore((s) => s.clearCustomer);
+
+  // Le mode restaurant masque la grille et utilise QuickSale (gros boutons)
   const isRestaurantMode = useConfigStore((s) => s.isRestaurantActive());
 
   // Business courant — nécessaire pour filtrer les produits et clients
   const user = useAuthStore((s) => s.user);
   const businessId = user?.businessId;
-
-  // Liste combinée : "Client comptoir" + vrais clients du business
-  const customerOptions = [WALK_IN_CUSTOMER, ...customers];
 
   // --- Fetch products ---
   const fetchProducts = useCallback(async () => {
@@ -92,7 +99,6 @@ export function PosScreen({ onNavigateToCash }: { onNavigateToCash?: () => void 
       const res = await fetch(`/api/customers?businessId=${encodeURIComponent(businessId)}`);
       if (res.ok) {
         const data = await res.json();
-        // L'API retourne un array de Customer ou { customers: [...] }
         const list = Array.isArray(data) ? data : (data.customers ?? []);
         setCustomers(
           list.map((c: any) => ({
@@ -137,17 +143,14 @@ export function PosScreen({ onNavigateToCash }: { onNavigateToCash?: () => void 
     fetchCategories();
   }, [fetchProducts, fetchCustomers, fetchCategories]);
 
-  // --- Categories ---
-  // Construit la liste des chips à afficher :
+  // --- Categories list ---
   // 1. "all" (Tous) — toujours présent
   // 2. Catégories dynamiques (depuis /api/categories)
-  // 3. Catégories orphelines (produits avec un `category` texte qui ne correspond
-  //    à aucune catégorie dynamique — rétro-compatibilité)
+  // 3. Catégories orphelines (texte non mappé à un categoryId)
   const categoryList = useMemo(() => {
     const dynamicNamesLower = new Set(
       categories.map((c) => c.name.toLowerCase())
     );
-    // Orphelins : noms de `category` (texte) qui ne sont pas dans les catégories dynamiques
     const orphans = new Set<string>();
     for (const p of products) {
       if (
@@ -157,8 +160,6 @@ export function PosScreen({ onNavigateToCash }: { onNavigateToCash?: () => void 
         orphans.add(p.category);
       }
     }
-    // On utilise ici des "clés" qui peuvent être soit l'id d'une catégorie
-    // dynamique (ex: "abc123"), soit "orphan:NomCategorie" pour les orphelins.
     const list: Array<{ key: string; label: string; color?: string | null }> = [
       { key: "all", label: "Tous", color: null },
       ...categories.map((c) => ({ key: c.id, label: c.name, color: c.color })),
@@ -170,62 +171,36 @@ export function PosScreen({ onNavigateToCash }: { onNavigateToCash?: () => void 
   }, [categories, products]);
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full lg:h-[calc(100vh-4rem)]">
       <ConnectivityBanner />
 
-      {/* ---- Top Bar ---- */}
-      <div className="px-4 pt-4 pb-2 space-y-3">
-        {/* Customer selector */}
-        <div className="flex items-center gap-2">
-          <Select
-            value={cartCustomer?.id ?? "walk-in"}
-            onValueChange={(val) => {
-              if (val === "walk-in") {
-                clearCustomer();
-              } else {
-                const found = customerOptions.find((c) => c.id === val);
-                if (found) setCustomer(found);
-              }
-            }}
-          >
-            <SelectTrigger className="flex-1 h-11 bg-gradient-to-r from-[#338BE2]/5 to-cyan-500/5 border-[#338BE2]/20" aria-label="Sélectionner un client">
-              <User className="w-4 h-4 text-[#338BE2] mr-1" />
-              <SelectValue placeholder="Client comptoir" />
-            </SelectTrigger>
-            <SelectContent>
-              {customerOptions.map((c) => (
-                <SelectItem key={c.id} value={c.id}>
-                  {c.name}
-                  {c.phone && (
-                    <span className="text-muted-foreground text-xs ml-2">
-                      {c.phone}
-                    </span>
-                  )}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          {/* Scan button */}
-          <Button
-            variant="outline"
-            size="icon"
-            className="h-11 w-11 shrink-0 bg-gradient-to-br from-yk-amber/5 to-yk-coral/5 border-yk-amber/30 hover:bg-yk-amber/10 hover:border-yk-amber/40 text-yk-amber"
+      {/* ---- Top Bar : Search + Categories ---- */}
+      <div className="px-3 sm:px-4 pt-3 pb-2 space-y-2 shrink-0 border-b border-border/40 bg-background/95 backdrop-blur-sm">
+        {/* Search bar */}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+          <Input
+            type="text"
+            placeholder="Rechercher un produit..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-9 pr-10 h-11 text-base"
+            aria-label="Rechercher un produit"
+          />
+          <ScanBarcode
+            className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
             aria-label="Scanner un code-barres"
-          >
-            <ScanBarcode className="w-5 h-5" />
-          </Button>
+          />
         </div>
 
-        {/* Category tabs (if not restaurant mode) */}
+        {/* Category chips (horizontal scrollable) */}
         {!isRestaurantMode && categoryList.length > 1 && (
           <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-none">
             {categoryList.map((cat) => {
               const isActive = activeCategory === cat.key;
-              // Pour les chips dynamiques, on utilise la couleur si définie
               const activeStyle =
                 isActive && cat.color
-                  ? { backgroundColor: cat.color, color: "#ffffff" }
+                  ? { backgroundColor: cat.color, color: "#ffffff", borderColor: cat.color }
                   : undefined;
               return (
                 <Button
@@ -234,7 +209,7 @@ export function PosScreen({ onNavigateToCash }: { onNavigateToCash?: () => void 
                   size="sm"
                   onClick={() => setActiveCategory(cat.key)}
                   className={`
-                    shrink-0 text-xs px-3 h-8 rounded-full transition-all
+                    shrink-0 text-xs px-3 h-8 rounded-full transition-all min-w-[80px]
                     ${isActive
                       ? "bg-gradient-to-r from-[#338BE2] to-cyan-500 text-white border-0 shadow-md shadow-[#338BE2]/20"
                       : "hover:border-[#338BE2]/30 hover:text-[#338BE2]"
@@ -257,24 +232,37 @@ export function PosScreen({ onNavigateToCash }: { onNavigateToCash?: () => void 
         )}
       </div>
 
-      {/* ---- Content Area ---- */}
-      <div className="flex-1 px-4 overflow-y-auto custom-scrollbar">
-        {isRestaurantMode ? (
-          <QuickSale products={products} isLoading={isLoading} />
-        ) : (
-          <ProductGrid
-            products={products}
-            isLoading={isLoading}
-            activeCategory={activeCategory}
-            categories={categories}
+      {/* ---- Content Area : Product grid + sticky cart panel (desktop) ---- */}
+      <div className="flex-1 flex min-h-0">
+        {/* LEFT/CENTER : Product grid */}
+        <div className="flex-1 min-w-0 overflow-y-auto custom-scrollbar p-3 sm:p-4">
+          {isRestaurantMode ? (
+            <QuickSale products={products} isLoading={isLoading} />
+          ) : (
+            <ProductGrid
+              products={products}
+              isLoading={isLoading}
+              activeCategory={activeCategory}
+              categories={categories}
+              searchQuery={searchQuery}
+            />
+          )}
+        </div>
+
+        {/* RIGHT : Sticky cart panel (desktop only — lg+) */}
+        <aside className="hidden lg:flex w-[380px] xl:w-[420px] shrink-0 border-l border-border bg-card flex-col">
+          <CartPanelContent
+            onNavigateToCash={onNavigateToCash}
+            customers={customers}
+            walkInCustomer={WALK_IN_CUSTOMER}
           />
-        )}
+        </aside>
       </div>
 
-      {/* ---- Cart floating button / drawer ---- */}
+      {/* ---- Mobile : Floating cart button ---- */}
       <AnimatePresence>
         {cartItemCount > 0 && !cartOpen && (
-          <div className="px-4 pb-4 pt-2">
+          <div className="lg:hidden px-3 pb-3 pt-2 shrink-0">
             <CartButton
               itemCount={cartItemCount}
               total={cartTotal}
@@ -284,7 +272,14 @@ export function PosScreen({ onNavigateToCash }: { onNavigateToCash?: () => void 
         )}
       </AnimatePresence>
 
-      <CartDrawer open={cartOpen} onOpenChange={setCartOpen} onNavigateToCash={onNavigateToCash} />
+      {/* ---- Mobile : Bottom Sheet cart ---- */}
+      <CartDrawer
+        open={cartOpen}
+        onOpenChange={setCartOpen}
+        onNavigateToCash={onNavigateToCash}
+        customers={customers}
+        walkInCustomer={WALK_IN_CUSTOMER}
+      />
     </div>
   );
 }

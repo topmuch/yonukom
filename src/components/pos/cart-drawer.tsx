@@ -1,12 +1,23 @@
 // ============================================================
-// YonuKom — Cart Drawer
-// Panier en bottom sheet (Sheet) — slide up depuis le bas
-// Contrôles +/- quantité, total FCFA, bouton Encaisser
+// YonuKom — Cart Drawer / Panel
+// Panneau de commande pour le POS :
+//  - Desktop (lg+) : panneau sticky à droite, plein hauteur
+//  - Mobile       : bottom Sheet (slide up)
+//
+// Contenu (haut → bas) :
+//  1. Header "Commande" + badge items
+//  2. Sélecteur de type (Sur place / À emporter / Livraison)
+//  3. Sélecteur de client (Select)
+//  4. Liste d'articles (scrollable) avec quantité + prix ligne + poubelle
+//  5. Sous-total
+//  6. Frais de livraison (visible seulement si type = Livraison)
+//  7. TOTAL (orange, gras, grand)
+//  8. Grille 2×2 de boutons de paiement (Espèces / Wave / OM / Carte)
+//  9. Après vente : panneau de succès avec impression du ticket
 //
 // Règles métier :
 //  - Bloque l'encaissement si aucune session de caisse ouverte
-//  - Après une vente réussie : propose "Nouvelle vente" + "Imprimer le ticket"
-//  - Transmet customerId au backend (null = client comptoir walk-in)
+//  - Transmet customerId, orderType, deliveryFee au backend
 // ============================================================
 
 "use client";
@@ -22,7 +33,6 @@ import {
   SheetHeader,
   SheetTitle,
   SheetDescription,
-  SheetFooter,
 } from "@/components/ui/sheet";
 import {
   Dialog,
@@ -32,38 +42,40 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { Input } from "@/components/ui/input";
 import {
   Banknote,
   Smartphone,
   CreditCard,
-  Wallet,
-} from "lucide-react";
-import {
+  Waves,
   Minus,
   Plus,
   Trash2,
   ShoppingCart,
   User,
-  Phone,
   Loader2,
   CheckCircle2,
   Printer,
   Lock,
   Landmark,
+  Utensils,
+  ShoppingBag,
+  Bike,
+  X,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 // --- Payment methods ---
 type PaymentMethod = "cash" | "wave" | "orange_money" | "cb";
-const PAYMENT_METHODS: { value: PaymentMethod; label: string; Icon: typeof Banknote }[] = [
-  { value: "cash", label: "Espèces", Icon: Banknote },
-  { value: "wave", label: "Wave", Icon: Smartphone },
-  { value: "orange_money", label: "Orange", Icon: Wallet },
-  { value: "cb", label: "Carte", Icon: CreditCard },
-];
 const PAYMENT_LABELS: Record<PaymentMethod, string> = {
   cash: "Espèces",
   wave: "Wave",
@@ -71,17 +83,55 @@ const PAYMENT_LABELS: Record<PaymentMethod, string> = {
   cb: "Carte bancaire",
 };
 
-interface CartDrawerProps {
-  /** Is the sheet open? */
-  open: boolean;
-  /** Toggle open state */
-  onOpenChange: (open: boolean) => void;
-  /**
-   * Callback appelé quand l'utilisateur veut ouvrir la caisse.
-   * Switch la navigation vers l'onglet Caisse.
-   */
-  onNavigateToCash?: () => void;
-}
+// --- Order types ---
+type OrderType = "dine_in" | "takeaway" | "delivery";
+const ORDER_TYPES: {
+  value: OrderType;
+  label: string;
+  Icon: typeof Utensils;
+}[] = [
+  { value: "dine_in", label: "Sur place", Icon: Utensils },
+  { value: "takeaway", label: "À emporter", Icon: ShoppingBag },
+  { value: "delivery", label: "Livraison", Icon: Bike },
+];
+const ORDER_TYPE_LABELS: Record<OrderType, string> = {
+  dine_in: "Sur place",
+  takeaway: "À emporter",
+  delivery: "Livraison",
+};
+
+// Configurations visuelles des boutons de paiement (2×2 grid)
+const PAYMENT_BUTTONS: {
+  value: PaymentMethod;
+  label: string;
+  Icon: typeof Banknote;
+  className: string;
+}[] = [
+  {
+    value: "cash",
+    label: "Espèces",
+    Icon: Banknote,
+    className: "bg-emerald-500 hover:bg-emerald-600",
+  },
+  {
+    value: "wave",
+    label: "Wave",
+    Icon: Waves,
+    className: "bg-[#1DC2FF] hover:bg-[#0FB0EE]",
+  },
+  {
+    value: "orange_money",
+    label: "Orange Money",
+    Icon: Smartphone,
+    className: "bg-orange-500 hover:bg-orange-600",
+  },
+  {
+    value: "cb",
+    label: "Carte",
+    Icon: CreditCard,
+    className: "bg-slate-700 hover:bg-slate-800",
+  },
+];
 
 // Type partiel de l'Order renvoyé par POST /api/orders
 interface CreatedOrder {
@@ -90,9 +140,79 @@ interface CreatedOrder {
   totalAmount?: number;
   subtotal?: number;
   paymentMethod?: PaymentMethod;
+  deliveryFee?: number;
+  orderType?: OrderType;
 }
 
-export function CartDrawer({ open, onOpenChange, onNavigateToCash }: CartDrawerProps) {
+interface CustomerOption {
+  id: string;
+  name: string;
+  phone?: string;
+}
+
+interface CartDrawerProps {
+  /** Is the mobile sheet open? */
+  open: boolean;
+  /** Toggle open state (mobile only) */
+  onOpenChange: (open: boolean) => void;
+  /**
+   * Callback appelé quand l'utilisateur veut ouvrir la caisse.
+   * Switch la navigation vers l'onglet Caisse.
+   */
+  onNavigateToCash?: () => void;
+  /** Liste des clients (options du Select) — passée par PosScreen */
+  customers?: CustomerOption[];
+  /** Walk-in customer — première option du Select */
+  walkInCustomer?: CustomerOption;
+}
+
+export function CartDrawer({
+  open,
+  onOpenChange,
+  onNavigateToCash,
+  customers = [],
+  walkInCustomer = { id: "walk-in", name: "Client comptoir", phone: "" },
+}: CartDrawerProps) {
+  // Le panneau contenu est partagé entre mobile (Sheet) et desktop (sticky panel).
+  // Sur desktop (lg+), on rend directement le panneau dans la grille du PosScreen ;
+  // sur mobile, on le rend dans le Sheet.
+  return (
+    <>
+      {/* Mobile: bottom Sheet */}
+      <Sheet open={open} onOpenChange={onOpenChange}>
+        <SheetContent
+          side="bottom"
+          className="h-[90vh] max-h-[700px] rounded-t-2xl p-0 flex flex-col lg:hidden"
+        >
+          <CartPanelContent
+            onNavigateToCash={onNavigateToCash}
+            onCloseMobile={() => onOpenChange(false)}
+            customers={customers}
+            walkInCustomer={walkInCustomer}
+            isMobile
+          />
+        </SheetContent>
+      </Sheet>
+    </>
+  );
+}
+
+// --- Cart panel content (shared desktop sticky + mobile sheet) ---
+interface CartPanelContentProps {
+  onNavigateToCash?: () => void;
+  onCloseMobile?: () => void;
+  customers?: CustomerOption[];
+  walkInCustomer: CustomerOption;
+  isMobile?: boolean;
+}
+
+export function CartPanelContent({
+  onNavigateToCash,
+  onCloseMobile,
+  customers = [],
+  walkInCustomer,
+  isMobile = false,
+}: CartPanelContentProps) {
   const items = useCartStore((s) => s.items);
   const total = useCartStore((s) => s.total);
   const itemCount = useCartStore((s) => s.itemCount);
@@ -100,19 +220,29 @@ export function CartDrawer({ open, onOpenChange, onNavigateToCash }: CartDrawerP
   const updateQuantity = useCartStore((s) => s.updateQuantity);
   const removeItem = useCartStore((s) => s.removeItem);
   const clearCart = useCartStore((s) => s.clearCart);
+  const setCustomer = useCartStore((s) => s.setCustomer);
+  const clearCustomer = useCartStore((s) => s.clearCustomer);
 
   const user = useAuthStore((s) => s.user);
   const businessId = user?.businessId;
 
   const [isCheckingOut, setIsCheckingOut] = useState(false);
-  // État de la session de caisse — false par défaut, vérifié au montage
   const [cashSessionActive, setCashSessionActive] = useState(false);
   const [cashSessionLoading, setCashSessionLoading] = useState(true);
   const [cashDialogOpen, setCashDialogOpen] = useState(false);
-  // Dernière commande créée — si présent, on affiche l'écran de succès
   const [lastOrder, setLastOrder] = useState<CreatedOrder | null>(null);
-  // Moyen de paiement sélectionné (défaut: espèces)
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cash");
+  // Type de commande (défaut: Sur place)
+  const [orderType, setOrderType] = useState<OrderType>("dine_in");
+  // Frais de livraison (FCFA — entier)
+  const [deliveryFeeInput, setDeliveryFeeInput] = useState<string>("0");
+
+  const customerOptions: CustomerOption[] = [walkInCustomer, ...customers];
+  const selectedCustomerId = customer?.id ?? "walk-in";
+
+  // Frais de livraison parsé (entier >= 0). Forcé à 0 si pas livraison.
+  const deliveryFee =
+    orderType === "delivery" ? Math.max(0, parseInt(deliveryFeeInput, 10) || 0) : 0;
+  const grandTotal = total + deliveryFee;
 
   // --- Vérifier l'état de la session de caisse au montage ---
   const checkCashSession = useCallback(async () => {
@@ -133,7 +263,6 @@ export function CartDrawer({ open, onOpenChange, onNavigateToCash }: CartDrawerP
         setCashSessionActive(false);
       }
     } catch {
-      // Erreur réseau — on bloque par sécurité
       setCashSessionActive(false);
     } finally {
       setCashSessionLoading(false);
@@ -144,17 +273,10 @@ export function CartDrawer({ open, onOpenChange, onNavigateToCash }: CartDrawerP
     checkCashSession();
   }, [checkCashSession]);
 
-  // Re-vérifier à chaque ouverture du tiroir (la caisse a pu être fermée entre-temps)
-  useEffect(() => {
-    if (open) {
-      checkCashSession();
-    }
-  }, [open, checkCashSession]);
-
-  const handleCheckout = async () => {
+  const handleCheckout = async (method: PaymentMethod) => {
     if (items.length === 0) return;
 
-    // --- Vérifier la session de caisse (frontend safety check) ---
+    // --- Vérifier la session de caisse ---
     if (!cashSessionActive) {
       setCashDialogOpen(true);
       return;
@@ -173,15 +295,13 @@ export function CartDrawer({ open, onOpenChange, onNavigateToCash }: CartDrawerP
     try {
       const payload = {
         businessId,
-        // customerId explicite — null = walk-in (le backend résoudra)
         customerId: customer?.id ?? null,
         createdBy: user?.id ?? null,
         status: "completed",
-        paymentMethod,
+        paymentMethod: method,
+        orderType,
+        deliveryFee,
         items: items.map((item) => ({
-          // On inclut productId ET name pour que l'API puisse :
-          //  - utiliser le produit existant si productId est valide
-          //  - créer un article manuel si productId est absent/invalide
           productId: item.productId,
           name: item.productName,
           quantity: item.quantity,
@@ -197,7 +317,6 @@ export function CartDrawer({ open, onOpenChange, onNavigateToCash }: CartDrawerP
 
       if (!res.ok) {
         const data = (await res.json().catch(() => ({}))) as { error?: string };
-        // 403 = caisse fermée (backend safety net)
         if (res.status === 403) {
           setCashSessionActive(false);
           setCashDialogOpen(true);
@@ -206,10 +325,9 @@ export function CartDrawer({ open, onOpenChange, onNavigateToCash }: CartDrawerP
       }
 
       const order = (await res.json()) as CreatedOrder;
-      // Conserver le moyen de paiement choisi pour l'afficher dans le ticket de succès
-      if (!order.paymentMethod) {
-        order.paymentMethod = paymentMethod;
-      }
+      if (!order.paymentMethod) order.paymentMethod = method;
+      if (!order.orderType) order.orderType = orderType;
+      if (typeof order.deliveryFee !== "number") order.deliveryFee = deliveryFee;
       setLastOrder(order);
 
       toast({
@@ -218,9 +336,6 @@ export function CartDrawer({ open, onOpenChange, onNavigateToCash }: CartDrawerP
           ? `Commande ${order.orderNumber} créée avec succès.`
           : "La commande a été créée avec succès.",
       });
-
-      // Ne pas fermer le tiroir : on affiche l'écran de succès avec le bouton d'impression.
-      // Le panier est conservé tant que l'utilisateur n'a pas cliqué "Nouvelle vente".
     } catch (err) {
       toast({
         title: "Erreur d'encaissement",
@@ -236,10 +351,11 @@ export function CartDrawer({ open, onOpenChange, onNavigateToCash }: CartDrawerP
   const handleNewSale = () => {
     clearCart();
     setLastOrder(null);
-    onOpenChange(false);
+    setOrderType("dine_in");
+    setDeliveryFeeInput("0");
+    onCloseMobile?.();
   };
 
-  // --- Ouvrir le ticket dans une fenêtre d'impression ---
   const handlePrintReceipt = () => {
     if (!lastOrder) return;
     window.open(
@@ -249,196 +365,272 @@ export function CartDrawer({ open, onOpenChange, onNavigateToCash }: CartDrawerP
     );
   };
 
-  // Le tiroir affiche l'écran de succès si lastOrder est présent
   const showSuccess = Boolean(lastOrder);
+  const cashClosed = !cashSessionActive && !cashSessionLoading;
 
   return (
     <>
-      <Sheet open={open} onOpenChange={onOpenChange}>
-        <SheetContent side="bottom" className="h-[85vh] max-h-[600px] rounded-t-2xl p-0">
-          {/* Warm gradient header strip */}
-          <div className="h-1.5 w-full bg-gradient-to-r from-yk-coral via-yk-sun to-yk-emerald" />
-          <SheetHeader className="pb-2 pt-3 px-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#338BE2] to-cyan-500 flex items-center justify-center shadow-md shadow-[#338BE2]/30">
-                  <ShoppingCart className="w-4 h-4 text-white" />
-                </div>
-                <SheetTitle className="text-lg">Panier</SheetTitle>
-                {itemCount > 0 && (
-                  <Badge variant="secondary" className="text-xs bg-yk-emerald/10 text-yk-emerald border-yk-emerald/20">
-                    {itemCount} article{itemCount > 1 ? "s" : ""}
-                  </Badge>
-                )}
-              </div>
-              {items.length > 0 && !showSuccess && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={clearCart}
-                  className="text-destructive hover:text-destructive text-xs"
+      {/* Warm gradient header strip */}
+      <div className="h-1.5 w-full bg-gradient-to-r from-yk-coral via-yk-sun to-yk-emerald shrink-0" />
+
+      {/* Header */}
+      <div className="px-4 pt-3 pb-2 shrink-0">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#338BE2] to-cyan-500 flex items-center justify-center shadow-md shadow-[#338BE2]/30">
+              <ShoppingCart className="w-4 h-4 text-white" />
+            </div>
+            <div className="flex flex-col">
+              <h2 className="text-base font-semibold leading-none">Commande</h2>
+              {itemCount > 0 && (
+                <span className="text-[11px] text-muted-foreground mt-0.5">
+                  {itemCount} article{itemCount > 1 ? "s" : ""}
+                </span>
+              )}
+            </div>
+          </div>
+          {isMobile && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => onCloseMobile?.()}
+              aria-label="Fermer le panier"
+            >
+              <X className="w-4 h-4" />
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {showSuccess ? (
+        <SuccessPanel
+          order={lastOrder!}
+          customer={customer}
+          onNewSale={handleNewSale}
+          onPrintReceipt={handlePrintReceipt}
+        />
+      ) : (
+        <div className="flex-1 flex flex-col min-h-0 px-4 pb-4 gap-3">
+          {/* --- Order type selector --- */}
+          <div className="grid grid-cols-3 gap-1.5 shrink-0">
+            {ORDER_TYPES.map(({ value, label, Icon }) => {
+              const isActive = orderType === value;
+              return (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setOrderType(value)}
+                  className={`
+                    flex flex-col items-center justify-center gap-1 py-2 px-1 rounded-lg border text-[11px] font-medium transition-colors min-h-[44px]
+                    ${isActive
+                      ? "bg-yk-emerald/10 border-yk-emerald text-yk-emerald"
+                      : "bg-background border-border text-muted-foreground hover:border-yk-emerald/40 hover:text-yk-emerald"
+                    }
+                  `}
+                  aria-pressed={isActive}
+                  aria-label={label}
                 >
-                  Vider
+                  <Icon className="w-4 h-4" />
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* --- Customer selector --- */}
+          <div className="shrink-0">
+            <Select
+              value={selectedCustomerId}
+              onValueChange={(val) => {
+                if (val === "walk-in" || val === walkInCustomer.id) {
+                  clearCustomer();
+                } else {
+                  const found = customerOptions.find((c) => c.id === val);
+                  if (found) {
+                    setCustomer({
+                      id: found.id,
+                      name: found.name,
+                      phone: found.phone ?? "",
+                    });
+                  }
+                }
+              }}
+            >
+              <SelectTrigger
+                className="w-full h-10 bg-gradient-to-r from-[#338BE2]/5 to-cyan-500/5 border-[#338BE2]/20"
+                aria-label="Sélectionner un client"
+              >
+                <User className="w-4 h-4 text-[#338BE2] mr-1 shrink-0" />
+                <SelectValue placeholder="Client comptoir" />
+              </SelectTrigger>
+              <SelectContent>
+                {customerOptions.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.name}
+                    {c.phone && (
+                      <span className="text-muted-foreground text-xs ml-2">
+                        {c.phone}
+                      </span>
+                    )}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* --- Cart items list (scrollable) --- */}
+          <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar -mx-1 px-1">
+            {items.length === 0 ? (
+              <div className="py-10 text-center">
+                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-muted to-muted/40 flex items-center justify-center mx-auto mb-2">
+                  <ShoppingCart className="w-7 h-7 text-muted-foreground/60" />
+                </div>
+                <p className="text-muted-foreground text-sm">Panier vide</p>
+                <p className="text-muted-foreground/60 text-xs mt-1">
+                  Cliquez sur un produit pour l&apos;ajouter
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-0.5">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                    Articles
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={clearCart}
+                    className="text-destructive hover:text-destructive text-xs h-7 px-2"
+                  >
+                    Vider
+                  </Button>
+                </div>
+                <AnimatePresence initial={false}>
+                  {items.map((item) => (
+                    <CartItemRow
+                      key={item.productId}
+                      productId={item.productId}
+                      name={item.productName}
+                      salePrice={item.salePrice}
+                      quantity={item.quantity}
+                      totalPrice={item.totalPrice}
+                      onUpdateQuantity={updateQuantity}
+                      onRemove={removeItem}
+                    />
+                  ))}
+                </AnimatePresence>
+              </div>
+            )}
+          </div>
+
+          {/* --- Totals + payment --- */}
+          {items.length > 0 && (
+            <div className="shrink-0 border-t border-border pt-3 space-y-3">
+              {/* Subtotal */}
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Sous-total</span>
+                <span className="font-medium tabular-nums">{formatFCFA(total)}</span>
+              </div>
+
+              {/* Delivery fee (only if order type = delivery) */}
+              {orderType === "delivery" && (
+                <div className="flex items-center justify-between gap-3 text-sm">
+                  <label
+                    htmlFor="delivery-fee"
+                    className="text-muted-foreground shrink-0 flex items-center gap-1.5"
+                  >
+                    <Bike className="w-3.5 h-3.5" />
+                    Frais de livraison
+                  </label>
+                  <Input
+                    id="delivery-fee"
+                    type="number"
+                    inputMode="numeric"
+                    min={0}
+                    step={100}
+                    value={deliveryFeeInput}
+                    onChange={(e) => setDeliveryFeeInput(e.target.value)}
+                    className="w-32 h-9 text-right tabular-nums"
+                    aria-label="Frais de livraison en FCFA"
+                  />
+                </div>
+              )}
+
+              {/* Grand total */}
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                  Total
+                </span>
+                <motion.span
+                  key={grandTotal}
+                  initial={{ scale: 1.1, color: "#f97316" }}
+                  animate={{ scale: 1, color: "#f97316" }}
+                  transition={{ duration: 0.2 }}
+                  className="text-2xl font-bold text-orange-500 tabular-nums"
+                >
+                  {formatFCFA(grandTotal)}
+                </motion.span>
+              </div>
+
+              {/* Cash closed warning */}
+              {cashClosed && (
+                <Badge
+                  variant="outline"
+                  className="border-yk-amber/40 text-yk-amber bg-yk-amber/10 gap-1 w-full justify-center py-1.5"
+                >
+                  <Lock className="w-3.5 h-3.5" />
+                  Caisse fermée — ouverture requise
+                </Badge>
+              )}
+
+              {/* Payment buttons grid (2×2) */}
+              {!cashClosed && (
+                <div className="grid grid-cols-2 gap-2">
+                  {PAYMENT_BUTTONS.map(({ value, label, Icon, className }) => (
+                    <motion.button
+                      key={value}
+                      type="button"
+                      onClick={() => handleCheckout(value)}
+                      disabled={isCheckingOut}
+                      whileTap={{ scale: 0.97 }}
+                      className={`
+                        ${className}
+                        text-white font-semibold rounded-xl h-14
+                        flex items-center justify-center gap-2
+                        transition-colors disabled:opacity-60 disabled:cursor-not-allowed
+                        shadow-sm
+                      `}
+                      aria-label={`Encaisser en ${label}`}
+                    >
+                      {isCheckingOut ? (
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                      ) : (
+                        <Icon className="w-5 h-5" />
+                      )}
+                      <span className="text-sm">{label}</span>
+                    </motion.button>
+                  ))}
+                </div>
+              )}
+
+              {/* Open cash button if closed */}
+              {cashClosed && (
+                <Button
+                  onClick={() => {
+                    onCloseMobile?.();
+                    onNavigateToCash?.();
+                  }}
+                  className="w-full h-12 gap-2 bg-gradient-to-r from-yk-amber to-yk-coral text-white shadow-md shadow-yk-amber/30 border-0"
+                >
+                  <Landmark className="w-4 h-4" />
+                  Ouvrir la caisse
                 </Button>
               )}
             </div>
-            <SheetDescription className="sr-only">
-              Votre panier de vente
-            </SheetDescription>
-          </SheetHeader>
-
-          {/* --- Écran de succès (après encaissement) --- */}
-          {showSuccess ? (
-            <SuccessPanel
-              order={lastOrder!}
-              customer={customer}
-              onNewSale={handleNewSale}
-              onPrintReceipt={handlePrintReceipt}
-            />
-          ) : (
-            <>
-              {/* Customer info */}
-              {customer && (
-                <div className="mx-4 mb-2 px-3 py-2 rounded-xl bg-gradient-to-r from-yk-emerald/10 to-yk-mint/10 border border-yk-emerald/20 flex items-center gap-2">
-                  <div className="w-7 h-7 rounded-full bg-yk-emerald/20 flex items-center justify-center shrink-0">
-                    <User className="w-3.5 h-3.5 text-yk-emerald" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <span className="text-sm font-medium text-yk-emerald truncate block">{customer.name}</span>
-                    {customer.phone && (
-                      <span className="text-[11px] text-muted-foreground flex items-center gap-1">
-                        <Phone className="w-3 h-3" />
-                        {customer.phone}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Cart items */}
-              <ScrollArea className="flex-1 px-4 -mx-4">
-                {items.length === 0 ? (
-                  <div className="py-12 text-center">
-                    <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-muted to-muted/40 flex items-center justify-center mx-auto mb-3">
-                      <ShoppingCart className="w-8 h-8 text-muted-foreground/60" />
-                    </div>
-                    <p className="text-muted-foreground text-sm">Le panier est vide</p>
-                    <p className="text-muted-foreground/60 text-xs mt-1">
-                      Appuyez sur un produit pour l&apos;ajouter
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-1 px-4">
-                    <AnimatePresence initial={false}>
-                      {items.map((item) => (
-                        <CartItemRow
-                          key={item.productId}
-                          productId={item.productId}
-                          name={item.productName}
-                          salePrice={item.salePrice}
-                          quantity={item.quantity}
-                          totalPrice={item.totalPrice}
-                          onUpdateQuantity={updateQuantity}
-                          onRemove={removeItem}
-                        />
-                      ))}
-                    </AnimatePresence>
-                  </div>
-                )}
-              </ScrollArea>
-
-              {/* Footer with total + checkout */}
-              {items.length > 0 && (
-                <SheetFooter className="border-t border-border pt-3 gap-2 px-4">
-                  {/* Payment method selector */}
-                  <div className="w-full">
-                    <p className="text-[11px] text-muted-foreground mb-1.5">Moyen de paiement</p>
-                    <div className="grid grid-cols-4 gap-1.5">
-                      {PAYMENT_METHODS.map(({ value, label, Icon }) => {
-                        const isActive = paymentMethod === value;
-                        return (
-                          <button
-                            key={value}
-                            type="button"
-                            onClick={() => setPaymentMethod(value)}
-                            disabled={isCheckingOut}
-                            className={`
-                              flex flex-col items-center justify-center gap-1 py-2 px-1 rounded-lg border text-[10px] font-medium transition-colors min-h-[44px]
-                              ${isActive
-                                ? "bg-yk-emerald/10 border-yk-emerald text-yk-emerald"
-                                : "bg-background border-border text-muted-foreground hover:border-yk-emerald/40 hover:text-yk-emerald"
-                              }
-                            `}
-                            aria-pressed={isActive}
-                            aria-label={label}
-                          >
-                            <Icon className="w-4 h-4" />
-                            {label}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between w-full mb-1">
-                    <span className="text-sm text-muted-foreground">Total</span>
-                    <motion.span
-                      key={total}
-                      initial={{ scale: 1.1, color: "#10B981" }}
-                      animate={{ scale: 1, color: "inherit" }}
-                      transition={{ duration: 0.2 }}
-                      className="text-2xl font-bold text-yk-emerald"
-                    >
-                      {formatFCFA(total)}
-                    </motion.span>
-                  </div>
-
-                  {/* Badge "Caisse fermée" quand pas de session active */}
-                  {!cashSessionActive && !cashSessionLoading && (
-                    <Badge
-                      variant="outline"
-                      className="self-start mb-1 border-yk-amber/40 text-yk-amber bg-yk-amber/10 gap-1"
-                    >
-                      <Lock className="w-3 h-3" />
-                      Caisse fermée — ouverture requise
-                    </Badge>
-                  )}
-
-                  <Button
-                    onClick={handleCheckout}
-                    size="lg"
-                    disabled={isCheckingOut}
-                    className={`
-                      w-full min-h-[52px] text-base font-semibold gap-2 border-0 transition-all active:scale-[0.98]
-                      ${!cashSessionActive && !cashSessionLoading
-                        ? "bg-gradient-to-r from-yk-amber to-yk-coral text-white shadow-lg shadow-yk-amber/30 opacity-90 hover:opacity-100"
-                        : "bg-gradient-to-r from-yk-emerald to-yk-mint hover:from-yk-emerald/90 hover:to-yk-mint/90 text-white shadow-lg shadow-yk-emerald/30"
-                      }
-                    `}
-                  >
-                    {isCheckingOut ? (
-                      <>
-                        <Loader2 className="w-5 h-5 animate-spin" />
-                        Encaissement...
-                      </>
-                    ) : !cashSessionActive && !cashSessionLoading ? (
-                      <>
-                        <Lock className="w-5 h-5" />
-                        Caisse fermée
-                      </>
-                    ) : (
-                      <>
-                        <CheckCircle2 className="w-5 h-5" />
-                        Encaisser {formatFCFA(total)}
-                      </>
-                    )}
-                  </Button>
-                </SheetFooter>
-              )}
-            </>
           )}
-        </SheetContent>
-      </Sheet>
+        </div>
+      )}
 
       {/* --- Dialog "Caisse fermée" --- */}
       <Dialog open={cashDialogOpen} onOpenChange={setCashDialogOpen}>
@@ -461,7 +653,7 @@ export function CartDrawer({ open, onOpenChange, onNavigateToCash }: CartDrawerP
               className="w-full gap-2"
               onClick={() => {
                 setCashDialogOpen(false);
-                onOpenChange(false);
+                onCloseMobile?.();
                 onNavigateToCash?.();
               }}
             >
@@ -492,7 +684,7 @@ interface SuccessPanelProps {
 
 function SuccessPanel({ order, customer, onNewSale, onPrintReceipt }: SuccessPanelProps) {
   return (
-    <div className="px-4 pb-6 pt-2 flex-1 flex flex-col items-center text-center">
+    <div className="px-4 pb-6 pt-2 flex-1 flex flex-col items-center text-center overflow-y-auto">
       {/* Check icon */}
       <motion.div
         initial={{ scale: 0, rotate: -30 }}
@@ -514,6 +706,14 @@ function SuccessPanel({ order, customer, onNewSale, onPrintReceipt }: SuccessPan
           <div className="flex items-center justify-between">
             <span className="text-muted-foreground">N° commande</span>
             <span className="font-mono font-semibold">{order.orderNumber}</span>
+          </div>
+        )}
+        {order.orderType && (
+          <div className="flex items-center justify-between">
+            <span className="text-muted-foreground">Type</span>
+            <span className="font-medium">
+              {ORDER_TYPE_LABELS[order.orderType] ?? order.orderType}
+            </span>
           </div>
         )}
         {typeof order.totalAmount === "number" && (
@@ -590,27 +790,27 @@ function CartItemRow({
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: -20, height: 0 }}
       transition={{ duration: 0.2 }}
-      className="flex items-center gap-3 py-3"
+      className="flex items-center gap-2 py-2 border-b border-border/40 last:border-0"
     >
       {/* Product info */}
       <div className="flex-1 min-w-0">
         <h4 className="text-sm font-medium leading-tight line-clamp-1">{name}</h4>
-        <p className="text-xs text-muted-foreground">{formatFCFA(salePrice)} / unité</p>
+        <p className="text-[11px] text-muted-foreground">{formatFCFA(salePrice)} / unité</p>
       </div>
 
       {/* Quantity controls */}
-      <div className="flex items-center gap-1.5">
+      <div className="flex items-center gap-1">
         <Button
           variant="outline"
           size="icon"
-          className="h-8 w-8"
+          className="h-7 w-7"
           onClick={(e) => {
             e.stopPropagation();
             onUpdateQuantity(productId, quantity - 1);
           }}
           aria-label="Diminuer la quantité"
         >
-          <Minus className="w-3.5 h-3.5" />
+          <Minus className="w-3 h-3" />
         </Button>
 
         <motion.span
@@ -618,7 +818,7 @@ function CartItemRow({
           initial={{ scale: 1.3 }}
           animate={{ scale: 1 }}
           transition={{ duration: 0.15 }}
-          className="w-8 text-center text-sm font-semibold tabular-nums"
+          className="w-7 text-center text-sm font-semibold tabular-nums"
         >
           {quantity}
         </motion.span>
@@ -626,19 +826,19 @@ function CartItemRow({
         <Button
           variant="outline"
           size="icon"
-          className="h-8 w-8"
+          className="h-7 w-7"
           onClick={(e) => {
             e.stopPropagation();
             onUpdateQuantity(productId, quantity + 1);
           }}
           aria-label="Augmenter la quantité"
         >
-          <Plus className="w-3.5 h-3.5" />
+          <Plus className="w-3 h-3" />
         </Button>
       </div>
 
       {/* Line total */}
-      <div className="text-right min-w-[70px]">
+      <div className="text-right min-w-[64px]">
         <p className="text-sm font-semibold tabular-nums">{formatFCFA(totalPrice)}</p>
       </div>
 
@@ -646,7 +846,7 @@ function CartItemRow({
       <Button
         variant="ghost"
         size="icon"
-        className="h-8 w-8 text-muted-foreground hover:text-destructive"
+        className="h-7 w-7 text-muted-foreground hover:text-destructive"
         onClick={(e) => {
           e.stopPropagation();
           onRemove(productId);
@@ -659,7 +859,7 @@ function CartItemRow({
   );
 }
 
-// --- Floating Cart Button (to open drawer) ---
+// --- Floating Cart Button (mobile — opens bottom Sheet) ---
 interface CartButtonProps {
   itemCount: number;
   total: number;
@@ -680,7 +880,7 @@ export function CartButton({ itemCount, total, onClick }: CartButtonProps) {
         className="w-full min-h-[52px] text-base font-semibold shadow-lg shadow-[#338BE2]/30 relative bg-gradient-to-r from-[#338BE2] to-cyan-500 hover:from-[#338BE2]/90 hover:to-cyan-500/90 border-0"
       >
         <ShoppingCart className="w-5 h-5 mr-2" />
-        <span>Voir le panier</span>
+        <span>Panier</span>
         {itemCount > 0 && (
           <Badge
             variant="secondary"

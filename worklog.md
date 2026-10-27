@@ -460,3 +460,170 @@ Notes for next agent:
 - SettingsTab is now minimal: header card (with Déconnexion button) + "Profil" button (BusinessProfileEditor) + "Audit" button (AuditLogViewer, wrapped in PermissionGuard canViewAuditLog). No more Customers, Caisse, or B2B Credit sections in Settings.
 - The invoice PDF logo now properly handles both data URLs (base64) and regular URLs, with `onerror` fallback to hide broken images and `max-width: 180px; max-height: 80px` for proper aspect ratio. The placeholder (initial letter on teal) only shows when `logoUrl` is null.
 - The CustomerList is now rendered in the top-level "Clients" tab (CustomersTab) instead of being nested inside Settings. The credit-dashboard B2B view remains in PipelineTab only (it was duplicated in Settings before).
+
+---
+Task ID: POS-REDESIGN
+Agent: Subagent F
+Task: Complete POS redesign (Tap Touch style 3-column layout) + delivery fees + 4-button payment grid
+
+Work Log:
+- Task 1 (Redesign `src/components/pos/pos-screen.tsx`):
+  - Replaced previous single-column mobile layout with a 3-column desktop layout (lg+) matching the user's Tap Touch reference:
+    - Top bar (sticky): search input + horizontal scrollable category chips (with colored backgrounds per category). Removed the customer Select from the top bar — it's now inside the cart panel.
+    - Below: `flex` row with [product grid (scrollable)] | [sticky right cart panel, 380-420px wide].
+    - Mobile: same top bar (search + categories) + product grid + floating "Panier (N items)" button that opens the cart as a bottom Sheet (existing behavior preserved).
+  - The customer selector (`useCartStore.setCustomer` / `clearCustomer`) was moved into the cart panel (`CartPanelContent`). PosScreen now fetches the customers list once and passes it down to both the desktop `CartPanelContent` and the mobile `CartDrawer`/Sheet via the new `customers` + `walkInCustomer` props.
+  - Search input is now controlled by PosScreen (state `searchQuery`) and passed to `ProductGrid` as a prop instead of being internal to `ProductGrid`. Categories chips remain colored (active chip uses inline `backgroundColor: cat.color` when category has a color).
+- Task 2 (Redesign `src/components/pos/cart-drawer.tsx`):
+  - Refactored into 3 reusable exports: `CartDrawer` (mobile bottom Sheet wrapper, `lg:hidden`), `CartPanelContent` (the actual panel UI — shared between desktop sticky panel and mobile Sheet), `CartButton` (mobile floating cart button, preserved).
+  - New `CartPanelContent` layout (top → bottom):
+    1. Gradient strip header
+    2. Header "Commande" + item count badge + mobile close button (X icon)
+    3. Order type selector — 3 toggle buttons "Sur place" / "À emporter" / "Livraison" (Utensils / ShoppingBag / Bike icons). Default "Sur place" (`dine_in`).
+    4. Customer Select (moved from PosScreen) — `walk-in` is the default first option.
+    5. Cart items list (scrollable, flex-1) — each row: name + unit price + qty controls (- qty +) + line total + trash icon.
+    6. Sous-total row.
+    7. Delivery fee input (NEW) — `<Input type="number" min=0 step=100>` for FCFA. Only visible when `orderType === "delivery"`.
+    8. TOTAL row — large, bold, text-orange-500 (matches reference), with motion animation on value change.
+    9. Payment buttons grid (NEW — 2×2 grid of large `h-14` buttons):
+       - "Espèces" → `bg-emerald-500` + Banknote icon
+       - "Wave" → `bg-[#1DC2FF]` + Waves icon
+       - "Orange Money" → `bg-orange-500` + Smartphone icon
+       - "Carte" → `bg-slate-700` + CreditCard icon
+       Each click triggers `handleCheckout(method)` directly — no separate "Encaisser" button. If a cash session is closed, the payment buttons are replaced by a "Caisse fermée" warning badge + "Ouvrir la caisse" button that navigates to the Caisse tab.
+  - `handleCheckout(method: PaymentMethod)` now sends `paymentMethod`, `orderType`, `deliveryFee` (integer FCFA, 0 if not delivery) in the POST `/api/orders` body. `grandTotal = total + deliveryFee` is shown in the UI.
+  - After sale: `SuccessPanel` is preserved (now also displays `orderType` in the order details). "Imprimer le ticket" + "Nouvelle vente" buttons are unchanged. `handleNewSale` resets `orderType` to `dine_in` and `deliveryFeeInput` to `"0"`.
+- Task 3 (Update `src/components/pos/product-grid.tsx`):
+  - Removed the search bar from ProductGrid (now passed in via `searchQuery` prop from PosScreen).
+  - Removed the `Card`/`CardContent` shadcn wrappers — replaced with a custom `motion.div` card with: `rounded-2xl overflow-hidden border border-slate-200 hover:border-primary/40 hover:shadow-lg transition-all`.
+  - Square image container (`aspect-square w-full`) with `object-cover` image. If no `imageUrl`, shows a centered `Package` icon on a muted gradient background.
+  - Out-of-stock (`quantity === 0`): card is grayed out (`opacity-60 cursor-not-allowed`), shows "Rupture" badge top-right, NOT clickable.
+  - Low-stock (`0 < quantity <= 5`): shows "Stock bas" amber badge top-right.
+  - Category color dot (top-left) when the product has a `categoryId` matching a category with a `color`.
+  - Below image: product name (text-sm font-medium, line-clamp-2) + price (text-base font-bold text-primary tabular-nums) + "N dispo" stock count.
+  - Hover: `group-hover:scale-105` on the image. Click: `whileTap={{ scale: 0.95 }}` on the whole card.
+  - Grid: `grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4`.
+  - Updated `ProductGridProps` to accept optional `searchQuery?: string`. Removed unused `CATEGORY_GRADIENTS` map and `gradientFor` helper (no longer needed — single neutral gradient fallback now).
+- Task 4 (Delivery fee in order creation):
+  - `prisma/schema.prisma` — Added 2 fields to the `Order` model:
+    - `deliveryFee Int @default(0)` — Frais de livraison (FCFA), 0 si pas de livraison
+    - `orderType String @default("dine_in")` — Type de commande: "dine_in" | "takeaway" | "delivery"
+  - Ran `npx prisma db push` → ✓ DB synced, Prisma Client regenerated.
+  - `src/app/api/orders/route.ts` POST:
+    - Accepts `deliveryFee?: number` + `orderType?: string` in body.
+    - Validates `orderType` against `['dine_in', 'takeaway', 'delivery']` (default `dine_in`).
+    - `deliveryFee` is parsed with `Number(deliveryFee) || 0`, clamped to `>= 0`, and FORCED to `0` if `orderType !== 'delivery'` (safety: prevents a stray fee on non-delivery orders).
+    - `totalAmount = subtotal + resolvedDeliveryFee`.
+    - The Order is created with `deliveryFee` + `orderType` fields.
+    - Response includes `paymentMethod`, `deliveryFee`, `orderType` so the frontend can display them without refetching.
+- Task 5 (Update receipt with delivery fee + order type):
+  - `src/app/api/orders/[id]/receipt/route.ts`:
+    - Added `ORDER_TYPE_LABELS` constant: `{ dine_in: 'Sur place', takeaway: 'À emporter', delivery: 'Livraison' }`.
+    - Computes `orderTypeLabel` and `deliveryFee` (defaulting to 0 if not on the order record) and `showDeliveryLine = order.orderType === 'delivery' && deliveryFee > 0`.
+    - In the date/ticket header section: now displays the order type label next to the date (`<span>${date}</span><span class="bold">${orderTypeLabel}</span>`).
+    - In the totals section: between "Sous-total" and "TOTAL", conditionally renders a "Livraison" row with the fee amount when `showDeliveryLine` is true.
+    - In the payment section: added a "Type" row showing `orderTypeLabel` above the existing "Paiement" row.
+    - TOTAL row uses `order.totalAmount` which already includes `deliveryFee` (computed by the API at order creation time).
+
+Build verification:
+- `cd /home/z/my-project/yonukom && npx prisma db push` → ✓ Your database is now in sync with your Prisma schema. Done in 22ms
+- `cd /home/z/my-project/yonukom && npx prisma generate` → ✓ Generated Prisma Client (v6.19.2) to ./node_modules/@prisma/client in 215ms
+- `cd /home/z/my-project/yonukom && npx next build 2>&1 | tail -20` → ✓ Compiled successfully in 17.8s, 62/62 static pages generated
+- `bun run lint` → 8 pre-existing errors (same baseline as Subagents A-E: set-state-in-effect in theme-toggle.tsx/business-logo.ts/superadmin-dashboard.tsx + no-require-imports in use-auth-store.ts) — **0 new errors introduced**. Removed 1 pre-existing unused eslint-disable warning on `product-grid.tsx` (the `@next/next/no-img-element` directive was no longer needed in Next.js 16). Net warning count: 7 (was 8).
+
+Files modified:
+- `prisma/schema.prisma` — Order model: added `deliveryFee Int @default(0)` + `orderType String @default("dine_in")`
+- `src/app/api/orders/route.ts` — POST accepts `deliveryFee` + `orderType`, validates, computes `totalAmount = subtotal + deliveryFee`, persists both fields, returns them in response
+- `src/app/api/orders/[id]/receipt/route.ts` — Added `ORDER_TYPE_LABELS`, delivery fee line in totals, order type label in header + payment section
+- `src/components/pos/pos-screen.tsx` — Full rewrite: 3-column desktop layout (search+categories top bar | product grid | sticky right cart panel), mobile keeps single-column + floating cart button
+- `src/components/pos/cart-drawer.tsx` — Full rewrite: extracted `CartPanelContent` shared between desktop sticky panel + mobile Sheet, added order type selector + delivery fee input + 2×2 payment buttons grid (Espèces/Wave/OM/Carte), each button triggers checkout directly
+- `src/components/pos/product-grid.tsx` — Redesigned cards: larger images, square aspect ratio, category color dot, "Rupture"/"Stock bas" badges, hover scale, whileTap animation. Removed internal search bar (now controlled by PosScreen)
+
+Files created:
+- `agent-ctx/POS-REDESIGN-subagent-f.md`
+
+Notes for next agent:
+- The new POS layout uses a 3-column desktop layout. The cart panel is on the RIGHT (not left, as the task description said — the reference layout from the user's image clearly shows it on the right, matching Tap Touch convention). On mobile, it's still a bottom Sheet.
+- The 4 payment buttons (Espèces / Wave / OM / Carte) each trigger checkout DIRECTLY with their respective `paymentMethod`. There is no separate "Encaisser" button anymore — clicking a payment method IS the checkout action. This is intentional (matches the user's reference design and reduces clicks).
+- The delivery fee input is a plain `<Input type="number">`. The user types a raw FCFA amount (e.g. `1500`). It's only visible when `orderType === "delivery"`. The frontend clamps negative values to 0 and the backend FORCES it to 0 if `orderType !== 'delivery'` (anti-fraud: a vendor can't sneak in a deliveryFee on a "Sur place" order via direct API call).
+- The `orderType` is part of the Order record. Receipts now show "Sur place" / "À emporter" / "Livraison" both in the header (next to the date) and in the payment section.
+- The customer Select was moved from PosScreen's top bar INTO the cart panel. This means on desktop, the customer is selected in the right cart panel (where it belongs — it's part of the order being prepared). The walk-in customer (`"Client comptoir"`) remains the default first option.
+- Removed the `User` icon usage from `pos-screen.tsx` (it was for the customer Select that moved). Removed unused `Phone` import from `cart-drawer.tsx`. Added `Utensils`, `ShoppingBag`, `Bike`, `Waves`, `X` icon imports to `cart-drawer.tsx`.
+- The success panel now displays the `orderType` ("Sur place" / "À emporter" / "Livraison") alongside the existing order number / amount / payment / customer info.
+
+---
+
+Task ID: HIST-DEBT-CUST
+Agent: Subagent G
+
+Task: Order history (print + new POS statuses + filters + mark-as-paid) + Debts dashboard (new Debt model + create/encaisser/details dialogs) + Customer address field
+
+Work Log:
+- Re-read all target files (schema.prisma, order-history.tsx, debts-dashboard.tsx, customer-list.tsx, customer-form.tsx, customer-card.tsx, customers + ecom-customers API routes, orders API route, receipt route) before editing to avoid conflicts with Subagent F's recent POS-REDESIGN changes (Order model already had `deliveryFee` + `orderType`).
+- Updated `prisma/schema.prisma`:
+  - Added new `Debt` model (id, businessId, customerId, amount, paidAmount, debtDate, expectedPaymentDate?, status, notes?, orderId?, paymentHistory JSON string, timestamps). Indexes on businessId, customerId, status.
+  - Added `debts Debt[]` relation to `Business`, `Customer`, and `Order` models.
+- Ran `npx prisma db push` (SQLite) — DB now in sync. Prisma Client regenerated.
+- Rewrote `src/app/api/debts/route.ts`:
+  - GET `?businessId=xxx&status=yyy` → returns `{ debts, totalDebt, totalRemaining, count }` with each debt including its customer.
+  - POST → creates a new Debt. Validates businessId, customerId (must belong to business), amount (positive integer), parses debtDate + expectedPaymentDate. Optional orderId (must belong to business).
+- Created `src/app/api/debts/[id]/route.ts`:
+  - GET `/api/debts/:id?businessId=xxx` → debt + customer + linked order (orderNumber, amounts).
+  - PATCH → dual mode: if `paidAmount` provided → adds a payment entry to paymentHistory JSON, recalculates paidAmount (clamped to amount), updates status to "active"/"partial"/"paid". Otherwise → simple field update (amount/debtDate/expectedPaymentDate/notes/status). BusinessId validated.
+  - DELETE → hard delete, businessId validated.
+- Enhanced `src/app/api/orders/[id]/route.ts` PUT handler:
+  - When `status === "paid"` → forces `paidAmount = totalAmount`, `remainingAmount = 0`, `isCancelled = false` (the "Marquer comme payée" front action).
+  - When `status === "unpaid"` → zeroes paidAmount + sets remaining to totalAmount.
+  - When `status === "delivered"` → sets `isDelivered = true`.
+  - Explicit `paidAmount` in body is honored and recomputes remainingAmount + auto-derives status if not provided (paid/partial/unpaid).
+- Rewrote `src/components/orders/order-history.tsx`:
+  - New `paymentBucket()` function derives the display badge from `paidAmount` + `status`: `paid` (emerald) if `paidAmount >= totalAmount` AND not cancelled; `partial` (amber) if `0 < paidAmount < totalAmount`; `unpaid` (rose) if `paidAmount = 0`; `pending` (yellow) if status is in draft-like states AND paidAmount = 0; `cancelled` (slate) if status === "cancelled".
+  - New filter tabs: Tous / Payés / Non payés / En attente / Annulés (with live counts).
+  - Added **Print button** (Printer icon) on each row → opens `/api/orders/[id]/receipt` in a new tab. Present in both desktop table and mobile list views.
+  - Added **"Marquer comme payée"** button (CheckCircle2 icon) visible only for `unpaid`/`partial` orders → calls `PUT /api/orders/[id]` with `{ status: "paid" }`, then updates the local list (no full refetch needed, but a fetchOrders is also possible).
+  - For partial payments, shows "Payé X FCFA" hint under the badge (desktop) and "Payé X — reste Y" line (mobile).
+- Rewrote `src/components/customers/debts-dashboard.tsx` (complete rewrite, kept only the component name `DebtsDashboard`):
+  - Table columns: Client | Montant dette | Payé (hidden on mobile) | Reste | Date dette (hidden md-) | Date recouvrement prévue (hidden lg-) | Statut | Actions.
+  - Status badges: active=rose "En cours", partial=amber "Partiel", paid=emerald "Payée".
+  - Header: "Reste à recouvrer" card + "Ajouter une dette" button.
+  - **CreateDebtDialog**: Select customer (fetched from `/api/customers?businessId=xxx`), amount, debtDate (default today), expectedPaymentDate (optional), notes (Textarea). Submits to `POST /api/debts`.
+  - **DebtPaymentDialog** ("Encaisser"): amount (default = remaining), payment method (cash/wave/OM/CB/cheque/virement), reference. "Tout régler" quick-fill button. Submits to `PATCH /api/debts/[id]` with `{ paidAmount, paymentMethod, reference }`.
+  - **DebtDetailsDialog** ("Voir détails"): shows summary, customer info, notes, and a payment history table parsed from `paymentHistory` JSON.
+  - Row actions: Encaisser (if not paid) / Voir détails / Imprimer le reçu (only if `orderId` is set) / Relancer WhatsApp (wa.me link with prefilled message) / Supprimer (AlertDialog confirmation).
+  - Empty state: "🎉 Aucune dette client. Tous vos clients sont à jour !" + quick link to open the create dialog.
+- Customer address (Task 3):
+  - Verified Customer model already had `address String?` (no schema change needed for Task 3).
+  - Verified `src/app/api/customers/route.ts` POST and `src/app/api/customers/[id]/route.ts` PUT already accept and persist `address` (`address: address || null` and `address` is in the `allowedFields` list).
+  - Verified `src/app/api/ecom-customers/route.ts` POST also accepts `address`.
+  - Added `address?: string | null` to `CustomerCardData` interface in `customer-card.tsx` + a MapPin icon row (truncated to max-w-[200px] with tooltip = full address). Hidden when address is empty.
+  - Added `address?: string | null` to `CustomerFormData` interface + a Textarea field "Adresse" in `customer-form.tsx` (visible for both quick-add and edit). Submits `address: address.trim() || null`.
+  - Updated `customer-list.tsx` `handleSave`:
+    - For edits → calls `PUT /api/customers/[id]` (previously was local-only) with `name, phone, address, paymentMethod, isB2B`. Updates local state from API response + toast.success. Falls back to local update if API fails.
+    - For creates → unchanged (`POST /api/ecom-customers`).
+  - Search now also matches on `address` (case-insensitive).
+
+Files created:
+- `agent-ctx/HIST-DEBT-CUST-subagent-g.md`
+- `src/app/api/debts/[id]/route.ts`
+
+Files modified:
+- `prisma/schema.prisma` (added Debt model + relations on Business/Customer/Order)
+- `src/app/api/debts/route.ts` (rewritten: list + create)
+- `src/app/api/orders/[id]/route.ts` (PUT: paid/unpaid/delivered/paidAmount handling)
+- `src/components/orders/order-history.tsx` (print button, new badges, filters, mark-as-paid)
+- `src/components/customers/debts-dashboard.tsx` (full rewrite: per-debt table + 3 dialogs)
+- `src/components/customers/customer-card.tsx` (address field + display)
+- `src/components/customers/customer-form.tsx` (address Textarea + persist on save)
+- `src/components/customers/customer-list.tsx` (PUT on edit, search includes address)
+
+Build verification:
+- `npx next build` → ✓ Compiled successfully (62/62 static pages generated, 0 errors).
+- `bun run lint` → 0 errors in any of my files (the 8 existing lint errors are in unrelated files: theme-toggle.tsx, superadmin-dashboard.tsx, business-logo.ts, use-auth-store.ts — all pre-existing).
+
+Notes for next agent:
+- The Debts Dashboard switched from a **per-customer summary** view (old `/api/debts` returned `{customers: [], totalDebt, count}`) to a **per-debt record** view (now returns `{debts: [], totalDebt, totalRemaining, count}`). The endpoint is the same path, but the response shape changed. If any other code calls `/api/debts` expecting the old summary shape, it will break. Grep showed only `debts-dashboard.tsx` used it (now updated to the new shape).
+- The old `DebtDetailsDialog` (which opened via `/api/customers/[customerId]/debts` and showed a customer's unpaid ORDERS) is gone — replaced by the new per-debt details dialog. The `/api/customers/[id]/debts` and `/api/customers/[id]/payments` routes still exist and are untouched (they were used by the old dialog and may be used elsewhere).
+- For backward compat, the `Debt` model uses an `orderId?` relation (optional) — a debt may be standalone (no command) or linked to a specific unpaid order. The Print Receipt action in the debts table only appears when `orderId` is set.
+- The "Marquer comme payée" button calls `PUT /api/orders/[id] { status: "paid" }` (not PATCH — the orders API uses PUT for updates). The backend handles the paidAmount=totalAmount + remainingAmount=0 logic automatically.
+- The payment history is stored as a JSON string in `Debt.paymentHistory` (format: `[{date, amount, method, reference?}]`). On each PATCH payment, a new entry is appended.
+- Customer edits now actually persist (previously local-only). If `PUT /api/customers/[id]` fails, the local state is still updated as a fallback to preserve UX.

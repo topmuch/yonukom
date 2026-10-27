@@ -218,6 +218,39 @@ export async function PUT(
     if (body.paymentLink !== undefined) {
       updateData.paymentLink = body.paymentLink
     }
+    // --- POS payment status : "paid" marque la commande comme entièrement payée ---
+    // Le "Marquer comme payée" du front appelle PUT { status: "paid" } sans paidAmount :
+    // on force alors paidAmount = totalAmount et remainingAmount = 0.
+    if (status === 'paid') {
+      updateData.paidAmount = existingOrder.totalAmount
+      updateData.remainingAmount = 0
+      updateData.isCancelled = false
+    } else if (status === 'unpaid') {
+      updateData.paidAmount = 0
+      updateData.remainingAmount = existingOrder.totalAmount
+    } else if (status === 'delivered' && body.isDelivered === undefined) {
+      // Livraison = commande livrée au client (mais pas forcément payée)
+      updateData.isDelivered = true
+    }
+    // Si l'appelant fournit explicitement paidAmount, on l'utilise (et on recalcule remaining)
+    if (body.paidAmount !== undefined) {
+      const newPaid = Math.min(
+        existingOrder.totalAmount,
+        Math.max(0, Math.floor(Number(body.paidAmount) || 0))
+      )
+      updateData.paidAmount = newPaid
+      updateData.remainingAmount = Math.max(0, existingOrder.totalAmount - newPaid)
+      // Mettre à jour le statut automatiquement si non fourni
+      if (status === undefined) {
+        if (newPaid >= existingOrder.totalAmount) {
+          updateData.status = 'paid'
+        } else if (newPaid > 0) {
+          updateData.status = 'partial'
+        } else {
+          updateData.status = 'unpaid'
+        }
+      }
+    }
 
     const order = await db.order.update({
       where: { id },

@@ -56,6 +56,7 @@ model Business {
   notificationLogs  NotificationLog[]
   notificationSetting NotificationSetting?
   categories        Category[]
+  debts             Debt[]
 
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
@@ -247,6 +248,7 @@ model Customer {
 
   orders          Order[]
   invoices        Invoice[]
+  debts           Debt[]
 
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
@@ -283,6 +285,10 @@ model Order {
   deliveryAddress String?
   deliveryDate    DateTime?
   isDelivered     Boolean  @default(false)
+  /// Frais de livraison (FCFA) — 0 si pas de livraison
+  deliveryFee     Int      @default(0)
+  /// Type de commande: "dine_in" | "takeaway" | "delivery"
+  orderType       String   @default("dine_in")
 
   // --- E-COMMERCE SOCIAL ---
   /// WhatsApp de confirmation envoyé ?
@@ -312,6 +318,8 @@ model Order {
   payments        Payment[]
   invoices        Invoice[]
   commissions     Commission[]
+  /// Dettes liées à cette commande (si la dette vient d'une vente à crédit)
+  debts           Debt[]
 
   /// userId qui a créé la commande
   createdBy       String?
@@ -842,6 +850,44 @@ model NotificationSetting {
 
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
+}
+
+// ==========================================
+// DETTES CLIENTS (Ventes à crédit / créances)
+// ==========================================
+
+/// Dette client — créance indépendante d'une commande.
+/// Peut être créée manuellement (vente à crédit isolée) ou liée à une commande (orderId).
+/// Suivi du remboursement progressif via paidAmount + paymentHistory.
+model Debt {
+  id              String   @id @default(cuid())
+  businessId      String
+  business        Business @relation(fields: [businessId], references: [id])
+  customerId      String
+  customer        Customer @relation(fields: [customerId], references: [id])
+  /// Montant de la dette (FCFA)
+  amount          Int
+  /// Montant déjà remboursé (FCFA)
+  paidAmount      Int      @default(0)
+  /// Date à laquelle la dette a été contractée
+  debtDate        DateTime @default(now())
+  /// Date de recouvrement prévue (quand le client a promis de payer)
+  expectedPaymentDate DateTime?
+  /// Statut: "active" (en cours) | "paid" (entièrement remboursée) | "partial" (partiellement)
+  status          String   @default("active")
+  /// Notes (libre)
+  notes           String?
+  /// Lien vers une commande (optionnel — si la dette vient d'une vente à crédit)
+  orderId         String?
+  order           Order?   @relation(fields: [orderId], references: [id])
+  /// Historique des paiements (JSON string: [{date, amount, method}])
+  paymentHistory  String   @default("[]")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([businessId])
+  @@index([customerId])
+  @@index([status])
 }
 
 // Ajout des relations manquantes aux modèles existants

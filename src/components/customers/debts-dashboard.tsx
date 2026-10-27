@@ -1,9 +1,11 @@
 // ============================================================
-// YonuKom — Debts Dashboard (Dettes & Crédit Clients avancé)
-// Liste tous les clients endettés du business.
-// Pour chaque client : "Détails" (liste des commandes impayées) et
-// "Relancer WhatsApp" (génère un lien wa.me via /api/customers/[id]/remind).
-// Dans le dialogue détails : bouton "Encaisser" pour enregistrer un paiement.
+// YonuKom — Debts Dashboard (Dettes clients avancé)
+// Liste toutes les dettes clients (modèle `Debt` en DB).
+// - Bouton "Ajouter une dette" → Dialog de création
+// - Tableau : Client | Montant dette | Payé | Reste | Date dette |
+//             Date recouvrement prévue | Statut | Actions
+// - Actions : "Encaisser" (dialog paiement), "Voir détails" (historique),
+//             "Imprimer reçu" (lien /api/orders/[id]/receipt si orderId)
 // ============================================================
 
 "use client";
@@ -14,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -39,6 +42,16 @@ import {
   TableRow,
   TableCell,
 } from "@/components/ui/table";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import {
   AlertCircle,
@@ -47,53 +60,55 @@ import {
   HandCoins,
   Loader2,
   MessageCircle,
+  Plus,
+  Printer,
+  Trash2,
   Wallet,
 } from "lucide-react";
 import { formatFCFA, parseFCFA } from "@/lib/fcfa";
 import { motion } from "framer-motion";
 
 // --- Types ---
-interface CustomerDebtSummary {
+interface CustomerOption {
   id: string;
   name: string;
-  phone: string | null;
-  email: string | null;
-  address: string | null;
-  isB2B: boolean;
-  totalDebt: number;
-  debtCount: number;
-  oldestDebtDays: number;
-  oldestDebtDate: string | null;
+  phone?: string | null;
+  isB2B?: boolean;
 }
 
-interface DebtOrder {
+interface DebtCustomer {
   id: string;
-  orderNumber: string;
-  status: string;
-  subtotal: number;
-  totalAmount: number;
-  paidAmount: number;
-  remaining: number;
-  createdAt: string;
-  daysSinceIssue: number;
+  name: string;
+  phone?: string | null;
+  email?: string | null;
+  address?: string | null;
+  isB2B?: boolean;
 }
 
-interface CustomerDebtDetail {
-  customer: {
-    id: string;
-    name: string;
-    phone?: string | null;
-    email?: string | null;
-    address?: string | null;
-  };
-  debts: DebtOrder[];
+interface DebtRecord {
+  id: string;
+  amount: number;
+  paidAmount: number;
+  debtDate: string;
+  expectedPaymentDate: string | null;
+  status: "active" | "partial" | "paid";
+  notes: string | null;
+  orderId: string | null;
+  paymentHistory: string;
+  createdAt: string;
+  customer: DebtCustomer;
+}
+
+interface DebtsListResponse {
+  debts: DebtRecord[];
   totalDebt: number;
-  oldestDebtDays: number;
-  debtCount: number;
+  totalRemaining: number;
+  count: number;
 }
 
 // --- Helpers ---
-function formatDate(dateStr: string): string {
+function formatDate(dateStr: string | null | undefined): string {
+  if (!dateStr) return "—";
   try {
     return new Intl.DateTimeFormat("fr-FR", {
       day: "2-digit",
@@ -101,22 +116,39 @@ function formatDate(dateStr: string): string {
       year: "numeric",
     }).format(new Date(dateStr));
   } catch {
-    return dateStr;
+    return "—";
   }
 }
 
-function daysLabel(days: number): string {
-  if (days <= 0) return "Aujourd'hui";
-  if (days === 1) return "1 jour";
-  return `${days} jours`;
+interface PaymentHistoryEntry {
+  date: string;
+  amount: number;
+  method: string;
+  reference?: string;
 }
 
-function daysUrgency(days: number): string {
-  if (days >= 60) return "text-rose-600 dark:text-rose-400";
-  if (days >= 30) return "text-amber-600 dark:text-amber-400";
-  if (days >= 7) return "text-yellow-600 dark:text-yellow-400";
-  return "text-emerald-600 dark:text-emerald-400";
+function parsePaymentHistory(raw: string | null | undefined): PaymentHistoryEntry[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed as PaymentHistoryEntry[];
+  } catch {
+    return [];
+  }
 }
+
+const STATUS_LABEL: Record<DebtRecord["status"], string> = {
+  active: "En cours",
+  partial: "Partiel",
+  paid: "Payée",
+};
+
+const STATUS_BADGE_CLASS: Record<DebtRecord["status"], string> = {
+  active: "bg-rose-500/10 text-rose-700 dark:text-rose-400 border-rose-500/30",
+  partial: "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30",
+  paid: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30",
+};
 
 // ============================================================
 // Main Component
@@ -125,13 +157,17 @@ export function DebtsDashboard() {
   const user = useAuthStore((s) => s.user);
   const businessId = user?.businessId || "";
 
-  const [customers, setCustomers] = useState<CustomerDebtSummary[]>([]);
+  const [debts, setDebts] = useState<DebtRecord[]>([]);
   const [totalDebt, setTotalDebt] = useState<number>(0);
+  const [totalRemaining, setTotalRemaining] = useState<number>(0);
   const [loading, setLoading] = useState(true);
-  const [detailsOpen, setDetailsOpen] = useState(false);
-  const [selectedCustomerId, setSelectedCustomerId] =
-    useState<string | null>(null);
-  const [remindingId, setRemindingId] = useState<string | null>(null);
+
+  // Dialog states
+  const [createOpen, setCreateOpen] = useState(false);
+  const [payTarget, setPayTarget] = useState<DebtRecord | null>(null);
+  const [detailTarget, setDetailTarget] = useState<DebtRecord | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<DebtRecord | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   // --- Fetch all debts ---
   const fetchDebts = useCallback(async () => {
@@ -141,19 +177,18 @@ export function DebtsDashboard() {
     }
     try {
       const res = await fetch(
-        `/api/debts?businessId=${encodeURIComponent(businessId)}`
+        `/api/debts?businessId=${encodeURIComponent(businessId)}`,
+        { cache: "no-store" }
       );
       if (!res.ok) throw new Error("Failed");
-      const data = (await res.json()) as {
-        customers: CustomerDebtSummary[];
-        totalDebt: number;
-        count: number;
-      };
-      setCustomers(data.customers || []);
+      const data = (await res.json()) as DebtsListResponse;
+      setDebts(data.debts || []);
       setTotalDebt(data.totalDebt || 0);
+      setTotalRemaining(data.totalRemaining || 0);
     } catch {
-      setCustomers([]);
+      setDebts([]);
       setTotalDebt(0);
+      setTotalRemaining(0);
     } finally {
       setLoading(false);
     }
@@ -163,54 +198,47 @@ export function DebtsDashboard() {
     fetchDebts();
   }, [fetchDebts]);
 
-  // --- Relance WhatsApp ---
-  const handleRemind = async (customer: CustomerDebtSummary) => {
-    setRemindingId(customer.id);
+  // --- Relance WhatsApp (lien wa.me) ---
+  const handleRemind = (debt: DebtRecord) => {
+    const phone = debt.customer.phone;
+    if (!phone) {
+      toast.error("Numéro de téléphone manquant pour ce client");
+      return;
+    }
+    const remaining = debt.amount - debt.paidAmount;
+    const message = `Bonjour ${debt.customer.name}, vous avez une créance de ${formatFCFA(
+      remaining
+    )} envers notre commerce. Merci de régulariser dès que possible.`;
+    const cleaned = phone.replace(/[^\d]/g, "");
+    const waUrl = `https://wa.me/${cleaned}?text=${encodeURIComponent(message)}`;
+    window.open(waUrl, "_blank", "noopener,noreferrer");
+    toast.success(`Relance WhatsApp générée pour ${debt.customer.name}`);
+  };
+
+  // --- Delete debt ---
+  const handleDelete = async () => {
+    if (!deleteTarget || !businessId) return;
+    const target = deleteTarget;
+    setDeletingId(target.id);
     try {
       const res = await fetch(
-        `/api/customers/${customer.id}/remind`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ businessId }),
-        }
+        `/api/debts/${target.id}?businessId=${encodeURIComponent(businessId)}`,
+        { method: "DELETE" }
       );
-
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.error || "Échec");
       }
-
-      const data = (await res.json()) as {
-        waMeUrl: string;
-        message: string;
-      };
-
-      // Ouvrir WhatsApp dans un nouvel onglet
-      window.open(data.waMeUrl, "_blank", "noopener,noreferrer");
-      toast.success(`Relance WhatsApp générée pour ${customer.name}`, {
-        description: "Le lien a été ouvert dans un nouvel onglet.",
-      });
+      setDebts((prev) => prev.filter((d) => d.id !== target.id));
+      toast.success("Dette supprimée");
+      setDeleteTarget(null);
     } catch (err) {
       toast.error(
-        err instanceof Error
-          ? err.message
-          : "Erreur lors de la génération de la relance"
+        err instanceof Error ? err.message : "Erreur lors de la suppression"
       );
     } finally {
-      setRemindingId(null);
+      setDeletingId(null);
     }
-  };
-
-  // --- Open details dialog ---
-  const handleDetails = (customerId: string) => {
-    setSelectedCustomerId(customerId);
-    setDetailsOpen(true);
-  };
-
-  // --- After payment recorded in dialog, refresh list ---
-  const handlePaymentDone = () => {
-    fetchDebts();
   };
 
   // --- Loading skeleton ---
@@ -229,7 +257,7 @@ export function DebtsDashboard() {
 
   return (
     <div className="space-y-4">
-      {/* Header + summary */}
+      {/* Header + summary + create button */}
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
@@ -239,36 +267,52 @@ export function DebtsDashboard() {
           <HandCoins className="w-5 h-5 text-primary" />
           Dettes & Crédit Clients
         </h2>
-        {customers.length > 0 && (
-          <Card className="px-4 py-2">
-            <div className="flex items-center gap-2">
-              <Wallet className="w-4 h-4 text-rose-500" />
-              <div>
-                <div className="text-xs text-muted-foreground">
-                  Total créances
-                </div>
-                <div className="text-sm font-bold text-rose-600 dark:text-rose-400">
-                  {formatFCFA(totalDebt)}
+        <div className="flex items-center gap-2">
+          {debts.length > 0 && (
+            <Card className="px-3 py-2">
+              <div className="flex items-center gap-2">
+                <Wallet className="w-4 h-4 text-rose-500" />
+                <div>
+                  <div className="text-[10px] text-muted-foreground">
+                    Reste à recouvrer
+                  </div>
+                  <div className="text-sm font-bold text-rose-600 dark:text-rose-400">
+                    {formatFCFA(totalRemaining)}
+                  </div>
                 </div>
               </div>
-            </div>
-          </Card>
-        )}
+            </Card>
+          )}
+          <Button size="sm" className="gap-1" onClick={() => setCreateOpen(true)}>
+            <Plus className="w-4 h-4" />
+            <span className="hidden sm:inline">Ajouter une dette</span>
+            <span className="sm:hidden">Ajouter</span>
+          </Button>
+        </div>
       </motion.div>
 
+      {/* Content */}
       {!businessId ? (
         <Card>
           <CardContent className="p-8 text-center text-muted-foreground">
             Connectez-vous pour voir les dettes clients.
           </CardContent>
         </Card>
-      ) : customers.length === 0 ? (
+      ) : debts.length === 0 ? (
         <Card>
           <CardContent className="p-8 text-center space-y-3">
             <div className="text-5xl">🎉</div>
             <h3 className="font-semibold">Aucune dette client</h3>
             <p className="text-sm text-muted-foreground">
-              Tous vos clients sont à jour !
+              Tous vos clients sont à jour !{" "}
+              {createOpen ? null : (
+                <button
+                  className="text-primary hover:underline"
+                  onClick={() => setCreateOpen(true)}
+                >
+                  Ajouter une dette →
+                </button>
+              )}
             </p>
           </CardContent>
         </Card>
@@ -279,467 +323,791 @@ export function DebtsDashboard() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Client</TableHead>
-                  <TableHead className="hidden sm:table-cell">
-                    Téléphone
+                  <TableHead className="text-right">Montant dette</TableHead>
+                  <TableHead className="text-right hidden sm:table-cell">
+                    Payé
                   </TableHead>
-                  <TableHead className="text-right">Total dette</TableHead>
+                  <TableHead className="text-right">Reste</TableHead>
                   <TableHead className="text-center hidden md:table-cell">
-                    Plus ancienne
+                    Date dette
                   </TableHead>
+                  <TableHead className="text-center hidden lg:table-cell">
+                    Recouvrement prévu
+                  </TableHead>
+                  <TableHead className="text-center">Statut</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {customers.map((c) => (
-                  <TableRow key={c.id}>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <div>
-                          <div className="text-sm font-medium">{c.name}</div>
-                          <div className="text-xs text-muted-foreground flex items-center gap-1">
-                            {c.debtCount} commande
-                            {c.debtCount > 1 ? "s" : ""}
-                            {c.isB2B && (
-                              <Badge
-                                variant="outline"
-                                className="ml-1 text-[10px] py-0 px-1.5"
-                              >
-                                B2B
-                              </Badge>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell className="hidden sm:table-cell text-xs text-muted-foreground">
-                      {c.phone || "—"}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="text-sm font-bold text-rose-600 dark:text-rose-400">
-                        {formatFCFA(c.totalDebt)}
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-center hidden md:table-cell">
-                      <span
-                        className={`text-xs font-medium ${daysUrgency(
-                          c.oldestDebtDays
-                        )}`}
-                      >
-                        {daysLabel(c.oldestDebtDays)}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-8 gap-1"
-                          onClick={() => handleDetails(c.id)}
-                          title="Voir les détails"
-                        >
-                          <Eye className="w-4 h-4" />
-                          <span className="hidden sm:inline">Détails</span>
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-8 gap-1 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950"
-                          onClick={() => handleRemind(c)}
-                          disabled={remindingId === c.id}
-                          title="Relancer via WhatsApp"
-                        >
-                          {remindingId === c.id ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                          ) : (
-                            <MessageCircle className="w-4 h-4" />
+                {debts.map((d) => {
+                  const remaining = d.amount - d.paidAmount;
+                  return (
+                    <TableRow key={d.id}>
+                      <TableCell>
+                        <div className="text-sm font-medium">{d.customer.name}</div>
+                        <div className="text-[10px] text-muted-foreground flex items-center gap-1">
+                          {d.customer.phone || "—"}
+                          {d.customer.isB2B && (
+                            <Badge
+                              variant="outline"
+                              className="text-[9px] py-0 px-1"
+                            >
+                              B2B
+                            </Badge>
                           )}
-                          <span className="hidden sm:inline">Relancer</span>
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right text-sm font-semibold">
+                        {formatFCFA(d.amount)}
+                      </TableCell>
+                      <TableCell className="text-right text-xs text-emerald-600 dark:text-emerald-400 hidden sm:table-cell">
+                        {formatFCFA(d.paidAmount)}
+                      </TableCell>
+                      <TableCell className="text-right text-sm font-bold text-rose-600 dark:text-rose-400">
+                        {formatFCFA(remaining)}
+                      </TableCell>
+                      <TableCell className="text-center text-xs text-muted-foreground hidden md:table-cell">
+                        {formatDate(d.debtDate)}
+                      </TableCell>
+                      <TableCell className="text-center text-xs text-muted-foreground hidden lg:table-cell">
+                        {formatDate(d.expectedPaymentDate)}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <Badge
+                          variant="outline"
+                          className={`text-[10px] ${STATUS_BADGE_CLASS[d.status]}`}
+                        >
+                          {STATUS_LABEL[d.status]}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          {d.status !== "paid" && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-8 gap-1 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950"
+                              onClick={() => setPayTarget(d)}
+                              title="Encaisser un paiement"
+                            >
+                              <CreditCard className="w-4 h-4" />
+                              <span className="hidden sm:inline">Encaisser</span>
+                            </Button>
+                          )}
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-8 w-8 p-0"
+                            onClick={() => setDetailTarget(d)}
+                            title="Voir les détails"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </Button>
+                          {d.orderId && (
+                            <a
+                              href={`/api/orders/${d.orderId}/receipt`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex"
+                              title="Imprimer le reçu"
+                            >
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-8 w-8 p-0 text-primary hover:bg-primary/10"
+                              >
+                                <Printer className="w-4 h-4" />
+                              </Button>
+                            </a>
+                          )}
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-8 w-8 p-0 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950"
+                            onClick={() => handleRemind(d)}
+                            title="Relancer via WhatsApp"
+                          >
+                            <MessageCircle className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-8 w-8 p-0 text-destructive hover:bg-destructive/10"
+                            disabled={deletingId === d.id}
+                            onClick={() => setDeleteTarget(d)}
+                            title="Supprimer"
+                          >
+                            {deletingId === d.id ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <Trash2 className="w-4 h-4" />
+                            )}
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </CardContent>
         </Card>
       )}
 
-      {customers.length > 0 && (
+      {debts.length > 0 && (
         <p className="text-xs text-muted-foreground text-center">
-          {customers.length} client{customers.length > 1 ? "s" : ""} avec
-          créance{customers.length > 1 ? "s" : ""} en cours
+          {debts.length} dette{debts.length > 1 ? "s" : ""} enregistrée
+          {debts.length > 1 ? "s" : ""} — Total {formatFCFA(totalDebt)} • Reste{" "}
+          {formatFCFA(totalRemaining)}
         </p>
       )}
 
-      {/* Details dialog */}
-      <DebtDetailsDialog
-        customerId={selectedCustomerId}
-        open={detailsOpen}
+      {/* Create debt dialog */}
+      <CreateDebtDialog
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        businessId={businessId}
+        onCreated={fetchDebts}
+      />
+
+      {/* Payment dialog */}
+      <DebtPaymentDialog
+        debt={payTarget}
+        open={!!payTarget}
         onOpenChange={(open) => {
-          setDetailsOpen(open);
-          if (!open) setSelectedCustomerId(null);
+          if (!open) setPayTarget(null);
         }}
         businessId={businessId}
-        onPaymentDone={handlePaymentDone}
+        onPaid={fetchDebts}
       />
+
+      {/* Details dialog */}
+      <DebtDetailsDialog
+        debt={detailTarget}
+        open={!!detailTarget}
+        onOpenChange={(open) => {
+          if (!open) setDetailTarget(null);
+        }}
+      />
+
+      {/* Delete confirmation */}
+      <AlertDialog
+        open={!!deleteTarget}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTarget(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Supprimer cette dette ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Cette action est irréversible. La dette et son historique de
+              paiements seront définitivement supprimés.
+              {deleteTarget && (
+                <span className="block mt-2 text-xs">
+                  <span className="font-medium">{deleteTarget.customer.name}</span>{" "}
+                  — {formatFCFA(deleteTarget.amount)} (payé{" "}
+                  {formatFCFA(deleteTarget.paidAmount)})
+                </span>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={!!deletingId}>Annuler</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={!!deletingId}
+              onClick={(e) => {
+                e.preventDefault();
+                handleDelete();
+              }}
+            >
+              {deletingId ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin mr-1" />
+                  Suppression...
+                </>
+              ) : (
+                "Supprimer"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
 
 // ============================================================
-// Debt Details Dialog
+// Create Debt Dialog
 // ============================================================
-interface DebtDetailsDialogProps {
-  customerId: string | null;
+interface CreateDebtDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   businessId: string;
-  onPaymentDone: () => void;
+  onCreated: () => void;
 }
 
-function DebtDetailsDialog({
-  customerId,
+function todayIso(): string {
+  const d = new Date();
+  const off = d.getTimezoneOffset();
+  return new Date(d.getTime() - off * 60_000).toISOString().split("T")[0];
+}
+
+function CreateDebtDialog({
   open,
   onOpenChange,
   businessId,
-  onPaymentDone,
-}: DebtDetailsDialogProps) {
-  const [detail, setDetail] = useState<CustomerDebtDetail | null>(null);
-  const [loading, setLoading] = useState(false);
+  onCreated,
+}: CreateDebtDialogProps) {
+  const [customers, setCustomers] = useState<CustomerOption[]>([]);
+  const [loadingCustomers, setLoadingCustomers] = useState(false);
 
-  // Payment form state
-  const [paymentAmount, setPaymentAmount] = useState<string>("");
-  const [paymentMethod, setPaymentMethod] = useState<string>("cash");
-  const [paymentReference, setPaymentReference] = useState<string>("");
-  const [paying, setPaying] = useState(false);
-  const [showPaymentForm, setShowPaymentForm] = useState(false);
+  const [customerId, setCustomerId] = useState<string>("");
+  const [amount, setAmount] = useState<string>("");
+  const [debtDate, setDebtDate] = useState<string>(todayIso());
+  const [expectedPaymentDate, setExpectedPaymentDate] = useState<string>("");
+  const [notes, setNotes] = useState<string>("");
+  const [submitting, setSubmitting] = useState(false);
 
-  // Fetch customer debts when dialog opens
+  // Fetch customers when dialog opens
   useEffect(() => {
-    if (!open || !customerId) {
-      setDetail(null);
-      setShowPaymentForm(false);
-      setPaymentAmount("");
-      setPaymentMethod("cash");
-      setPaymentReference("");
-      return;
-    }
+    if (!open || !businessId) return;
     let cancelled = false;
-    setLoading(true);
+    setLoadingCustomers(true);
     (async () => {
       try {
         const res = await fetch(
-          `/api/customers/${customerId}/debts`
+          `/api/customers?businessId=${encodeURIComponent(businessId)}`,
+          { cache: "no-store" }
         );
         if (!res.ok) throw new Error("Failed");
-        const data = (await res.json()) as CustomerDebtDetail;
-        if (!cancelled) setDetail(data);
+        const data = (await res.json()) as CustomerOption[];
+        if (!cancelled) {
+          setCustomers(
+            Array.isArray(data) ? data : data && Array.isArray((data as unknown as { customers: CustomerOption[] }).customers)
+              ? (data as unknown as { customers: CustomerOption[] }).customers
+              : []
+          );
+        }
       } catch {
-        if (!cancelled) setDetail(null);
+        if (!cancelled) setCustomers([]);
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) setLoadingCustomers(false);
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [open, customerId]);
+  }, [open, businessId]);
 
-  // Quick fill: full payment
-  const handleFillFull = () => {
-    if (detail) {
-      setPaymentAmount(String(detail.totalDebt));
+  // Reset on close
+  useEffect(() => {
+    if (!open) {
+      setCustomerId("");
+      setAmount("");
+      setDebtDate(todayIso());
+      setExpectedPaymentDate("");
+      setNotes("");
     }
-  };
+  }, [open]);
 
-  // Submit payment
-  const handleSubmitPayment = async () => {
-    if (!customerId || !detail) return;
-    const amount = parseFCFA(paymentAmount);
-    if (amount <= 0) {
-      toast.error("Saisissez un montant valide");
+  const handleSubmit = async () => {
+    if (!customerId) {
+      toast.error("Sélectionnez un client");
       return;
     }
-    setPaying(true);
+    const amt = parseFCFA(amount);
+    if (amt <= 0) {
+      toast.error("Saisissez un montant valide (FCFA)");
+      return;
+    }
+    if (!debtDate) {
+      toast.error("Saisissez la date de la dette");
+      return;
+    }
+    setSubmitting(true);
     try {
-      const res = await fetch(`/api/customers/${customerId}/payments`, {
+      const res = await fetch(`/api/debts`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           businessId,
-          amount,
-          paymentMethod,
-          reference: paymentReference || undefined,
+          customerId,
+          amount: amt,
+          debtDate,
+          expectedPaymentDate: expectedPaymentDate || null,
+          notes: notes.trim() || null,
         }),
       });
-
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.error || "Échec");
       }
-
-      const result = (await res.json()) as {
-        amountApplied: number;
-        debtSummary: { totalDebt: number; debtCount: number };
-        payments: Array<{
-          orderId: string;
-          orderNumber: string;
-          appliedAmount: number;
-        }>;
-      };
-
-      toast.success(
-        `Paiement de ${formatFCFA(result.amountApplied)} enregistré`,
-        {
-          description: `${result.payments.length} commande(s) mise(s) à jour.`,
-        }
-      );
-
-      // Refresh detail
-      try {
-        const refreshRes = await fetch(`/api/customers/${customerId}/debts`);
-        if (refreshRes.ok) {
-          const fresh = (await refreshRes.json()) as CustomerDebtDetail;
-          setDetail(fresh);
-        }
-      } catch {
-        /* ignore */
-      }
-
-      setShowPaymentForm(false);
-      setPaymentAmount("");
-      setPaymentReference("");
-      onPaymentDone();
+      toast.success("Dette enregistrée", {
+        description: `Montant : ${formatFCFA(amt)}`,
+      });
+      onCreated();
+      onOpenChange(false);
     } catch (err) {
       toast.error(
-        err instanceof Error
-          ? err.message
-          : "Erreur lors de l'enregistrement du paiement"
+        err instanceof Error ? err.message : "Erreur lors de l'enregistrement"
       );
     } finally {
-      setPaying(false);
+      setSubmitting(false);
     }
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <HandCoins className="w-5 h-5 text-primary" />
-            Détails des dettes
+            Ajouter une dette
           </DialogTitle>
           <DialogDescription>
-            {detail
-              ? `Créances de ${detail.customer.name} — ${
-                  detail.debtCount
-                } commande(s), total ${formatFCFA(detail.totalDebt)}`
-              : "Chargement..."}
+            Enregistrez une créance client (vente à crédit, acompte non versé…)
           </DialogDescription>
         </DialogHeader>
 
-        {loading ? (
-          <div className="py-6 space-y-2">
-            <Skeleton className="h-12 w-full" />
-            <Skeleton className="h-12 w-full" />
-            <Skeleton className="h-12 w-full" />
-          </div>
-        ) : !detail ? (
-          <div className="py-8 text-center text-muted-foreground">
-            <AlertCircle className="w-8 h-8 mx-auto mb-2 text-muted-foreground/40" />
-            Impossible de charger les détails.
-          </div>
-        ) : detail.debts.length === 0 ? (
-          <div className="py-8 text-center space-y-2">
-            <div className="text-4xl">✅</div>
-            <p className="text-sm text-muted-foreground">
-              Ce client est maintenant à jour — aucune créance en cours.
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-4 py-2">
-            {/* Customer info */}
-            <div className="rounded-md bg-muted/50 p-3 space-y-1">
-              <div className="flex justify-between items-start gap-2">
-                <div>
-                  <div className="text-sm font-semibold">
-                    {detail.customer.name}
-                  </div>
-                  {detail.customer.phone && (
-                    <div className="text-xs text-muted-foreground">
-                      Tél: {detail.customer.phone}
-                    </div>
-                  )}
-                  {detail.customer.address && (
-                    <div className="text-xs text-muted-foreground">
-                      {detail.customer.address}
-                    </div>
-                  )}
-                </div>
-                <div className="text-right">
-                  <div className="text-xs text-muted-foreground">Total dû</div>
-                  <div className="text-sm font-bold text-rose-600 dark:text-rose-400">
-                    {formatFCFA(detail.totalDebt)}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Debts table */}
-            <div className="border border-border rounded-md overflow-hidden">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Commande</TableHead>
-                    <TableHead className="text-center">Date</TableHead>
-                    <TableHead className="text-right">Total</TableHead>
-                    <TableHead className="text-right">Payé</TableHead>
-                    <TableHead className="text-right">Reste</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {detail.debts.map((d) => (
-                    <TableRow key={d.id}>
-                      <TableCell>
-                        <div className="text-xs font-mono font-semibold">
-                          {d.orderNumber}
-                        </div>
-                        <div className="text-[10px] text-muted-foreground">
-                          {d.status}
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-center text-xs">
-                        <div>{formatDate(d.createdAt)}</div>
-                        <div
-                          className={`text-[10px] ${daysUrgency(
-                            d.daysSinceIssue
-                          )}`}
-                        >
-                          {daysLabel(d.daysSinceIssue)}
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-right text-xs">
-                        {formatFCFA(d.totalAmount)}
-                      </TableCell>
-                      <TableCell className="text-right text-xs text-emerald-600 dark:text-emerald-400">
-                        {formatFCFA(d.paidAmount)}
-                      </TableCell>
-                      <TableCell className="text-right text-xs font-bold text-rose-600 dark:text-rose-400">
-                        {formatFCFA(d.remaining)}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-
-            {/* Payment form */}
-            {showPaymentForm ? (
-              <div className="rounded-md border border-primary/30 p-3 space-y-3 bg-primary/5">
-                <div className="flex items-center gap-2 text-sm font-medium">
-                  <CreditCard className="w-4 h-4 text-primary" />
-                  Encaisser un paiement
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="col-span-2 sm:col-span-1 space-y-1">
-                    <Label htmlFor="pay-amount" className="text-xs">
-                      Montant (FCFA)
-                    </Label>
-                    <Input
-                      id="pay-amount"
-                      type="number"
-                      min={1}
-                      value={paymentAmount}
-                      onChange={(e) => setPaymentAmount(e.target.value)}
-                      placeholder="0"
-                      className="h-9"
-                    />
-                  </div>
-                  <div className="col-span-2 sm:col-span-1 space-y-1">
-                    <Label htmlFor="pay-method" className="text-xs">
-                      Moyen
-                    </Label>
-                    <Select
-                      value={paymentMethod}
-                      onValueChange={setPaymentMethod}
-                    >
-                      <SelectTrigger id="pay-method" className="h-9">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="cash">Espèces</SelectItem>
-                        <SelectItem value="wave">Wave</SelectItem>
-                        <SelectItem value="orange_money">Orange Money</SelectItem>
-                        <SelectItem value="cb">Carte bancaire</SelectItem>
-                        <SelectItem value="cheque">Chèque</SelectItem>
-                        <SelectItem value="virement">Virement</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="pay-ref" className="text-xs">
-                    Référence (optionnel)
-                  </Label>
-                  <Input
-                    id="pay-ref"
-                    value={paymentReference}
-                    onChange={(e) => setPaymentReference(e.target.value)}
-                    placeholder="N° transaction, n° chèque..."
-                    className="h-9"
-                  />
-                </div>
-                <div className="flex items-center justify-between flex-wrap gap-2">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={handleFillFull}
-                    className="text-xs h-7"
-                  >
-                    Tout régler ({formatFCFA(detail.totalDebt)})
-                  </Button>
-                  <div className="flex gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setShowPaymentForm(false)}
-                      disabled={paying}
-                    >
-                      Annuler
-                    </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      onClick={handleSubmitPayment}
-                      disabled={paying}
-                      className="gap-1"
-                    >
-                      {paying ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : (
-                        <CreditCard className="w-4 h-4" />
-                      )}
-                      Valider
-                    </Button>
-                  </div>
-                </div>
-              </div>
+        <div className="space-y-3 py-2">
+          {/* Customer select */}
+          <div className="space-y-1.5">
+            <Label htmlFor="debt-customer">Client *</Label>
+            {loadingCustomers ? (
+              <Skeleton className="h-9 w-full" />
+            ) : customers.length === 0 ? (
+              <p className="text-xs text-muted-foreground">
+                Aucun client. Ajoutez d'abord un client dans la section Clients.
+              </p>
             ) : (
-              <Button
-                onClick={() => setShowPaymentForm(true)}
-                className="w-full gap-1"
-                variant="default"
-              >
-                <CreditCard className="w-4 h-4" />
-                Encaisser un paiement
-              </Button>
+              <Select value={customerId} onValueChange={setCustomerId}>
+                <SelectTrigger id="debt-customer" className="w-full">
+                  <SelectValue placeholder="Sélectionner un client..." />
+                </SelectTrigger>
+                <SelectContent className="max-h-72">
+                  {customers.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.name} {c.phone ? `· ${c.phone}` : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             )}
           </div>
-        )}
+
+          {/* Amount */}
+          <div className="space-y-1.5">
+            <Label htmlFor="debt-amount">Montant (FCFA) *</Label>
+            <Input
+              id="debt-amount"
+              type="number"
+              inputMode="numeric"
+              min={1}
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              placeholder="15000"
+              className="h-9"
+            />
+          </div>
+
+          {/* Debt date */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="debt-date">Date de la dette *</Label>
+              <Input
+                id="debt-date"
+                type="date"
+                value={debtDate}
+                onChange={(e) => setDebtDate(e.target.value)}
+                className="h-9"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="debt-expected">Recouvrement prévu</Label>
+              <Input
+                id="debt-expected"
+                type="date"
+                value={expectedPaymentDate}
+                onChange={(e) => setExpectedPaymentDate(e.target.value)}
+                className="h-9"
+              />
+            </div>
+          </div>
+
+          {/* Notes */}
+          <div className="space-y-1.5">
+            <Label htmlFor="debt-notes">Notes (optionnel)</Label>
+            <Textarea
+              id="debt-notes"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Vente à crédit du 15/10, paiement promis en 2 fois…"
+              rows={2}
+              className="resize-none text-sm"
+            />
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            disabled={submitting}
+          >
+            Annuler
+          </Button>
+          <Button
+            type="button"
+            onClick={handleSubmit}
+            disabled={submitting || loadingCustomers || customers.length === 0}
+            className="gap-1"
+          >
+            {submitting ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Plus className="w-4 h-4" />
+            )}
+            Enregistrer
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
 }
+
+// ============================================================
+// Payment Dialog (Encaisser)
+// ============================================================
+interface DebtPaymentDialogProps {
+  debt: DebtRecord | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  businessId: string;
+  onPaid: () => void;
+}
+
+function DebtPaymentDialog({
+  debt,
+  open,
+  onOpenChange,
+  businessId,
+  onPaid,
+}: DebtPaymentDialogProps) {
+  const [amount, setAmount] = useState<string>("");
+  const [method, setMethod] = useState<string>("cash");
+  const [reference, setReference] = useState<string>("");
+  const [submitting, setSubmitting] = useState(false);
+
+  // Reset on close/open
+  useEffect(() => {
+    if (open && debt) {
+      const remaining = debt.amount - debt.paidAmount;
+      setAmount(String(remaining));
+      setMethod("cash");
+      setReference("");
+    } else if (!open) {
+      setAmount("");
+      setReference("");
+      setMethod("cash");
+    }
+  }, [open, debt]);
+
+  const handleSubmit = async () => {
+    if (!debt) return;
+    const amt = parseFCFA(amount);
+    if (amt <= 0) {
+      toast.error("Saisissez un montant valide");
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const res = await fetch(`/api/debts/${debt.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          businessId,
+          paidAmount: amt,
+          paymentMethod: method,
+          reference: reference || undefined,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Échec");
+      }
+      const result = (await res.json()) as DebtRecord & {
+        paymentApplied: number;
+        newStatus: string;
+      };
+      toast.success(
+        `Paiement de ${formatFCFA(result.paymentApplied)} enregistré`,
+        {
+          description:
+            result.newStatus === "paid"
+              ? "Dette entièrement remboursée 🎉"
+              : `Reste ${formatFCFA(debt.amount - result.paidAmount)}`,
+        }
+      );
+      onPaid();
+      onOpenChange(false);
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Erreur lors de l'encaissement"
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (!debt) return null;
+  const remaining = debt.amount - debt.paidAmount;
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <CreditCard className="w-5 h-5 text-emerald-600" />
+            Encaisser un paiement
+          </DialogTitle>
+          <DialogDescription>
+            Client : <span className="font-medium">{debt.customer.name}</span>
+            <br />
+            Reste à recouvrer :{" "}
+            <span className="font-bold text-rose-600 dark:text-rose-400">
+              {formatFCFA(remaining)}
+            </span>
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-3 py-2">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="pay-amount">Montant (FCFA) *</Label>
+              <Input
+                id="pay-amount"
+                type="number"
+                inputMode="numeric"
+                min={1}
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                placeholder="0"
+                className="h-9"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="pay-method">Moyen</Label>
+              <Select value={method} onValueChange={setMethod}>
+                <SelectTrigger id="pay-method" className="h-9">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="cash">Espèces</SelectItem>
+                  <SelectItem value="wave">Wave</SelectItem>
+                  <SelectItem value="orange_money">Orange Money</SelectItem>
+                  <SelectItem value="cb">Carte bancaire</SelectItem>
+                  <SelectItem value="cheque">Chèque</SelectItem>
+                  <SelectItem value="virement">Virement</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="pay-ref">Référence (optionnel)</Label>
+            <Input
+              id="pay-ref"
+              value={reference}
+              onChange={(e) => setReference(e.target.value)}
+              placeholder="N° transaction, n° chèque..."
+              className="h-9"
+            />
+          </div>
+          <div className="flex justify-end">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="text-xs h-7"
+              onClick={() => setAmount(String(remaining))}
+            >
+              Tout régler ({formatFCFA(remaining)})
+            </Button>
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            disabled={submitting}
+          >
+            Annuler
+          </Button>
+          <Button
+            type="button"
+            onClick={handleSubmit}
+            disabled={submitting}
+            className="gap-1 bg-emerald-600 hover:bg-emerald-700 text-white"
+          >
+            {submitting ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <CreditCard className="w-4 h-4" />
+            )}
+            Valider
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ============================================================
+// Details Dialog (payment history)
+// ============================================================
+interface DebtDetailsDialogProps {
+  debt: DebtRecord | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}
+
+function DebtDetailsDialog({ debt, open, onOpenChange }: DebtDetailsDialogProps) {
+  if (!debt) return null;
+  const history = parsePaymentHistory(debt.paymentHistory);
+  const remaining = debt.amount - debt.paidAmount;
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Eye className="w-5 h-5 text-primary" />
+            Détails de la dette
+          </DialogTitle>
+          <DialogDescription>
+            {debt.customer.name} — créance du {formatDate(debt.debtDate)}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4 py-2">
+          {/* Summary */}
+          <div className="rounded-md bg-muted/50 p-3 space-y-1">
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Montant initial</span>
+              <span className="font-semibold">{formatFCFA(debt.amount)}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Déjà payé</span>
+              <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+                {formatFCFA(debt.paidAmount)}
+              </span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Reste dû</span>
+              <span className="font-bold text-rose-600 dark:text-rose-400">
+                {formatFCFA(remaining)}
+              </span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Statut</span>
+              <Badge
+                variant="outline"
+                className={`text-[10px] ${STATUS_BADGE_CLASS[debt.status]}`}
+              >
+                {STATUS_LABEL[debt.status]}
+              </Badge>
+            </div>
+            {debt.expectedPaymentDate && (
+              <div className="flex justify-between text-xs">
+                <span className="text-muted-foreground">
+                  Recouvrement prévu
+                </span>
+                <span>{formatDate(debt.expectedPaymentDate)}</span>
+              </div>
+            )}
+          </div>
+
+          {/* Customer info */}
+          <div className="text-xs space-y-0.5 text-muted-foreground">
+            {debt.customer.phone && (
+              <div>Téléphone : {debt.customer.phone}</div>
+            )}
+            {debt.customer.address && (
+              <div>Adresse : {debt.customer.address}</div>
+            )}
+            {debt.notes && (
+              <div className="mt-1 p-2 rounded bg-amber-500/5 text-amber-700 dark:text-amber-400 border border-amber-500/20">
+                📝 {debt.notes}
+              </div>
+            )}
+          </div>
+
+          {/* Payment history */}
+          <div className="border border-border rounded-md overflow-hidden">
+            <div className="bg-muted/50 px-3 py-2 text-xs font-medium">
+              Historique des paiements ({history.length})
+            </div>
+            {history.length === 0 ? (
+              <div className="p-4 text-center text-xs text-muted-foreground">
+                Aucun paiement enregistré pour l'instant.
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="text-xs">Date</TableHead>
+                    <TableHead className="text-xs">Moyen</TableHead>
+                    <TableHead className="text-xs text-right">Montant</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {history
+                    .slice()
+                    .reverse()
+                    .map((p, idx) => (
+                      <TableRow key={idx}>
+                        <TableCell className="text-xs">
+                          {formatDate(p.date)}
+                        </TableCell>
+                        <TableCell className="text-xs">
+                          {p.method}
+                          {p.reference ? (
+                            <span className="text-[10px] text-muted-foreground block">
+                              {p.reference}
+                            </span>
+                          ) : null}
+                        </TableCell>
+                        <TableCell className="text-xs text-right font-medium text-emerald-600 dark:text-emerald-400">
+                          {formatFCFA(p.amount)}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                </TableBody>
+              </Table>
+            )}
+          </div>
+
+          {/* Print receipt (if linked to an order) */}
+          {debt.orderId && (
+            <a
+              href={`/api/orders/${debt.orderId}/receipt`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+            >
+              <Printer className="w-3 h-3" />
+              Imprimer le reçu de la commande liée
+            </a>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// Re-exports for convenience
+export { DebtsDashboard as DebtsDashboardTab };

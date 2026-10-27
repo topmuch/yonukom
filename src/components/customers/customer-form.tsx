@@ -1,6 +1,6 @@
 // ============================================================
 // YonuKom — Customer Form
-// Quick add (name + phone) + full edit dialog
+// Quick add (name + phone) + full edit dialog with address
 // ============================================================
 
 "use client";
@@ -16,6 +16,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -38,6 +39,7 @@ export interface CustomerFormData {
   id?: string;
   name: string;
   phone: string;
+  address?: string | null;
   paymentMethod: string;
   isB2B: boolean;
 }
@@ -55,6 +57,7 @@ export function CustomerForm({ customer, open, onOpenChange, onSave }: CustomerF
 
   const [name, setName] = useState(customer?.name ?? "");
   const [phone, setPhone] = useState(customer?.phone ?? "");
+  const [address, setAddress] = useState<string>(customer?.address ?? "");
   const [paymentMethod, setPaymentMethod] = useState(customer?.paymentMethod ?? "cash");
   const [isB2B, setIsB2B] = useState(customer?.isB2B ?? false);
 
@@ -66,6 +69,7 @@ export function CustomerForm({ customer, open, onOpenChange, onSave }: CustomerF
       id: customer?.id,
       name: name.trim(),
       phone: phone.trim(),
+      address: address.trim() || null,
       paymentMethod,
       isB2B,
     });
@@ -108,6 +112,18 @@ export function CustomerForm({ customer, open, onOpenChange, onSave }: CustomerF
               onChange={(e) => setPhone(e.target.value)}
               placeholder="771234567"
               required
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="cust-address">Adresse</Label>
+            <Textarea
+              id="cust-address"
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+              placeholder="Quartier, rue, ville (ex: Médina, Dakar)"
+              rows={2}
+              className="resize-none text-sm"
             />
           </div>
 

@@ -1,18 +1,19 @@
 // ============================================================
 // YonuKom — Customer Card
-// Displays customer info with payment method + B2B badge
+// Displays customer info with payment method + B2B badge + address
 // ============================================================
 
 "use client";
 
 import { Badge } from "@/components/ui/badge";
-import { Phone } from "lucide-react";
+import { MapPin, Phone } from "lucide-react";
 import { motion } from "framer-motion";
 
 export interface CustomerCardData {
   id: string;
   name: string;
   phone: string;
+  address?: string | null;
   paymentMethod?: string;
   isB2B?: boolean;
   totalOrders?: number;
@@ -32,6 +33,7 @@ const PAYMENT_LABELS: Record<string, { label: string; variant: "default" | "seco
 
 export function CustomerCard({ customer, onClick }: CustomerCardProps) {
   const payInfo = PAYMENT_LABELS[customer.paymentMethod || "cash"] || PAYMENT_LABELS.cash;
+  const address = customer.address?.trim();
 
   return (
     <motion.div
@@ -68,6 +70,14 @@ export function CustomerCard({ customer, onClick }: CustomerCardProps) {
               {customer.phone}
             </span>
           </div>
+          {address && (
+            <div className="flex items-center gap-1 mt-0.5 text-[11px] text-muted-foreground">
+              <MapPin className="w-3 h-3 shrink-0" />
+              <span className="truncate max-w-[200px]" title={address}>
+                {address}
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Right side: payment + orders */}

@@ -69,21 +69,52 @@ export function CustomerList() {
   const filtered = customers.filter((c) => {
     if (!search) return true;
     const q = search.toLowerCase();
-    return c.name.toLowerCase().includes(q) || c.phone.includes(q);
+    return (
+      c.name.toLowerCase().includes(q) ||
+      c.phone.includes(q) ||
+      (c.address ?? "").toLowerCase().includes(q)
+    );
   });
 
-  // Handle save
+  // Handle save — POST (create) on /api/ecom-customers, PUT (update) on /api/customers/[id]
   const handleSave = async (data: CustomerFormData) => {
     try {
       if (data.id) {
-        // Update locally (no PUT endpoint on ecom-customers for now)
-        setCustomers((prev) =>
-          prev.map((c) =>
-            c.id === data.id
-              ? { ...c, name: data.name, phone: data.phone, paymentMethod: data.paymentMethod, isB2B: data.isB2B }
-              : c
-          )
-        );
+        // Update — persist to /api/customers/[id] (PUT)
+        const res = await fetch(`/api/customers/${data.id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: data.name,
+            phone: data.phone,
+            address: data.address ?? null,
+            paymentMethod: data.paymentMethod,
+            isB2B: data.isB2B,
+          }),
+        });
+        if (res.ok) {
+          const updated = (await res.json()) as CustomerCardData;
+          setCustomers((prev) =>
+            prev.map((c) => (c.id === data.id ? { ...c, ...updated } : c))
+          );
+          toast.success(`Client ${data.name} mis à jour`);
+        } else {
+          // Fallback: update locally if API fails
+          setCustomers((prev) =>
+            prev.map((c) =>
+              c.id === data.id
+                ? {
+                    ...c,
+                    name: data.name,
+                    phone: data.phone,
+                    address: data.address ?? null,
+                    paymentMethod: data.paymentMethod,
+                    isB2B: data.isB2B,
+                  }
+                : c
+            )
+          );
+        }
       } else {
         // Create — forwards businessId so the API can persist it.
         const res = await fetch("/api/ecom-customers", {
@@ -92,7 +123,7 @@ export function CustomerList() {
           body: JSON.stringify({ ...data, businessId }),
         });
         if (res.ok) {
-          const newCustomer = await res.json();
+          const newCustomer = (await res.json()) as CustomerCardData;
           setCustomers((prev) => [...prev, newCustomer]);
         }
       }

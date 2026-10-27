@@ -71,7 +71,7 @@ type OrderItemInput = {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { customerId, businessId, items, createdBy, status, deliveryAddress, paymentMethod } = body as {
+    const { customerId, businessId, items, createdBy, status, deliveryAddress, paymentMethod, deliveryFee, orderType } = body as {
       customerId?: string
       businessId?: string
       items?: OrderItemInput[]
@@ -79,6 +79,8 @@ export async function POST(request: NextRequest) {
       status?: string
       deliveryAddress?: string | null
       paymentMethod?: string
+      deliveryFee?: number
+      orderType?: string
     }
 
     // --- Validation de base ---
@@ -230,7 +232,19 @@ export async function POST(request: NextRequest) {
       resolvedItems.push({ productId, quantity: qty, unitPrice, totalPrice, isManual })
     }
 
-    const totalAmount = subtotal
+    // --- Frais de livraison + type de commande ---
+    const resolvedOrderType =
+      orderType && ['dine_in', 'takeaway', 'delivery'].includes(orderType)
+        ? orderType
+        : 'dine_in'
+    // deliveryFee : entier FCFA, clampé à 0+ (default 0). Forcé à 0 si pas de livraison.
+    const parsedDeliveryFee = Number(deliveryFee) || 0
+    const resolvedDeliveryFee =
+      resolvedOrderType === 'delivery' && parsedDeliveryFee > 0
+        ? Math.floor(parsedDeliveryFee)
+        : 0
+
+    const totalAmount = subtotal + resolvedDeliveryFee
 
     // Valider le moyen de paiement (défaut: cash)
     const VALID_PAYMENT_METHODS = ['cash', 'wave', 'orange_money', 'cb', 'cheque', 'virement']
@@ -247,6 +261,8 @@ export async function POST(request: NextRequest) {
           businessId,
           subtotal,
           totalAmount,
+          deliveryFee: resolvedDeliveryFee,
+          orderType: resolvedOrderType,
           // Marquer comme payée (vente comptoir — encaissement immédiat)
           paidAmount: totalAmount,
           remainingAmount: 0,
@@ -308,10 +324,10 @@ export async function POST(request: NextRequest) {
       return newOrder
     })
 
-    // Renvoyer aussi le paymentMethod pour que le front puisse l'afficher
-    // sans avoir à refetcher la commande.
+    // Renvoyer aussi le paymentMethod + deliveryFee + orderType pour que le front
+    // puisse l'afficher sans avoir à refetcher la commande.
     return NextResponse.json(
-      { ...order, paymentMethod: resolvedPaymentMethod },
+      { ...order, paymentMethod: resolvedPaymentMethod, deliveryFee: resolvedDeliveryFee, orderType: resolvedOrderType },
       { status: 201 }
     )
   } catch (error) {

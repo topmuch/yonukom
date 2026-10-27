@@ -1,7 +1,8 @@
 // ============================================================
-// YonuKom — Order History
+// YonuKom — Order History (POS + e-com)
 // Liste / tableau de toutes les commandes (ventes) du business
-// Filtres par statut, ouverture du détail via OrderDetailDialog
+// Filtres par statut + badge basé sur paidAmount, ouverture du détail,
+// impression du reçu (POST /api/orders/[id]/receipt), marquer comme payée.
 // ============================================================
 
 "use client";
@@ -24,6 +25,8 @@ import {
   Loader2,
   ChevronRight,
   Trash2,
+  Printer,
+  CheckCircle2,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
@@ -74,37 +77,57 @@ interface ApiOrder {
   payments: ApiPayment[];
 }
 
-type StatusFilter = "all" | "completed" | "pending" | "cancelled";
+// Filtres disponibles (POV POS)
+type StatusFilter = "all" | "paid" | "unpaid" | "partial" | "pending" | "cancelled";
 
 const STATUS_TABS: { id: StatusFilter; label: string }[] = [
-  { id: "all", label: "Toutes" },
-  { id: "completed", label: "Terminées" },
+  { id: "all", label: "Tous" },
+  { id: "paid", label: "Payés" },
+  { id: "unpaid", label: "Non payés" },
   { id: "pending", label: "En attente" },
-  { id: "cancelled", label: "Annulées" },
+  { id: "cancelled", label: "Annulés" },
 ];
 
-// Map any order status string → a normalized bucket for filtering + display
-function bucketFromStatus(status: string): "completed" | "pending" | "cancelled" | "other" {
-  switch (status) {
-    case "completed":
-    case "shipped":
-    case "invoiced":
-    case "delivered":
-      return "completed";
-    case "pending":
-    case "to_pay":
-    case "to_ship":
-    case "draft":
-    case "quote_validated":
-    case "delivery_note":
-      return "pending";
-    case "cancelled":
-      return "cancelled";
-    default:
-      return "other";
+// Détermine le "bucket de paiement" d'une commande à partir du paidAmount et du status.
+// Renvoie : "paid" | "partial" | "unpaid" | "pending" | "cancelled"
+function paymentBucket(order: ApiOrder): "paid" | "partial" | "unpaid" | "pending" | "cancelled" {
+  // Annulée : prioritaire
+  if (order.status === "cancelled" || (order as ApiOrder & { isCancelled?: boolean }).isCancelled) {
+    return "cancelled";
   }
+  // Pending : status pending/draft/to_pay/to_ship etc. ET aucun paiement reçu
+  const pendingStatuses = ["pending", "draft", "to_pay", "to_ship", "quote_validated", "delivery_note"];
+  if (pendingStatuses.includes(order.status) && order.paidAmount === 0) {
+    return "pending";
+  }
+  // Cas payé / partiel / non payé basé sur paidAmount
+  if (order.paidAmount >= order.totalAmount && order.totalAmount > 0) {
+    return "paid";
+  }
+  if (order.paidAmount > 0 && order.paidAmount < order.totalAmount) {
+    return "partial";
+  }
+  // paidAmount = 0 → non payé (si la commande n'est pas explicitement "pending")
+  return "unpaid";
 }
 
+const BUCKET_LABELS: Record<string, string> = {
+  paid: "Payé",
+  partial: "Partiel",
+  unpaid: "Non payé",
+  pending: "En attente",
+  cancelled: "Annulée",
+};
+
+const BUCKET_BADGE_CLASS: Record<string, string> = {
+  paid: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30",
+  partial: "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30",
+  unpaid: "bg-rose-500/10 text-rose-700 dark:text-rose-400 border-rose-500/30",
+  pending: "bg-yellow-500/10 text-yellow-700 dark:text-yellow-400 border-yellow-500/30",
+  cancelled: "bg-slate-500/10 text-slate-600 dark:text-slate-300 border-slate-500/30",
+};
+
+// Map des libellés lisibles par statut brut (pour OrderDetailDialog)
 const STATUS_LABELS: Record<string, string> = {
   to_pay: "À payer",
   to_ship: "À livrer",
@@ -116,13 +139,10 @@ const STATUS_LABELS: Record<string, string> = {
   quote_validated: "Devis validé",
   delivery_note: "Bon de livraison",
   invoiced: "Facturée",
-};
-
-const STATUS_BADGE_CLASS: Record<string, string> = {
-  completed: "bg-yk-emerald/10 text-yk-emerald border-yk-emerald/20",
-  pending: "bg-yk-amber/10 text-yk-amber border-yk-amber/20",
-  cancelled: "bg-destructive/10 text-destructive border-destructive/20",
-  other: "bg-primary/10 text-primary border-primary/20",
+  paid: "Payée",
+  unpaid: "Non payée",
+  partial: "Partiellement payée",
+  delivered: "Livrée",
 };
 
 function formatShortDate(dateStr: string): string {
@@ -181,6 +201,7 @@ export function OrderHistory() {
   const [detailOpen, setDetailOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<ApiOrder | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [markingPaidId, setMarkingPaidId] = useState<string | null>(null);
 
   const fetchOrders = useCallback(async () => {
     if (!businessId) {
@@ -213,12 +234,9 @@ export function OrderHistory() {
   }, [fetchOrders]);
 
   const filteredOrders = orders.filter((o) => {
-    const bucket = bucketFromStatus(o.status);
+    const bucket = paymentBucket(o);
     const matchStatus =
-      statusFilter === "all" ||
-      (statusFilter === "completed" && bucket === "completed") ||
-      (statusFilter === "pending" && bucket === "pending") ||
-      (statusFilter === "cancelled" && bucket === "cancelled");
+      statusFilter === "all" || bucket === statusFilter;
     const q = search.trim().toLowerCase();
     const matchSearch =
       !q ||
@@ -230,6 +248,40 @@ export function OrderHistory() {
   const handleOpen = (order: ApiOrder) => {
     setSelectedOrder(buildDetailData(order));
     setDetailOpen(true);
+  };
+
+  // --- Mark as paid : PUT /api/orders/[id] { status: "paid" } ---
+  const handleMarkPaid = async (order: ApiOrder, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!businessId) return;
+    setMarkingPaidId(order.id);
+    try {
+      const res = await fetch(`/api/orders/${order.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          businessId,
+          status: "paid",
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Échec de la mise à jour");
+      }
+      const updated = (await res.json()) as ApiOrder;
+      setOrders((prev) =>
+        prev.map((o) => (o.id === updated.id ? { ...o, ...updated } : o))
+      );
+      toast.success(`Commande ${order.orderNumber} marquée comme payée`);
+    } catch (err) {
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : "Erreur lors de la mise à jour du statut"
+      );
+    } finally {
+      setMarkingPaidId(null);
+    }
   };
 
   // --- Delete order ---
@@ -259,9 +311,11 @@ export function OrderHistory() {
 
   const counts = {
     all: orders.length,
-    completed: orders.filter((o) => bucketFromStatus(o.status) === "completed").length,
-    pending: orders.filter((o) => bucketFromStatus(o.status) === "pending").length,
-    cancelled: orders.filter((o) => bucketFromStatus(o.status) === "cancelled").length,
+    paid: orders.filter((o) => paymentBucket(o) === "paid").length,
+    unpaid: orders.filter((o) => paymentBucket(o) === "unpaid").length,
+    partial: orders.filter((o) => paymentBucket(o) === "partial").length,
+    pending: orders.filter((o) => paymentBucket(o) === "pending").length,
+    cancelled: orders.filter((o) => paymentBucket(o) === "cancelled").length,
   };
 
   return (
@@ -383,11 +437,12 @@ export function OrderHistory() {
                   <tbody>
                     <AnimatePresence initial={false}>
                       {filteredOrders.map((order) => {
-                        const bucket = bucketFromStatus(order.status);
+                        const bucket = paymentBucket(order);
                         const itemCount = order.orderItems.reduce(
                           (s, i) => s + i.quantity,
                           0
                         );
+                        const isUnpaid = bucket === "unpaid" || bucket === "partial";
                         return (
                           <motion.tr
                             key={order.id}
@@ -416,13 +471,54 @@ export function OrderHistory() {
                             <td className="px-3 py-2.5">
                               <Badge
                                 variant="outline"
-                                className={`text-[10px] ${STATUS_BADGE_CLASS[bucket]}`}
+                                className={`text-[10px] ${BUCKET_BADGE_CLASS[bucket]}`}
                               >
-                                {STATUS_LABELS[order.status] ?? order.status}
+                                {BUCKET_LABELS[bucket]}
                               </Badge>
+                              {bucket === "partial" && (
+                                <div className="text-[10px] text-muted-foreground mt-0.5">
+                                  Payé {formatFCFA(order.paidAmount)}
+                                </div>
+                              )}
                             </td>
                             <td className="px-3 py-2.5 text-right">
                               <div className="flex items-center justify-end gap-1">
+                                {/* Marquer comme payée (visible uniquement si non payée et non annulée) */}
+                                {isUnpaid && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-7 w-7 p-0 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950"
+                                    disabled={markingPaidId === order.id}
+                                    onClick={(e) => handleMarkPaid(order, e)}
+                                    title="Marquer comme payée"
+                                    aria-label={`Marquer la commande ${order.orderNumber} comme payée`}
+                                  >
+                                    {markingPaidId === order.id ? (
+                                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                    ) : (
+                                      <CheckCircle2 className="w-3.5 h-3.5" />
+                                    )}
+                                  </Button>
+                                )}
+                                {/* Imprimer le reçu */}
+                                <a
+                                  href={`/api/orders/${order.id}/receipt`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="inline-flex"
+                                  title="Imprimer le reçu"
+                                  aria-label={`Imprimer le reçu de la commande ${order.orderNumber}`}
+                                >
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-7 w-7 p-0 text-primary hover:bg-primary/10"
+                                  >
+                                    <Printer className="w-3.5 h-3.5" />
+                                  </Button>
+                                </a>
                                 <Button
                                   variant="ghost"
                                   size="sm"
@@ -469,11 +565,12 @@ export function OrderHistory() {
           <div className="sm:hidden space-y-2">
             <AnimatePresence initial={false}>
               {filteredOrders.map((order) => {
-                const bucket = bucketFromStatus(order.status);
+                const bucket = paymentBucket(order);
                 const itemCount = order.orderItems.reduce(
                   (s, i) => s + i.quantity,
                   0
                 );
+                const isUnpaid = bucket === "unpaid" || bucket === "partial";
                 return (
                   <motion.div
                     key={order.id}
@@ -492,12 +589,31 @@ export function OrderHistory() {
                           <span className="font-mono text-xs font-semibold">
                             {order.orderNumber}
                           </span>
-                          <Badge
-                            variant="outline"
-                            className={`text-[10px] ${STATUS_BADGE_CLASS[bucket]}`}
-                          >
-                            {STATUS_LABELS[order.status] ?? order.status}
-                          </Badge>
+                          <div className="flex items-center gap-1">
+                            <Badge
+                              variant="outline"
+                              className={`text-[10px] ${BUCKET_BADGE_CLASS[bucket]}`}
+                            >
+                              {BUCKET_LABELS[bucket]}
+                            </Badge>
+                            <a
+                              href={`/api/orders/${order.id}/receipt`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                              className="inline-flex"
+                              title="Imprimer le reçu"
+                              aria-label={`Imprimer le reçu de la commande ${order.orderNumber}`}
+                            >
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 w-7 p-0 text-primary hover:bg-primary/10"
+                              >
+                                <Printer className="w-3.5 h-3.5" />
+                              </Button>
+                            </a>
+                          </div>
                         </div>
 
                         {/* Customer + items */}
@@ -521,6 +637,12 @@ export function OrderHistory() {
                           </span>
                         </div>
 
+                        {bucket === "partial" && (
+                          <div className="text-[10px] text-amber-600 dark:text-amber-400">
+                            Payé {formatFCFA(order.paidAmount)} — reste {formatFCFA(order.remainingAmount)}
+                          </div>
+                        )}
+
                         <div className="flex items-center justify-between gap-2 pt-1">
                           <button
                             type="button"
@@ -539,10 +661,27 @@ export function OrderHistory() {
                             )}
                             Supprimer
                           </button>
-                          <span className="text-[10px] text-primary flex items-center gap-0.5">
-                            Voir le détail
-                            <ChevronRight className="w-3 h-3" />
-                          </span>
+                          {isUnpaid ? (
+                            <button
+                              type="button"
+                              className="inline-flex items-center gap-1 text-[10px] text-emerald-600 hover:text-emerald-700 disabled:opacity-50"
+                              disabled={markingPaidId === order.id}
+                              onClick={(e) => handleMarkPaid(order, e)}
+                              aria-label={`Marquer la commande ${order.orderNumber} comme payée`}
+                            >
+                              {markingPaidId === order.id ? (
+                                <Loader2 className="w-3 h-3 animate-spin" />
+                              ) : (
+                                <CheckCircle2 className="w-3 h-3" />
+                              )}
+                              Marquer payée
+                            </button>
+                          ) : (
+                            <span className="text-[10px] text-primary flex items-center gap-0.5">
+                              Voir le détail
+                              <ChevronRight className="w-3 h-3" />
+                            </span>
+                          )}
                         </div>
                       </CardContent>
                     </Card>
