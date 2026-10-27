@@ -27,13 +27,7 @@ export default defineConfig({
       use: { ...devices["Desktop Chrome"] },
     },
   ],
-  // Web server config for local dev
-  webServer: process.env.CI
-    ? undefined
-    : {
-        command: "bun run dev",
-        url: "http://localhost:3000",
-        reuseExistingServer: true,
-        timeout: 60_000,
-      },
+  // No local webServer — we test against the deployed site (BASE_URL env)
+  // To test locally: BASE_URL=http://localhost:3000 npx playwright test
+  //   + start the dev server manually first
 });
