@@ -627,3 +627,99 @@ Notes for next agent:
 - The "Marquer comme payée" button calls `PUT /api/orders/[id] { status: "paid" }` (not PATCH — the orders API uses PUT for updates). The backend handles the paidAmount=totalAmount + remainingAmount=0 logic automatically.
 - The payment history is stored as a JSON string in `Debt.paymentHistory` (format: `[{date, amount, method, reference?}]`). On each PATCH payment, a new entry is appended.
 - Customer edits now actually persist (previously local-only). If `PUT /api/customers/[id]` fails, the local state is still updated as a fallback to preserve UX.
+
+---
+
+Task ID: STATS-TICKET-PROMOS
+Agent: Subagent H
+
+Task: Statistics tab + Ticket redesign + Promos + Closure book (6 tasks)
+
+Work Log:
+
+- Re-read `prisma/schema.prisma`, `app-shell.tsx`, `page.tsx`, `cart-drawer.tsx`, `orders/route.ts`, `orders/[id]/receipt/route.ts`, `business/profile/route.ts`, `cash-session-manager.tsx`, `cash-sessions/[id]/route.ts` before editing — confirmed Business.qrCodeUrl + Business.ticketFooterMessage + Promo model already existed (added by previous agent). Added only the missing `Order.promoId String?` field.
+
+- Ran `npx prisma db push` (SQLite) — DB now in sync with the new promoId field. Prisma Client regenerated.
+
+### Task 1 — Statistiques tab
+- Created `src/app/api/stats/route.ts` — GET /api/stats?businessId=xxx&period=today|week|month. Returns `{ period, totalRevenue, orderCount, avgOrderValue, paymentBreakdown: {cash, wave, orange_money, cb}, topProducts: [{name, quantity, revenue}], dailyRevenue: [{date, revenue, orders}] }`. Filters orders with `NOT: { status: 'cancelled' }` (excludes cancelled). Uses Prisma `include: { orderItems: { include: { product } }, payments: true }` then aggregates in JS (payment breakdown by method, product map by productId, daily buckets by day). Empty-state response (zeros + empty arrays) when no orders.
+- Created `src/components/stats/stats-dashboard.tsx` — Client component. Uses shadcn `Tabs` with 3 sub-tabs (Journalier / Hebdomadaire / Mensuel). KPI cards (4): CA total (emerald), Commandes (blue), Panier moyen (purple), Encaissements (amber). recharts `BarChart` of daily revenue with custom Tooltip showing FCFA + command count. "Ventes par moyen de paiement" card with progress bars per method (Espèces/Wave/OM/Carte). "Top 5 produits vendus" card with podium-style number badges (gold/silver/bronze). Uses `useAuthStore` for businessId, formatFCFA everywhere. framer-motion staggered animations. Loading skeletons + empty states.
+- Added `"stats"` to `TabId` union in `app-shell.tsx`. Added new entry in ALL_TABS (between `purchases` and `team`): `{ id: "stats", label: "Statistiques", icon: BarChart3, gradient: "from-indigo-500 to-blue-500", accent: "bg-indigo-500", color: "#6366F1" }`. Added `"stats"` to the Gestion section filter in the desktop sidebar (with `history, pipeline, invoices, debts, purchases, stats`). Wired `{activeTab === "stats" && <StatsDashboard />}` in `page.tsx`. Imported `StatsDashboard`.
+
+### Task 2 — Receipt redesign (80mm thermal)
+- Rewrote `src/app/api/orders/[id]/receipt/route.ts`:
+  - All text forced to `color: #000000` on `background: #ffffff` (CSS `* { color: #000 }` + explicit `color: #000` on every styled element).
+  - Prices in BOLD + larger: `.price-inline { font-weight: 700; font-size: 14px }`. TOTAL row: `font-size: 18px; font-weight: 700` with `border-top: 2px solid #000`.
+  - Removed the customer block (was showing "Client: <name>" + phone) — per user request.
+  - Fetches `business.qrCodeUrl` + `business.ticketFooterMessage` + the order's `promoId` → loads `Promo` to compute the discount for display.
+  - Structure (top → bottom): 1) Logo (centered, max-width 60mm) 2) Business name (16px bold centered) 3) Address + phone + email (12px centered) 4) dashed hr 5) Date + time + ticket N° + cashier name (12px) 6) dashed hr 7) Items table (name on row 1, "x<qty> | unit | line-total" on row 2, line-total BOLD) 8) dashed hr 9) Totals (Sous-total + Livraison if delivery + Promo line if applicable, all in 14px bold, TOTAL row 18px bold) 10) dashed hr 11) Payment method + amount received + order type 12) dashed hr 13) QR code (150x150 via api.qrserver.com, defaults to https://yonukom.qrtags.pro/) + "Scannez pour noter notre service" (10px) 14) ticketFooterMessage (11px italic, only if set) 15) "Merci de votre visite !" (14px bold) 16) print button (auto-print via `window.onload → setTimeout(window.print, 250)`).
+  - Promo line only displayed if `promoDiscount > 0`. Recomputes the discount from the promo metadata stored in DB (matches the cart's calculation logic: global = subtotal × pct; amount = subtotal × pct if subtotal ≥ minAmount; product = sum of matching items × pct).
+
+### Task 3 — Personnalisation du ticket (Settings)
+- Created `src/components/settings/ticket-customization.tsx` — Client component with 3 cards:
+  1. **QR Code URL**: Input + live preview of the QR code (120x120 via api.qrserver.com). Help text mentions site/Facebook/Instagram.
+  2. **Message en bas du ticket**: Textarea (max 200 chars) with live counter. Help text mentions the Facebook @baobab example.
+  3. **Promo du jour**: Shows active promo card (name, badge -X%, type, optional product/minAmount/ticketMessage) with "Désactiver" (PATCH isActive=false) + "Supprimer" (DELETE) buttons. If no active promo: "Créer une promo" button reveals the creation form (name, type Select global/product/amount, percentage, conditional productId Select / minAmount Input, ticket message). POSTs to /api/promos which auto-deactivates any prior active promo (transaction).
+  - "Enregistrer la personnalisation" button → PUT /api/business/profile with `qrCodeUrl` + `ticketFooterMessage`. Toast success. Uses `useAuthStore` for businessId, fetches /api/business/profile + /api/promos + /api/products on mount.
+- Created `src/app/api/promos/route.ts` — GET (list, or `?active=true` to get only the active promo as `{ promo }` or `{ promo: null }`) + POST (create). Validates businessId + name + type ∈ {global, product, amount} + percentage 0-100 + productId/minAmount required for type-specific cases. `db.$transaction` to (1) `updateMany` to deactivate all existing active promos + set endDate, then (2) `create` the new active promo. Returns the created Promo object (201).
+- Created `src/app/api/promos/[id]/route.ts` — PATCH (update whitelisted fields: name, percentage, ticketMessage, isActive, endDate, minAmount, productId). If `isActive: true` → auto-deactivate others in same transaction. Sets `endDate = now()` when deactivating. DELETE — hard delete after ownership check (businessId validated via query string).
+- Updated `src/app/api/business/profile/route.ts` — Added `qrCodeUrl` + `ticketFooterMessage` to both GET `select` and PUT body parsing (trim + slice 500/200). Returns them in the response objects.
+- Added `"ticket"` section to `SettingsTab` in `page.tsx` — new Button "Ticket" (using `Ticket as TicketIcon` from lucide-react) wired to render `<TicketCustomization />` when active. State union extended from `"profile" | "audit"` → `"profile" | "audit" | "ticket"`. Section buttons wrapped in `flex-wrap` to handle the 3 buttons gracefully.
+
+### Task 4 — Apply promo in the cart automatically
+- Updated `src/components/pos/cart-drawer.tsx`:
+  - Added `activePromo` state (type `ActivePromo` interface with id/name/type/percentage/productId/minAmount/ticketMessage).
+  - New `useEffect` fetches `/api/promos?businessId=xxx&active=true` on mount. Stores the promo or null.
+  - `useMemo` computes `promoDiscount` based on promo type: global → `total × pct / 100`; amount → same if `total ≥ minAmount` (else 0); product → sum of cart items matching `promo.productId` × pct / 100. Memoized on [activePromo, total, items].
+  - `finalTotal = Math.max(0, grandTotal - promoDiscount)`. The TOTAL displayed + the Wave dialog total + the WhatsApp message + the `/api/orders` payload (`promoId: activePromo && promoDiscount > 0 ? activePromo.id : null`) + the Wave notification metadata all use `finalTotal`.
+  - New line in the cart totals section: "Promo (<name>, -X%): -Y FCFA" (in emerald) shown only when `activePromo && promoDiscount > 0`. Uses `Tag` icon (imported).
+  - The motion key for the total span switched from `grandTotal` to `finalTotal` so the animation re-triggers when the promo applies.
+
+### Task 4.2 + Task 6 — Order.promoId field + API
+- Added `promoId String?` to the Order model in Prisma schema. Pushed to DB.
+- Updated `src/app/api/orders/route.ts` POST handler:
+  - Accepts `promoId` in the body.
+  - If provided, fetches the Promo, validates ownership (businessId) + active state, then computes `promoDiscount` (same 3-case logic as the cart). Only stores `promoId` on the order if `promoDiscount > 0` (otherwise we drop it — defensive: if conditions aren't met server-side, no promoId stored).
+  - `finalTotalAmount = Math.max(0, totalAmount - promoDiscount)`. Order is created with `totalAmount: finalTotalAmount, paidAmount: finalTotalAmount, remainingAmount: 0, promoId: resolvedPromoId`. Payment also `amount: finalTotalAmount`.
+  - Response now includes `promoId` + `promoDiscount` so the frontend can show the right info without refetching.
+
+### Task 5 — Livre de clôture de caisse (closure book)
+- Created `src/app/api/cash-sessions/[id]/closure-book/route.ts` — GET returns A4-printable HTML. Header (logo + business name + address + phone + email). Title "LIVRE DE CLÔTURE DE CAISSE" (uppercase, letter-spaced). Meta block (Date, Heure d'ouverture, Heure de clôture, Caissier, Clôturé par). Summary table (10 rows): Nombre de commandes, CA total, Ventes Espèces, Ventes Wave, Ventes Orange Money, Ventes Carte, Montant théorique en espèces (cash sales), Montant théorique total (session.theoreticalTotal), Montant déclaré (session.declaredTotal), Écart (declared - theoretical) — in RED if non-zero (`color: #cc0000`), with +/- sign. "10 dernières transactions" table (#, N° ticket, Date/heure, Montant, Paiement, Statut). Two-column signature lines (caissier + responsable). Footer with generation timestamp. Auto-print script.
+  - All amounts loaded via `db.order.findMany({ where: { businessId, createdAt: { gte: openedAt, lte: closedAt }, isCancelled: false }, include: { payments: true } })` then aggregated. Theoretical total = sum of cash payments (independent from session.theoreticalTotal which sums all payment methods).
+- Updated `src/components/cash/cash-session-manager.tsx` `handleClose`: after the PUT /api/cash-sessions/[id] succeeds, opens `window.open('/api/cash-sessions/${closedId}/closure-book', '_blank', 'noopener,noreferrer')`. Toast changed to "Caisse fermée. Le livre de clôture s'ouvre dans un nouvel onglet." Wrapped in try/catch (popup blocker non-fatal — the close itself has already succeeded).
+
+### Build verification
+- `npx prisma db push` → ✓ Your database is now in sync with your Prisma schema. Prisma Client v6.19.2 generated.
+- `npx next build` → ✓ Compiled successfully in 20.1s. All 4 new routes are registered:
+  - /api/stats
+  - /api/promos, /api/promos/[id]
+  - /api/cash-sessions/[id]/closure-book
+- `bun run lint` → 8 errors + 7 warnings. **0 errors in my new files.** All 8 errors are pre-existing (same baseline as Subagents A–G): set-state-in-effect in `theme-toggle.tsx`, `business-logo.ts`, `superadmin-dashboard.tsx`, `use-auth-store.ts`, and pre-existing set-state-in-effect in `page.tsx` lines 130/139/662/825 (those effects existed before my edits — I only added the `<StatsDashboard />` render branch + the "ticket" section in `SettingsTab`, which doesn't add new effects).
+
+Files created:
+- `src/app/api/stats/route.ts`
+- `src/app/api/promos/route.ts`
+- `src/app/api/promos/[id]/route.ts`
+- `src/app/api/cash-sessions/[id]/closure-book/route.ts`
+- `src/components/stats/stats-dashboard.tsx`
+- `src/components/settings/ticket-customization.tsx`
+- `agent-ctx/STATS-TICKET-PROMOS-subagent-h.md` (this worklog entry's mirror — actually not created; the worklog IS this entry)
+
+Files modified:
+- `prisma/schema.prisma` — Order model: added `promoId String?` + comment
+- `src/components/layout/app-shell.tsx` — added `"stats"` to TabId union, added entry in ALL_TABS, added "stats" to the Gestion section sidebar filter
+- `src/app/page.tsx` — imported StatsDashboard + TicketCustomization + Ticket icon, added `{activeTab === "stats" && <StatsDashboard />}` branch, added "ticket" section to SettingsTab (new state union, new section button, new render branch)
+- `src/app/api/orders/route.ts` — POST accepts `promoId`, validates promo ownership + active state, computes `promoDiscount`, creates order with `finalTotalAmount = totalAmount - promoDiscount` + `promoId` field set conditionally, response includes `promoId` + `promoDiscount`
+- `src/app/api/orders/[id]/receipt/route.ts` — full rewrite: 80mm thermal format, all text BLACK, prices BOLD + larger (14px), TOTAL 18px bold, no customer block, QR code via api.qrserver.com (uses Business.qrCodeUrl with default fallback), ticketFooterMessage line, promo line (bold) if `promoDiscount > 0`, auto-print script
+- `src/app/api/business/profile/route.ts` — added `qrCodeUrl` + `ticketFooterMessage` to GET select + PUT body + response select
+- `src/components/pos/cart-drawer.tsx` — added `ActivePromo` interface + `activePromo` state + fetch effect, `promoDiscount` memo (3 cases: global/amount/product), `finalTotal` displayed in cart + Wave dialog + WhatsApp message + API payload, promo line in totals section (emerald), `Tag` icon import, payment payload includes `promoId` when applicable
+- `src/components/cash/cash-session-manager.tsx` — `handleClose` opens closure-book in new tab after successful close, toast message updated
+
+Notes for next agent:
+- The Promo model is `businessId`-scoped. Only 1 active promo per business at a time — enforced by `updateMany` deactivate in a `db.$transaction` on POST and on PATCH(isActive=true). The cart fetches `?active=true` on mount and applies the discount in real-time.
+- The receipt now references `order.promoId` to fetch the Promo and recompute the discount for display. If the promo has been deactivated after the order was placed but before the receipt is printed, the receipt still shows the discount (the `db.promo.findUnique` returns the record regardless of `isActive`, since we have the FK reference). This is intentional — historical receipts should reflect the promo that was actually applied at the time of sale.
+- The closure-book endpoint computes `theoreticalCash = sum of cash payments during session` (separate from `session.theoreticalTotal` which sums ALL payment methods). Both are displayed in the summary table. The "Écart" row uses `session.difference` (declaredTotal - theoreticalTotal). If non-zero, it's shown in red (#cc0000).
+- The receipt's QR code points to `business.qrCodeUrl` (default `https://yonukom.qrtags.pro/`). The merchant can customize this in Paramètres → Ticket → QR Code URL. The QR is generated by `api.qrserver.com` (no API key, no backend dependency on the YonuKom side).
+- The cart's `promoDiscount` is recomputed on every render via `useMemo` (depends on `activePromo`, `total`, `items`). If a vendor creates a promo mid-day in another tab, the cart will pick it up on next mount (it doesn't poll — but typically a vendor opens the POS once per session).
+- The `cart-drawer.tsx` uses `Tag` icon (from lucide-react) for the promo line. `Loader2`, `CheckCircle2` etc. were already imported. The `Tag` import was added in the existing icon block at the top of the file.
+

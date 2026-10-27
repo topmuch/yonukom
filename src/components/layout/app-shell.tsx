@@ -53,6 +53,7 @@ export type TabId =
   | "invoices"
   | "debts"
   | "purchases"
+  | "stats"
   | "team"
   | "notifications"
   | "analytics-ai"
@@ -171,6 +172,14 @@ const ALL_TABS: TabConfig[] = [
     gradient: "from-orange-500 to-amber-500",
     accent: "bg-orange-500",
     color: "#F97316",
+  },
+  {
+    id: "stats",
+    label: "Statistiques",
+    icon: BarChart3,
+    gradient: "from-indigo-500 to-blue-500",
+    accent: "bg-indigo-500",
+    color: "#6366F1",
   },
   {
     id: "team",
@@ -498,7 +507,7 @@ export function AppShell({ activeTab, onTabChange, children }: AppShellProps) {
           <p className="px-3 pt-3 pb-1 text-[10px] font-semibold text-white/50 uppercase tracking-wider">
             Gestion
           </p>
-          {tabs.filter(t => ["history", "pipeline", "invoices", "debts", "purchases"].includes(t.id)).map((tab) => {
+          {tabs.filter(t => ["history", "pipeline", "invoices", "debts", "purchases", "stats"].includes(t.id)).map((tab) => {
             const isActive = activeTab === tab.id;
             const Icon = tab.icon;
             return (

@@ -32,6 +32,10 @@ model Business {
   logoUrl           String?  // Logo du commerce (URL ou base64 si upload)
   /// Lien de paiement Wave (généré dans Wave Business) — envoyé aux clients via WhatsApp
   wavePaymentLink   String?
+  /// URL cible du QR code imprimé sur les tickets de caisse (modifiable par le commerçant)
+  qrCodeUrl        String?  // défaut: https://yonukom.qrtags.pro/
+  /// Message personnalisé affiché en bas du ticket de caisse
+  ticketFooterMessage String?
 
   /// JSON généré par l'onboarding qui active/masque les modules dynamiquement.
   /// Ex: { "ecommerce_social": true, "pipeline_b2b": false, "restaurant": true, "payments": ["wave", "orange_money"] }
@@ -59,6 +63,7 @@ model Business {
   notificationSetting NotificationSetting?
   categories        Category[]
   debts             Debt[]
+  promos            Promo[]
 
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
@@ -315,6 +320,9 @@ model Order {
 
   customerId      String
   customer        Customer @relation(fields: [customerId], references: [id])
+
+  /// ID de la promo appliquée à cette commande (optionnel)
+  promoId         String?
 
   orderItems      OrderItem[]
   payments        Payment[]
@@ -893,3 +901,39 @@ model Debt {
 }
 
 // Ajout des relations manquantes aux modèles existants
+
+// ============================================================
+// PROMOS & PERSONNALISATION DU TICKET
+// ============================================================
+
+/// Promo commerciale (1 seule active à la fois par business).
+/// Peut être de 3 types : globale (% sur tout), par produit (% sur un produit),
+/// ou par montant (% si total > seuil).
+model Promo {
+  id              String   @id @default(cuid())
+  businessId      String
+  business        Business @relation(fields: [businessId], references: [id])
+  /// Nom de la promo (ex: "Promo du jour -20%")
+  name            String
+  /// Type: "global" (% sur tout) | "product" (% sur 1 produit) | "amount" (% si total > seuil)
+  type            String   @default("global")
+  /// Pourcentage de réduction (ex: 20 = -20%)
+  percentage      Float    @default(0)
+  /// Si type="product" → ID du produit concerné (optionnel)
+  productId       String?
+  /// Si type="amount" → seuil minimum en FCFA (ex: 10000 = -10% si total > 10000 FCFA)
+  minAmount       Int?
+  /// Message affiché sur le ticket (ex: "Profitez de -20% sur tout aujourd'hui !")
+  ticketMessage   String?
+  /// Une seule promo active à la fois par business
+  isActive        Boolean  @default(true)
+  /// Période de validité
+  startDate       DateTime @default(now())
+  endDate         DateTime?
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([businessId])
+  @@index([isActive])
+}

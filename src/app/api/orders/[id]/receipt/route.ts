@@ -1,14 +1,21 @@
 // ============================================================
 // YonuKom — Receipt (Ticket de caisse)
 // GET /api/orders/:id/receipt
-// Renvoie une page HTML imprimable (format ticket 80mm) avec
-// auto-print au chargement. Aucune librairie PDF — impression navigateur.
+// Renvoie une page HTML imprimable au format ticket 80mm.
+// Specs :
+//   - TOUT le texte en NOIR (#000) sur fond blanc
+//   - Prix et TOTAL en GRAS et plus grand (18px TOTAL, 14px prix)
+//   - Police monospace (ticket thermique)
+//   - PAS d'infos client (retiré sur demande utilisateur)
+//   - QR code en bas (pointe vers Business.qrCodeUrl)
+//   - Message bas de ticket (Business.ticketFooterMessage)
+//   - Ligne promo si une promo a été appliquée à la commande
+//   - Auto-print au chargement (setTimeout 250ms)
 // ============================================================
 
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 
-// Étiquettes lisibles des moyens de paiement
 const PAYMENT_LABELS: Record<string, string> = {
   cash: 'Espèces',
   wave: 'Wave',
@@ -18,12 +25,13 @@ const PAYMENT_LABELS: Record<string, string> = {
   virement: 'Virement',
 }
 
-// Étiquettes lisibles des types de commande
 const ORDER_TYPE_LABELS: Record<string, string> = {
   dine_in: 'Sur place',
   takeaway: 'À emporter',
   delivery: 'Livraison',
 }
+
+const DEFAULT_QR_URL = 'https://yonukom.qrtags.pro/'
 
 function escapeHtml(s: string | null | undefined): string {
   if (!s) return ''
@@ -51,7 +59,6 @@ function formatDate(d: Date): string {
   })
 }
 
-// GET /api/orders/:id/receipt — HTML printable
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -65,13 +72,10 @@ export async function GET(
       include: {
         orderItems: {
           include: {
-            product: {
-              select: { id: true, name: true },
-            },
+            product: { select: { id: true, name: true } },
           },
         },
         payments: true,
-        customer: true,
       },
     })
 
@@ -82,8 +86,8 @@ export async function GET(
       )
     }
 
-    // Charger le business et le caissier en parallèle
-    const [business, cashier] = await Promise.all([
+    // Charger business + caissier + promo éventuelle en parallèle
+    const [business, cashier, promo] = await Promise.all([
       db.business.findUnique({
         where: { id: order.businessId },
         select: {
@@ -94,6 +98,8 @@ export async function GET(
           email: true,
           logoUrl: true,
           currency: true,
+          qrCodeUrl: true,
+          ticketFooterMessage: true,
         },
       }),
       order.createdBy
@@ -102,14 +108,19 @@ export async function GET(
             select: { name: true },
           })
         : Promise.resolve(null),
+      order.promoId
+        ? db.promo.findUnique({
+            where: { id: order.promoId },
+            select: {
+              id: true,
+              name: true,
+              percentage: true,
+              type: true,
+              ticketMessage: true,
+            },
+          })
+        : Promise.resolve(null),
     ])
-
-    // Si customer est walk-in (phone "N/A"), on l'affiche comme "Client comptoir"
-    const customerName = order.customer?.name ?? 'Client comptoir'
-    const customerPhone =
-      order.customer?.phone && order.customer.phone !== 'N/A'
-        ? order.customer.phone
-        : null
 
     // Premier paiement → méthode principale
     const mainPayment = order.payments[0]
@@ -125,18 +136,41 @@ export async function GET(
       typeof order.deliveryFee === 'number' ? order.deliveryFee : 0
     const showDeliveryLine = order.orderType === 'delivery' && deliveryFee > 0
 
-    // Construction des lignes d'articles
+    // Calcul de la remise promo (pour l'afficher sur le ticket)
+    // On recalcule à partir de la promo pour cohérence (le total order.totalAmount inclut déjà la remise)
+    let promoDiscount = 0
+    if (promo) {
+      const pct = promo.percentage ?? 0
+      if (promo.type === 'global') {
+        promoDiscount = Math.round((order.subtotal * pct) / 100)
+      } else if (promo.type === 'amount') {
+        // Si on a appliqué la promo (order.promoId set), c'est que le seuil était atteint
+        promoDiscount = Math.round((order.subtotal * pct) / 100)
+      } else if (promo.type === 'product') {
+        // Somme des items du panier correspondant au productId
+        const matchingItemsTotal = order.orderItems
+          .filter((it) => it.productId === promo.productId)
+          .reduce((sum, it) => sum + it.totalPrice, 0)
+        promoDiscount = Math.round((matchingItemsTotal * pct) / 100)
+      }
+    }
+    const showPromoLine = Boolean(promo) && promoDiscount > 0
+
+    // Construction des lignes d'articles (format ticket thermique)
     const itemsRows = order.orderItems
       .map((item) => {
-        const lineTotal = item.totalPrice
+        const name = escapeHtml(item.product?.name ?? 'Article')
+        const qty = item.quantity
+        const unit = formatFCFA(item.unitPrice)
+        const lineTotal = formatFCFA(item.totalPrice)
         return `
-          <tr>
-            <td colspan="3" class="item-name">${escapeHtml(item.product?.name ?? 'Article')}</td>
+          <tr class="item-row">
+            <td class="item-name" colspan="3">${name}</td>
           </tr>
           <tr class="item-line">
-            <td class="qty">x${item.quantity}</td>
-            <td class="unit">${formatFCFA(item.unitPrice)}</td>
-            <td class="line-total">${formatFCFA(lineTotal)}</td>
+            <td class="qty">x${qty}</td>
+            <td class="unit">${escapeHtml(unit)}</td>
+            <td class="line-total">${escapeHtml(lineTotal)}</td>
           </tr>
         `
       })
@@ -145,7 +179,7 @@ export async function GET(
     // Truncated order id (8 chars) — pour lisibilité sur ticket
     const shortId = order.id.slice(-8).toUpperCase()
 
-    // Logo HTML (data URL ou URL externe)
+    // Logo HTML
     const logoHtml = business?.logoUrl
       ? `<img src="${escapeHtml(business.logoUrl)}" alt="logo" style="max-width: 60mm; max-height: 30mm; object-fit: contain;" />`
       : ''
@@ -157,7 +191,14 @@ export async function GET(
     ].filter(Boolean)
     const addressLine = addressParts.length > 0 ? addressParts.join(', ') : null
 
-    // Header HTML avec CSS d'impression (format 80mm)
+    // QR code URL (avec fallback sur l'URL par défaut)
+    const qrTargetUrl = business?.qrCodeUrl?.trim() || DEFAULT_QR_URL
+    const qrImgUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(qrTargetUrl)}`
+
+    // Footer message personnalisé
+    const footerMessage = business?.ticketFooterMessage?.trim() || ''
+
+    // Construction du HTML final (80mm, monospace, NOIR sur BLANC, prix en GRAS)
     const html = `<!doctype html>
 <html lang="fr">
 <head>
@@ -180,11 +221,13 @@ export async function GET(
     max-width: 100%;
     margin: 0 auto;
     padding: 6mm 4mm;
+    color: #000000;
   }
   .center { text-align: center; }
   .right { text-align: right; }
   .bold { font-weight: 700; }
-  .muted { color: #555; }
+  .price { font-weight: 700; font-size: 14px; color: #000; }
+  .muted { color: #000; }
   .small { font-size: 10px; }
   hr {
     border: none;
@@ -196,56 +239,99 @@ export async function GET(
     margin-bottom: 6px;
   }
   .header h1 {
-    font-size: 14px;
+    font-size: 16px;
     font-weight: 700;
     margin: 2px 0;
     letter-spacing: 0.5px;
+    color: #000;
   }
   .header .meta {
-    font-size: 10px;
-    color: #333;
+    font-size: 12px;
+    color: #000;
     margin: 1px 0;
   }
-  .section { margin: 6px 0; font-size: 11px; }
+  .section { margin: 6px 0; font-size: 12px; color: #000; }
   table { width: 100%; border-collapse: collapse; }
-  td { vertical-align: top; padding: 1px 0; }
-  .item-name { font-weight: 600; padding-top: 4px; }
-  .item-line td { padding: 0 0 2px 0; }
-  .qty { width: 18%; }
-  .unit { width: 42%; text-align: left; }
-  .line-total { width: 40%; text-align: right; }
-  .totals { margin-top: 4px; }
-  .totals .row { display: flex; justify-content: space-between; padding: 1px 0; }
-  .totals .row.total {
+  td { vertical-align: top; padding: 1px 0; color: #000; }
+  .item-row .item-name { font-weight: 600; padding-top: 4px; color: #000; }
+  .item-line td { padding: 0 0 2px 0; color: #000; }
+  .qty { width: 18%; color: #000; }
+  .unit { width: 42%; text-align: left; color: #000; }
+  .line-total { width: 40%; text-align: right; font-weight: 700; color: #000; }
+  .totals { margin-top: 4px; color: #000; }
+  .totals .row {
+    display: flex;
+    justify-content: space-between;
+    padding: 1px 0;
+    color: #000;
+  }
+  .totals .row .price-inline {
     font-weight: 700;
     font-size: 14px;
-    border-top: 1px solid #000;
-    padding-top: 4px;
+    color: #000;
+  }
+  .totals .row.promo {
+    color: #000;
+    font-weight: 700;
+  }
+  .totals .row.total {
+    font-weight: 700;
+    font-size: 18px;
+    color: #000;
+    border-top: 2px solid #000;
+    padding-top: 6px;
+    margin-top: 6px;
+  }
+  .qr-wrap {
+    text-align: center;
+    margin-top: 10px;
+  }
+  .qr-wrap img {
+    width: 38mm;
+    height: 38mm;
+  }
+  .qr-caption {
+    font-size: 10px;
+    text-align: center;
+    color: #000;
     margin-top: 4px;
   }
-  .footer { margin-top: 10px; text-align: center; font-size: 11px; }
-  .footer .thanks { font-weight: 700; font-size: 12px; margin-bottom: 4px; }
+  .footer-msg {
+    text-align: center;
+    font-size: 11px;
+    color: #000;
+    margin-top: 8px;
+    font-style: italic;
+  }
+  .thanks {
+    text-align: center;
+    font-size: 14px;
+    font-weight: 700;
+    color: #000;
+    margin-top: 10px;
+  }
   @media print {
     @page { margin: 0; size: 80mm auto; }
-    html, body { width: 80mm; }
+    html, body { width: 80mm; background: #ffffff; }
     .no-print { display: none; }
   }
   .print-btn {
     display: block;
-    margin: 8px auto 0;
+    margin: 12px auto 0;
     padding: 8px 16px;
-    background: #10B981;
-    color: #fff;
+    background: #000000;
+    color: #ffffff;
     border: none;
-    border-radius: 6px;
+    border-radius: 4px;
     font-size: 13px;
     cursor: pointer;
+    font-family: inherit;
   }
 </style>
 </head>
 <body>
   <div class="receipt">
-    <!-- Header / Business -->
+    <!-- 1. Header / Business -->
     <div class="header center">
       ${logoHtml ? `<div class="logo-wrap">${logoHtml}</div>` : ''}
       <h1>${escapeHtml(business?.name ?? 'YonuKom')}</h1>
@@ -256,34 +342,21 @@ export async function GET(
 
     <hr />
 
-    <!-- Date + N° commande + caissier + type -->
+    <!-- 2. Date + ticket number -->
     <div class="section">
-      <div class="row" style="display:flex;justify-content:space-between;">
+      <div style="display:flex;justify-content:space-between;">
         <span>${escapeHtml(formatDate(order.createdAt))}</span>
-        <span class="bold">${escapeHtml(orderTypeLabel)}</span>
       </div>
-      <div class="row" style="display:flex;justify-content:space-between;">
-        <span class="muted">Ticket N°</span>
+      <div style="display:flex;justify-content:space-between;">
+        <span>Ticket N°</span>
         <span class="bold">${escapeHtml(order.orderNumber || shortId)}</span>
       </div>
-      <div class="row" style="display:flex;justify-content:space-between;">
-        <span class="muted">Réf.</span>
-        <span>${shortId}</span>
-      </div>
-      ${cashier ? `<div class="row" style="display:flex;justify-content:space-between;"><span class="muted">Caissier</span><span>${escapeHtml(cashier.name)}</span></div>` : ''}
+      ${cashier ? `<div style="display:flex;justify-content:space-between;"><span>Caissier</span><span>${escapeHtml(cashier.name)}</span></div>` : ''}
     </div>
 
     <hr />
 
-    <!-- Client -->
-    <div class="section">
-      <div class="bold">Client: ${escapeHtml(customerName)}</div>
-      ${customerPhone ? `<div class="muted">Tél: ${escapeHtml(customerPhone)}</div>` : ''}
-    </div>
-
-    <hr />
-
-    <!-- Articles -->
+    <!-- 3. Articles -->
     <table>
       <tbody>
         ${itemsRows}
@@ -292,43 +365,60 @@ export async function GET(
 
     <hr />
 
-    <!-- Totaux -->
+    <!-- 4. Totaux (prix en GRAS, plus grand) -->
     <div class="totals">
-      <div class="row"><span>Sous-total</span><span>${formatFCFA(order.subtotal)}</span></div>
-      ${showDeliveryLine ? `<div class="row"><span>Livraison</span><span>${formatFCFA(deliveryFee)}</span></div>` : ''}
-      <div class="row total"><span>TOTAL</span><span>${formatFCFA(order.totalAmount)}</span></div>
+      <div class="row">
+        <span>Sous-total</span>
+        <span class="price-inline">${escapeHtml(formatFCFA(order.subtotal))}</span>
+      </div>
+      ${showDeliveryLine ? `<div class="row"><span>Livraison</span><span class="price-inline">${escapeHtml(formatFCFA(deliveryFee))}</span></div>` : ''}
+      ${showPromoLine && promo ? `
+        <div class="row promo">
+          <span>Promo (${escapeHtml(promo.name)} -${promo.percentage}%)</span>
+          <span class="price-inline">-${escapeHtml(formatFCFA(promoDiscount))}</span>
+        </div>
+      ` : ''}
+      <div class="row total">
+        <span>TOTAL</span>
+        <span>${escapeHtml(formatFCFA(order.totalAmount))}</span>
+      </div>
     </div>
 
     <hr />
 
-    <!-- Type de commande + Paiement -->
+    <!-- 5. Payment method -->
     <div class="section">
-      <div class="row" style="display:flex;justify-content:space-between;">
-        <span class="muted">Type</span>
-        <span class="bold">${escapeHtml(orderTypeLabel)}</span>
-      </div>
-      <div class="row" style="display:flex;justify-content:space-between;">
-        <span class="muted">Paiement</span>
+      <div style="display:flex;justify-content:space-between;">
+        <span>Paiement</span>
         <span class="bold">${escapeHtml(paymentLabel)}</span>
       </div>
-      ${mainPayment ? `<div class="row" style="display:flex;justify-content:space-between;"><span class="muted">Montant reçu</span><span>${formatFCFA(mainPayment.amount)}</span></div>` : ''}
+      ${mainPayment ? `<div style="display:flex;justify-content:space-between;"><span>Montant reçu</span><span>${escapeHtml(formatFCFA(mainPayment.amount))}</span></div>` : ''}
+      <div style="display:flex;justify-content:space-between;">
+        <span>Type</span>
+        <span class="bold">${escapeHtml(orderTypeLabel)}</span>
+      </div>
     </div>
 
     <hr />
 
-    <!-- Footer -->
-    <div class="footer">
-      <div class="thanks">Merci de votre visite !</div>
-      <div class="muted small">YonuKom — Gestion de vente</div>
+    <!-- 6. QR code (rating / link) -->
+    <div class="qr-wrap">
+      <img src="${escapeHtml(qrImgUrl)}" alt="QR code" />
+      <div class="qr-caption">Scannez pour noter notre service</div>
     </div>
+
+    <!-- 7. Footer message personnalisé -->
+    ${footerMessage ? `<div class="footer-msg">${escapeHtml(footerMessage)}</div>` : ''}
+
+    <!-- 8. Thanks -->
+    <div class="thanks">Merci de votre visite !</div>
 
     <button class="print-btn no-print" onclick="window.print()">Imprimer</button>
   </div>
 
   <script>
-    // Auto-print au chargement (après rendu)
+    // Auto-print au chargement (après rendu, délai pour les images)
     window.onload = function () {
-      // Petit délai pour laisser les images (logo) se charger
       setTimeout(function () {
         try { window.print(); } catch (e) { /* ignore */ }
       }, 250);

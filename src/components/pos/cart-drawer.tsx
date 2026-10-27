@@ -76,6 +76,7 @@ import {
   MessageCircle,
   Send,
   AlertCircle,
+  Tag,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -203,6 +204,16 @@ export function CartDrawer({
 }
 
 // --- Cart panel content (shared desktop sticky + mobile sheet) ---
+interface ActivePromo {
+  id: string;
+  name: string;
+  type: "global" | "product" | "amount";
+  percentage: number;
+  productId: string | null;
+  minAmount: number | null;
+  ticketMessage: string | null;
+}
+
 interface CartPanelContentProps {
   onNavigateToCash?: () => void;
   onCloseMobile?: () => void;
@@ -245,6 +256,8 @@ export function CartPanelContent({
   const [orderType, setOrderType] = useState<OrderType>("dine_in");
   // Frais de livraison (FCFA — entier)
   const [deliveryFeeInput, setDeliveryFeeInput] = useState<string>("0");
+  // Promo active (chargée au montage)
+  const [activePromo, setActivePromo] = useState<ActivePromo | null>(null);
 
   const customerOptions: CustomerOption[] = [walkInCustomer, ...customers];
   const selectedCustomerId = customer?.id ?? "walk-in";
@@ -253,6 +266,32 @@ export function CartPanelContent({
   const deliveryFee =
     orderType === "delivery" ? Math.max(0, parseInt(deliveryFeeInput, 10) || 0) : 0;
   const grandTotal = total + deliveryFee;
+
+  // --- Calcul de la remise promo (si une promo active existe) ---
+  const promoDiscount = useMemo(() => {
+    if (!activePromo) return 0;
+    const pct = activePromo.percentage ?? 0;
+    if (pct <= 0) return 0;
+    if (activePromo.type === "global") {
+      return Math.round((total * pct) / 100);
+    }
+    if (activePromo.type === "amount") {
+      const min = activePromo.minAmount ?? 0;
+      if (total >= min) {
+        return Math.round((total * pct) / 100);
+      }
+      return 0;
+    }
+    if (activePromo.type === "product" && activePromo.productId) {
+      const matchingTotal = items
+        .filter((it) => it.productId === activePromo.productId)
+        .reduce((sum, it) => sum + it.totalPrice, 0);
+      return Math.round((matchingTotal * pct) / 100);
+    }
+    return 0;
+  }, [activePromo, total, items]);
+
+  const finalTotal = Math.max(0, grandTotal - promoDiscount);
 
   // --- Vérifier l'état de la session de caisse au montage ---
   const checkCashSession = useCallback(async () => {
@@ -294,6 +333,18 @@ export function CartPanelContent({
       .catch(() => {});
   }, [businessId]);
 
+  // --- Fetch la promo active du business (pour appliquer la remise automatiquement) ---
+  useEffect(() => {
+    if (!businessId) return;
+    fetch(`/api/promos?businessId=${encodeURIComponent(businessId)}&active=true`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (d?.promo) setActivePromo(d.promo as ActivePromo);
+        else setActivePromo(null);
+      })
+      .catch(() => setActivePromo(null));
+  }, [businessId]);
+
   // --- Pré-remplir le numéro WhatsApp quand le dialog Wave s'ouvre ---
   useEffect(() => {
     if (waveDialogOpen) {
@@ -307,9 +358,9 @@ export function CartPanelContent({
     if (!wavePaymentLink) return "";
     const businessName = user?.businessName ?? "notre commerce";
     const customerName = customer?.name ?? "Client";
-    const msg = `Bonjour ${customerName} ! 👋\n\nMerci pour votre achat chez ${businessName}.\nMontant à payer : ${formatFCFA(total)} FCFA\n\nCliquez pour payer par Wave :\n${wavePaymentLink}\n\nMerci de confirmer le paiement une fois effectué.`;
+    const msg = `Bonjour ${customerName} ! 👋\n\nMerci pour votre achat chez ${businessName}.\nMontant à payer : ${formatFCFA(finalTotal)} FCFA\n\nCliquez pour payer par Wave :\n${wavePaymentLink}\n\nMerci de confirmer le paiement une fois effectué.`;
     return msg;
-  }, [wavePaymentLink, user?.businessName, customer?.name, total]);
+  }, [wavePaymentLink, user?.businessName, customer?.name, finalTotal]);
 
   // --- Normaliser un numéro de téléphone au format international (sans +) ---
   const normalizePhone = (phone: string): string => {
@@ -360,7 +411,7 @@ export function CartPanelContent({
           message: waveMessage,
           metadata: JSON.stringify({
             paymentMethod: "wave",
-            amount: total,
+            amount: finalTotal,
             wavePaymentLink,
           }),
         }),
@@ -418,6 +469,7 @@ export function CartPanelContent({
         paymentMethod: method,
         orderType,
         deliveryFee,
+        promoId: activePromo && promoDiscount > 0 ? activePromo.id : null,
         items: items.map((item) => ({
           productId: item.productId,
           name: item.productName,
@@ -674,19 +726,32 @@ export function CartPanelContent({
                 </div>
               )}
 
-              {/* Grand total */}
+              {/* Promo line (if an active promo applies a discount > 0) */}
+              {activePromo && promoDiscount > 0 && (
+                <div className="flex items-center justify-between text-sm">
+                  <span className="flex items-center gap-1.5 text-emerald-600">
+                    <Tag className="w-3.5 h-3.5" />
+                    Promo ({activePromo.name}, -{activePromo.percentage}%)
+                  </span>
+                  <span className="font-semibold tabular-nums text-emerald-600">
+                    -{formatFCFA(promoDiscount)}
+                  </span>
+                </div>
+              )}
+
+              {/* Grand total (final = subtotal + delivery - promo) */}
               <div className="flex items-center justify-between">
                 <span className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
                   Total
                 </span>
                 <motion.span
-                  key={grandTotal}
+                  key={finalTotal}
                   initial={{ scale: 1.1, color: "#f97316" }}
                   animate={{ scale: 1, color: "#f97316" }}
                   transition={{ duration: 0.2 }}
                   className="text-2xl font-bold text-orange-500 tabular-nums"
                 >
-                  {formatFCFA(grandTotal)}
+                  {formatFCFA(finalTotal)}
                 </motion.span>
               </div>
 
@@ -805,7 +870,7 @@ export function CartPanelContent({
             <DialogDescription>
               Total à payer :{" "}
               <span className="font-bold text-foreground">
-                {formatFCFA(total)}
+                {formatFCFA(finalTotal)}
               </span>{" "}
               FCFA
             </DialogDescription>

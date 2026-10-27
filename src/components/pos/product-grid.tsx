@@ -256,7 +256,7 @@ function ProductRow({ product, categoryColor, categoryName, onAdd }: ProductRowP
             aria-label={`Ajouter ${product.name} au panier`}
           >
             <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4" strokeWidth={2.5} />
-            ADD
+            Ajouter
           </motion.button>
         ) : (
           // Sélecteur de quantité (- N +)

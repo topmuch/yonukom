@@ -23,6 +23,8 @@ export async function GET(request: NextRequest) {
         currency: true,
         logoUrl: true,
         wavePaymentLink: true,
+        qrCodeUrl: true,
+        ticketFooterMessage: true,
       },
     });
     if (!business) {
@@ -40,7 +42,7 @@ export async function GET(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const body = await request.json();
-    const { businessId, name, phone, email, address, city, country, logoUrl, wavePaymentLink } = body;
+    const { businessId, name, phone, email, address, city, country, logoUrl, wavePaymentLink, qrCodeUrl, ticketFooterMessage } = body;
 
     if (!businessId) {
       return NextResponse.json({ error: "businessId requis" }, { status: 400 });
@@ -68,6 +70,14 @@ export async function PUT(request: NextRequest) {
       // Lien de paiement Wave (URL https://pay.wave.com/...)
       data.wavePaymentLink = wavePaymentLink.trim().slice(0, 500) || null;
     }
+    if (typeof qrCodeUrl === "string") {
+      // URL cible du QR code imprimé sur les tickets
+      data.qrCodeUrl = qrCodeUrl.trim().slice(0, 500) || null;
+    }
+    if (typeof ticketFooterMessage === "string") {
+      // Message personnalisé en bas du ticket (max 200 chars)
+      data.ticketFooterMessage = ticketFooterMessage.trim().slice(0, 200) || null;
+    }
 
     if (Object.keys(data).length === 0) {
       return NextResponse.json({ error: "Aucune mise à jour fournie" }, { status: 400 });
@@ -88,6 +98,8 @@ export async function PUT(request: NextRequest) {
         currency: true,
         logoUrl: true,
         wavePaymentLink: true,
+        qrCodeUrl: true,
+        ticketFooterMessage: true,
       },
     });
 

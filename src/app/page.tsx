@@ -54,6 +54,8 @@ import { TeamDashboard } from "@/components/team/team-dashboard";
 import { NotificationsSettings } from "@/components/notifications/notifications-settings";
 import { PredictiveAnalytics } from "@/components/analytics/predictive-analytics";
 import { AccountingDashboard } from "@/components/accounting/accounting-dashboard";
+import { StatsDashboard } from "@/components/stats/stats-dashboard";
+import { TicketCustomization } from "@/components/settings/ticket-customization";
 import { DashboardAnalytics } from "@/components/dashboard/dashboard-analytics";
 import { IntelligenceFeed } from "@/components/intelligence/intelligence-feed";
 import { TrendChart } from "@/components/intelligence/trend-chart";
@@ -85,6 +87,7 @@ import {
   Brain,
   Sparkles,
   Rocket,
+  Ticket as TicketIcon,
 } from "lucide-react";
 
 // --- Page Views ---
@@ -783,6 +786,7 @@ function DashboardMain({ onLogout }: { onLogout: () => void }) {
       {activeTab === "invoices" && <InvoiceList />}
       {activeTab === "debts" && <DebtsDashboard />}
       {activeTab === "purchases" && <PurchaseDashboard />}
+      {activeTab === "stats" && <StatsDashboard />}
       {activeTab === "team" && <TeamDashboard />}
       {activeTab === "notifications" && <NotificationsSettings />}
       {activeTab === "analytics-ai" && <PredictiveAnalytics />}
@@ -1073,7 +1077,7 @@ function PipelineTab() {
 
 function SettingsTab({ onLogout }: { onLogout: () => void }) {
   const user = useAuthStore((s) => s.user);
-  const [activeSection, setActiveSection] = useState<"profile" | "audit">("profile");
+  const [activeSection, setActiveSection] = useState<"profile" | "audit" | "ticket">("profile");
 
   return (
     <div className="px-4 py-6 space-y-4">
@@ -1092,14 +1096,16 @@ function SettingsTab({ onLogout }: { onLogout: () => void }) {
             </CardContent>
           </Card>
         )}
-        <div className="flex gap-2 mb-3">
+        <div className="flex flex-wrap gap-2 mb-3">
           <Button variant={activeSection === "profile" ? "default" : "outline"} size="sm" className="text-xs gap-1" onClick={() => setActiveSection("profile")}><Building2 className="w-3.5 h-3.5" />Profil</Button>
+          <Button variant={activeSection === "ticket" ? "default" : "outline"} size="sm" className="text-xs gap-1" onClick={() => setActiveSection("ticket")}><TicketIcon className="w-3.5 h-3.5" />Ticket</Button>
           <PermissionGuard permission="canViewAuditLog" fallback={null}>
             <Button variant={activeSection === "audit" ? "default" : "outline"} size="sm" className="text-xs gap-1" onClick={() => setActiveSection("audit")}><Shield className="w-3.5 h-3.5" />Audit</Button>
           </PermissionGuard>
         </div>
       </motion.div>
       {activeSection === "profile" && <BusinessProfileEditor />}
+      {activeSection === "ticket" && <TicketCustomization />}
       {activeSection === "audit" && (<PermissionGuard permission="canViewAuditLog" showLocked lockedMessage="Seul le Gérant ou Patron peut voir le journal d'audit."><AuditLogViewer /></PermissionGuard>)}
     </div>
   );

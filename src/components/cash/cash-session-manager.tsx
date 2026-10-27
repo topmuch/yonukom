@@ -145,13 +145,24 @@ export function CashSessionManager() {
       });
       if (res.ok) {
         const closed = await res.json();
+        const closedId = closed.id ?? activeSession.id;
         setActiveSession(null);
         setSessions((prev) =>
           prev.map((s) => (s.id === closed.id ? closed : s))
         );
         setCloseDialogOpen(false);
         setDeclaredAmount("");
-        toast.success("Caisse clôturée");
+        toast.success("Caisse fermée. Le livre de clôture s'ouvre dans un nouvel onglet.");
+        // Ouvrir le livre de clôture de caisse dans un nouvel onglet (page imprimable A4)
+        try {
+          window.open(
+            `/api/cash-sessions/${closedId}/closure-book`,
+            "_blank",
+            "noopener,noreferrer"
+          );
+        } catch {
+          // Le popup peut être bloqué — non bloquant, la fermeture a réussi
+        }
       } else {
         const err = await res.json().catch(() => ({}));
         toast.error(err?.error || "Échec de la clôture de la caisse.");

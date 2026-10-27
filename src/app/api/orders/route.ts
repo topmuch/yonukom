@@ -71,7 +71,7 @@ type OrderItemInput = {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { customerId, businessId, items, createdBy, status, deliveryAddress, paymentMethod, deliveryFee, orderType } = body as {
+    const { customerId, businessId, items, createdBy, status, deliveryAddress, paymentMethod, deliveryFee, orderType, promoId } = body as {
       customerId?: string
       businessId?: string
       items?: OrderItemInput[]
@@ -81,6 +81,7 @@ export async function POST(request: NextRequest) {
       paymentMethod?: string
       deliveryFee?: number
       orderType?: string
+      promoId?: string | null
     }
 
     // --- Validation de base ---
@@ -246,6 +247,40 @@ export async function POST(request: NextRequest) {
 
     const totalAmount = subtotal + resolvedDeliveryFee
 
+    // --- Validation de la promo (optionnelle) ---
+    // Si un promoId est fourni, on vérifie qu'il appartient au business et qu'il est actif.
+    let resolvedPromoId: string | null = null
+    let promoDiscount = 0
+    if (promoId && typeof promoId === 'string') {
+      const promo = await db.promo.findUnique({
+        where: { id: promoId },
+        select: { id: true, businessId: true, isActive: true, type: true, percentage: true, productId: true, minAmount: true },
+      })
+      if (promo && promo.businessId === businessId && promo.isActive) {
+        // Vérifier les conditions de la promo
+        const pct = promo.percentage ?? 0
+        if (promo.type === 'global') {
+          promoDiscount = Math.round((subtotal * pct) / 100)
+        } else if (promo.type === 'amount') {
+          const min = promo.minAmount ?? 0
+          if (subtotal >= min) {
+            promoDiscount = Math.round((subtotal * pct) / 100)
+          } else {
+            // Seuil non atteint → on n'applique pas la promo
+          }
+        } else if (promo.type === 'product' && promo.productId) {
+          const matchingSubtotal = resolvedItems
+            .filter((ri) => ri.productId === promo.productId)
+            .reduce((sum, ri) => sum + ri.totalPrice, 0)
+          promoDiscount = Math.round((matchingSubtotal * pct) / 100)
+        }
+        if (promoDiscount > 0) {
+          resolvedPromoId = promo.id
+        }
+      }
+    }
+    const finalTotalAmount = Math.max(0, totalAmount - promoDiscount)
+
     // Valider le moyen de paiement (défaut: cash)
     const VALID_PAYMENT_METHODS = ['cash', 'wave', 'orange_money', 'cb', 'cheque', 'virement']
     const resolvedPaymentMethod = paymentMethod && VALID_PAYMENT_METHODS.includes(paymentMethod)
@@ -260,11 +295,12 @@ export async function POST(request: NextRequest) {
           customerId: resolvedCustomerId!,
           businessId,
           subtotal,
-          totalAmount,
+          totalAmount: finalTotalAmount,
           deliveryFee: resolvedDeliveryFee,
           orderType: resolvedOrderType,
+          promoId: resolvedPromoId,
           // Marquer comme payée (vente comptoir — encaissement immédiat)
-          paidAmount: totalAmount,
+          paidAmount: finalTotalAmount,
           remainingAmount: 0,
           status: status || 'completed',
           createdBy: createdBy || null,
@@ -314,7 +350,7 @@ export async function POST(request: NextRequest) {
       // Créer un Payment immédiat (vente comptoir encaissée sur place)
       await tx.payment.create({
         data: {
-          amount: totalAmount,
+          amount: finalTotalAmount,
           method: resolvedPaymentMethod,
           orderId: newOrder.id,
           receivedBy: createdBy || null,
@@ -324,10 +360,10 @@ export async function POST(request: NextRequest) {
       return newOrder
     })
 
-    // Renvoyer aussi le paymentMethod + deliveryFee + orderType pour que le front
+    // Renvoyer aussi le paymentMethod + deliveryFee + orderType + promoId pour que le front
     // puisse l'afficher sans avoir à refetcher la commande.
     return NextResponse.json(
-      { ...order, paymentMethod: resolvedPaymentMethod, deliveryFee: resolvedDeliveryFee, orderType: resolvedOrderType },
+      { ...order, paymentMethod: resolvedPaymentMethod, deliveryFee: resolvedDeliveryFee, orderType: resolvedOrderType, promoId: resolvedPromoId, promoDiscount },
       { status: 201 }
     )
   } catch (error) {
