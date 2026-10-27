@@ -162,7 +162,7 @@ export const useSyncQueueStore = create<SyncQueueState>((set, get) => ({
 
       try {
         // Envoyer l'action au serveur
-        const response = await fetch("/api/sync?XTransformPort=3000", {
+        const response = await fetch("/api/sync", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({

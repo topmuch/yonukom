@@ -25,6 +25,8 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useCartStore } from "@/stores/use-cart-store";
 import { useAuthStore } from "@/stores/use-auth-store";
+import { useConnectivityStore } from "@/stores/use-connectivity-store";
+import { useSyncQueueStore } from "@/stores/use-sync-queue-store";
 import { formatFCFA } from "@/lib/fcfa";
 import { toast } from "@/hooks/use-toast";
 import {
@@ -148,6 +150,7 @@ interface CreatedOrder {
   paymentMethod?: PaymentMethod;
   deliveryFee?: number;
   orderType?: OrderType;
+  createdAt?: string;
 }
 
 interface CustomerOption {
@@ -241,6 +244,8 @@ export function CartPanelContent({
 
   const user = useAuthStore((s) => s.user);
   const businessId = user?.businessId;
+  const isOnline = useConnectivityStore((s) => s.isOnline);
+  const enqueue = useSyncQueueStore((s) => s.enqueue);
 
   const [isCheckingOut, setIsCheckingOut] = useState(false);
   const [cashSessionActive, setCashSessionActive] = useState(false);
@@ -478,6 +483,37 @@ export function CartPanelContent({
         })),
       };
 
+      // --- MODE OFFLINE : mettre en file d'attente ---
+      if (!isOnline) {
+        // Générer un ID local temporaire
+        const localOrderId = `offline_${Date.now()}`;
+        enqueue({
+          action: "create",
+          entityType: "order",
+          entityId: localOrderId,
+          payload: JSON.stringify(payload),
+        });
+
+        // Créer un objet order local pour le success panel
+        const localOrder: CreatedOrder = {
+          id: localOrderId,
+          orderNumber: `OFFLINE-${Date.now().toString().slice(-6)}`,
+          totalAmount: finalTotal,
+          paymentMethod: method,
+          orderType,
+          deliveryFee,
+          createdAt: new Date().toISOString(),
+        };
+        setLastOrder(localOrder);
+
+        toast({
+          title: "Vente enregistrée hors-ligne 📴",
+          description: "Elle sera synchronisée automatiquement quand le réseau reviendra.",
+        });
+        return;
+      }
+
+      // --- MODE EN LIGNE : appel API normal ---
       const res = await fetch("/api/orders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
