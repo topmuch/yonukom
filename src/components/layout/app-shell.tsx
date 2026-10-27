@@ -25,6 +25,12 @@ import {
   X,
   History,
   LogOut,
+  FileText,
+  Users,
+  Truck,
+  MessageCircle,
+  BarChart3,
+  Calculator,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { Input } from "@/components/ui/input";
@@ -36,6 +42,13 @@ export type TabId =
   | "orders"
   | "history"
   | "pipeline"
+  | "invoices"
+  | "debts"
+  | "purchases"
+  | "team"
+  | "notifications"
+  | "analytics-ai"
+  | "accounting"
   | "settings";
 
 interface TabConfig {
@@ -100,6 +113,63 @@ const ALL_TABS: TabConfig[] = [
     gradient: "from-violet-500 to-purple-500",
     accent: "bg-violet-500",
     color: "#8B5CF6",
+  },
+  // ─── Nouveaux modules métier (V2) ───
+  {
+    id: "invoices",
+    label: "Factures",
+    icon: FileText,
+    gradient: "from-cyan-500 to-blue-500",
+    accent: "bg-cyan-500",
+    color: "#06B6D4",
+  },
+  {
+    id: "debts",
+    label: "Dettes",
+    icon: Users,
+    gradient: "from-red-500 to-rose-500",
+    accent: "bg-red-500",
+    color: "#EF4444",
+  },
+  {
+    id: "purchases",
+    label: "Achats",
+    icon: Truck,
+    gradient: "from-orange-500 to-amber-500",
+    accent: "bg-orange-500",
+    color: "#F97316",
+  },
+  {
+    id: "team",
+    label: "Équipe",
+    icon: Users,
+    gradient: "from-pink-500 to-rose-500",
+    accent: "bg-pink-500",
+    color: "#EC4899",
+  },
+  {
+    id: "notifications",
+    label: "WhatsApp",
+    icon: MessageCircle,
+    gradient: "from-green-500 to-emerald-500",
+    accent: "bg-green-500",
+    color: "#22C55E",
+  },
+  {
+    id: "analytics-ai",
+    label: "IA Analytics",
+    icon: BarChart3,
+    gradient: "from-indigo-500 to-violet-500",
+    accent: "bg-indigo-500",
+    color: "#6366F1",
+  },
+  {
+    id: "accounting",
+    label: "Compta",
+    icon: Calculator,
+    gradient: "from-teal-500 to-emerald-600",
+    accent: "bg-teal-500",
+    color: "#14B8A6",
   },
   {
     id: "settings",

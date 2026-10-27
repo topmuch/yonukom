@@ -46,6 +46,15 @@ model Business {
   orders            Order[]
   auditLogs         AuditLog[]
   cashSessions      CashSession[]
+  // Relations vers les nouveaux modules métier
+  suppliers         Supplier[]
+  purchases         Purchase[]
+  invoices          Invoice[]
+  attendances       Attendance[]
+  commissions       Commission[]
+  payrollEntries    PayrollEntry[]
+  notificationLogs  NotificationLog[]
+  notificationSetting NotificationSetting?
 
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
@@ -72,6 +81,10 @@ model User {
   tenant      Tenant?   @relation(fields: [tenantId], references: [id])
 
   auditLogs   AuditLog[]
+  // Relations vers les nouveaux modules métier (gestion d'équipe)
+  attendances   Attendance[]
+  commissions   Commission[]
+  payrollEntries PayrollEntry[]
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -129,6 +142,7 @@ model Product {
 
   orderItems        OrderItem[]
   stockMovements    StockMovement[]
+  purchaseItems     PurchaseItem[]
 
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
@@ -201,6 +215,7 @@ model Customer {
   business        Business @relation(fields: [businessId], references: [id])
 
   orders          Order[]
+  invoices        Invoice[]
 
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
@@ -264,6 +279,8 @@ model Order {
 
   orderItems      OrderItem[]
   payments        Payment[]
+  invoices        Invoice[]
+  commissions     Commission[]
 
   /// userId qui a créé la commande
   createdBy       String?
@@ -550,3 +567,250 @@ model ContactMessage {
   @@index([createdAt])
   @@index([email])
 }
+
+// ============================================================
+// MODULES MÉTIER AVANCÉS — ajoutés pour la V2
+// ============================================================
+
+/// Fournisseur (achat & dettes fournisseurs)
+model Supplier {
+  id              String   @id @default(cuid())
+  businessId      String
+  business        Business @relation(fields: [businessId], references: [id])
+  name            String
+  phone           String?
+  email           String?
+  address         String?
+  /// Solde dû à ce fournisseur (cumul des achats - paiements)
+  outstandingBalance Int @default(0)
+  /// Note interne
+  notes           String?
+  isActive        Boolean  @default(true)
+
+  purchases       Purchase[]
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([businessId])
+  @@index([isActive])
+}
+
+/// Bon de commande / facture fournisseur
+model Purchase {
+  id              String   @id @default(cuid())
+  businessId      String
+  business        Business @relation(fields: [businessId], references: [id])
+  supplierId      String?
+  supplier        Supplier? @relation(fields: [supplierId], references: [id])
+  /// Numéro de référence (ex: BC-2026-001)
+  reference       String
+  /// Statut : "draft" | "ordered" | "received" | "paid" | "cancelled"
+  status          String   @default("draft")
+  /// Montant total HT (FCFA)
+  totalAmount     Int      @default(0)
+  /// Montant déjà payé (FCFA)
+  paidAmount      Int      @default(0)
+  /// Date de réception prévue / effective
+  orderDate       DateTime @default(now())
+  receivedDate    DateTime?
+  notes           String?
+
+  items           PurchaseItem[]
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([businessId])
+  @@index([supplierId])
+  @@index([status])
+  @@unique([businessId, reference])
+}
+
+model PurchaseItem {
+  id              String   @id @default(cuid())
+  purchaseId      String
+  purchase        Purchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  productId       String?
+  product         Product? @relation(fields: [productId], references: [id])
+  /// Nom libre (au cas où le produit n'existe pas encore en DB)
+  productName     String
+  quantity        Int
+  /// Prix d'achat unitaire (FCFA)
+  unitPrice       Int
+  /// Total ligne = quantity * unitPrice
+  totalPrice      Int
+
+  createdAt       DateTime @default(now())
+
+  @@index([purchaseId])
+  @@index([productId])
+}
+
+/// Facture client — reçus formalisés avec numérotation fiscale
+model Invoice {
+  id              String   @id @default(cuid())
+  businessId      String
+  business        Business @relation(fields: [businessId], references: [id])
+  /// Numéro de facture unique par business (ex: FAC-2026-0001)
+  number          String
+  /// Lien vers la commande (optionnel — vente encaissée via POS)
+  orderId         String?
+  order           Order?   @relation(fields: [orderId], references: [id])
+  customerId      String?
+  customer        Customer? @relation(fields: [customerId], references: [id])
+  /// Montant HT (FCFA)
+  subtotal        Int      @default(0)
+  /// TVA en % (généralement 18% au Sénégal)
+  taxRate         Float    @default(0)
+  /// Montant TVA
+  taxAmount       Int      @default(0)
+  /// Total TTC
+  totalAmount     Int      @default(0)
+  /// Montant déjà payé
+  paidAmount      Int      @default(0)
+  /// Statut : "draft" | "sent" | "paid" | "partial" | "cancelled"
+  status          String   @default("draft")
+  /// Date d'émission / échéance
+  issueDate       DateTime @default(now())
+  dueDate         DateTime?
+  /// Notes / conditions
+  notes           String?
+  /// Items (snapshot au moment de la facturation)
+  itemsJson       String   @default("[]")
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([businessId])
+  @@index([customerId])
+  @@index([status])
+  @@unique([businessId, number])
+}
+
+/// Pointage / présence des employés
+model Attendance {
+  id              String   @id @default(cuid())
+  businessId      String
+  business        Business @relation(fields: [businessId], references: [id])
+  userId          String
+  user            User     @relation(fields: [userId], references: [id])
+  /// Date du pointage (jour)
+  date            DateTime
+  checkInTime     DateTime?
+  checkOutTime    DateTime?
+  /// Minutes travaillées (calculé au checkout)
+  workedMinutes   Int      @default(0)
+  notes           String?
+
+  createdAt       DateTime @default(now())
+
+  @@index([businessId])
+  @@index([userId])
+  @@index([date])
+}
+
+/// Commission par vendeur (par vente ou par période)
+model Commission {
+  id              String   @id @default(cuid())
+  businessId      String
+  business        Business @relation(fields: [businessId], references: [id])
+  userId          String
+  user            User     @relation(fields: [userId], references: [id])
+  /// Type : "percentage" (sur vente) ou "fixed" (montant fixe)
+  type            String   @default("percentage")
+  /// % (si percentage) ou montant (si fixed) — FCFA
+  value           Float    @default(0)
+  /// Lien vers la vente qui a généré la commission (optionnel)
+  orderId         String?
+  order           Order?   @relation(fields: [orderId], references: [id])
+  /// Montant calculé en FCFA
+  amount          Int      @default(0)
+  /// Statut : "due" | "paid"
+  status          String   @default("due")
+  paidAt          DateTime?
+
+  createdAt       DateTime @default(now())
+
+  @@index([businessId])
+  @@index([userId])
+  @@index([status])
+}
+
+/// Entrée de paie (avance, retenue, salaire)
+model PayrollEntry {
+  id              String   @id @default(cuid())
+  businessId      String
+  business        Business @relation(fields: [businessId], references: [id])
+  userId          String
+  user            User     @relation(fields: [userId], references: [id])
+  /// Type : "advance" (avance) | "deduction" (retenue) | "salary" (salaire net) | "bonus"
+  type            String
+  /// Montant en FCFA
+  amount          Int
+  /// Période (ex: "2026-10")
+  period          String
+  notes           String?
+  paidAt          DateTime @default(now())
+
+  createdAt       DateTime @default(now())
+
+  @@index([businessId])
+  @@index([userId])
+  @@index([period])
+}
+
+/// Log des notifications WhatsApp envoyées (ou à envoyer)
+model NotificationLog {
+  id              String   @id @default(cuid())
+  businessId      String
+  business        Business @relation(fields: [businessId], references: [id])
+  /// Destinataire (numéro téléphone format international sans +, ex: 221783821822)
+  recipient       String
+  /// Type de notification
+  /// "sale_receipt" | "debt_reminder" | "stock_alert" | "daily_summary" | "custom"
+  type            String
+  /// Message pré-rempli (texte)
+  message         String
+  /// Canal : "wa_me_link" (génère un lien wa.me) ou "whatsapp_api" (si clé API configurée)
+  channel         String   @default("wa_me_link")
+  /// Statut : "pending" | "clicked" | "sent" | "failed"
+  status          String   @default("pending")
+  /// Lien wa.me généré
+  waMeUrl         String?
+  /// Métadonnées (JSON)
+  metadata        String?
+
+  createdAt       DateTime @default(now())
+
+  @@index([businessId])
+  @@index([recipient])
+  @@index([type])
+  @@index([status])
+}
+
+/// Configuration des notifications WhatsApp par business
+model NotificationSetting {
+  id              String   @id @default(cuid())
+  businessId      String   @unique
+  business        Business @relation(fields: [businessId], references: [id])
+  /// Activer l'envoi de reçu WhatsApp après chaque vente
+  enableSaleReceipt   Boolean @default(true)
+  /// Activer les rappels de dette automatiques
+  enableDebtReminders Boolean @default(true)
+  /// Nombre de jours avant relance (7, 15, 30)
+  debtReminderDays   Int     @default(7)
+  /// Activer les alertes de rupture de stock
+  enableStockAlerts   Boolean @default(true)
+  /// Seuil de stock global (peut être surchargé par produit)
+  stockAlertThreshold Int     @default(5)
+  /// Activer le récap quotidien
+  enableDailySummary  Boolean @default(false)
+  /// Heure du récap (ex: "20:00")
+  dailySummaryTime    String  @default("20:00")
+  /// Numéro WhatsApp du patron (pour recevoir les alertes)
+  ownerPhone          String?
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+// Ajout des relations manquantes aux modèles existants

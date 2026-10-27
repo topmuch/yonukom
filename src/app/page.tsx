@@ -44,6 +44,14 @@ import { CustomerList } from "@/components/customers/customer-list";
 import { CashSessionManager } from "@/components/cash/cash-session-manager";
 import { AuditLogViewer } from "@/components/audit/audit-log-viewer";
 import { BusinessProfileEditor } from "@/components/settings/business-profile-editor";
+// --- Imports pour les nouveaux modules métier (V2) ---
+import { InvoiceList } from "@/components/invoices/invoice-list";
+import { DebtsDashboard } from "@/components/customers/debts-dashboard";
+import { PurchaseDashboard } from "@/components/purchases/purchase-dashboard";
+import { TeamDashboard } from "@/components/team/team-dashboard";
+import { NotificationsSettings } from "@/components/notifications/notifications-settings";
+import { PredictiveAnalytics } from "@/components/analytics/predictive-analytics";
+import { AccountingDashboard } from "@/components/accounting/accounting-dashboard";
 import { DashboardAnalytics } from "@/components/dashboard/dashboard-analytics";
 import { IntelligenceFeed } from "@/components/intelligence/intelligence-feed";
 import { TrendChart } from "@/components/intelligence/trend-chart";
@@ -766,6 +774,13 @@ function DashboardMain({ onLogout }: { onLogout: () => void }) {
       {activeTab === "orders" && <OrdersTab />}
       {activeTab === "history" && <HistoryTab />}
       {activeTab === "pipeline" && <PipelineTab />}
+      {activeTab === "invoices" && <InvoiceList />}
+      {activeTab === "debts" && <DebtsDashboard />}
+      {activeTab === "purchases" && <PurchaseDashboard />}
+      {activeTab === "team" && <TeamDashboard />}
+      {activeTab === "notifications" && <NotificationsSettings />}
+      {activeTab === "analytics-ai" && <PredictiveAnalytics />}
+      {activeTab === "accounting" && <AccountingDashboard />}
       {activeTab === "settings" && <SettingsTab onLogout={onLogout} />}
     </AppShell>
   );
