@@ -5,7 +5,7 @@ RUN npm install -g bun
 
 WORKDIR /app
 
-RUN echo "cachebust-4" && git clone --branch main --depth 1 https://github.com/topmuch/yonukom.git /app/tmp && \
+RUN echo "cachebust-5" && git clone --branch main --depth 1 https://github.com/topmuch/yonukom.git /app/tmp && \
     cp -r /app/tmp/. /app/ && rm -rf /app/tmp
 
 RUN bun install
