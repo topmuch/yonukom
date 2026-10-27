@@ -5,7 +5,7 @@
 // ============================================================
 
 import { NextRequest, NextResponse } from "next/server";
-import { jwtVerify, createRemoteJWKSet } from "jose";
+import { jwtVerify } from "jose";
 
 // --- Secret JWT (même que src/lib/auth.ts mais en format Uint8Array pour jose) ---
 const JWT_SECRET = process.env.JWT_SECRET || "yonukom-dev-secret-change-in-production";
