@@ -71,6 +71,7 @@ import {
   ShoppingBag,
   Bike,
   X,
+  ArrowRight,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -877,19 +878,16 @@ export function CartButton({ itemCount, total, onClick }: CartButtonProps) {
       <Button
         onClick={onClick}
         size="lg"
-        className="w-full min-h-[52px] text-base font-semibold shadow-lg shadow-[#338BE2]/30 relative bg-gradient-to-r from-[#338BE2] to-cyan-500 hover:from-[#338BE2]/90 hover:to-cyan-500/90 border-0"
+        className="w-full min-h-[56px] text-base font-semibold shadow-xl shadow-rose-500/30 relative bg-gradient-to-r from-rose-500 to-red-600 hover:from-rose-600 hover:to-red-700 border-0 rounded-2xl"
       >
-        <ShoppingCart className="w-5 h-5 mr-2" />
-        <span>Panier</span>
-        {itemCount > 0 && (
-          <Badge
-            variant="secondary"
-            className="ml-2 bg-white/20 text-white border-0"
-          >
-            {itemCount}
-          </Badge>
-        )}
-        <span className="ml-auto font-bold">{formatFCFA(total)}</span>
+        <ShoppingCart className="w-5 h-5 mr-2.5" />
+        <span>{itemCount} Article{itemCount > 1 ? "s" : ""}</span>
+        <span className="mx-3 w-px h-5 bg-white/30" />
+        <span className="font-bold">{formatFCFA(total)}</span>
+        <span className="ml-auto flex items-center gap-1 text-sm">
+          Voir panier
+          <ArrowRight className="w-4 h-4" />
+        </span>
       </Button>
     </motion.div>
   );
