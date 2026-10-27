@@ -7,7 +7,7 @@
 
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useCartStore } from "@/stores/use-cart-store";
 import { useConfigStore } from "@/stores/use-config-store";
 import { useAuthStore } from "@/stores/use-auth-store";
@@ -23,17 +23,24 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { User, ScanBarcode } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { AnimatePresence } from "framer-motion";
 
 // --- Walk-in customer fallback (when no real customers in DB yet) ---
 const WALK_IN_CUSTOMER = { id: "walk-in", name: "Client comptoir", phone: "" };
 
-export function PosScreen() {
+// Catégorie dynamique retournée par /api/categories
+interface CategoryItem {
+  id: string;
+  name: string;
+  color?: string | null;
+}
+
+export function PosScreen({ onNavigateToCash }: { onNavigateToCash?: () => void } = {}) {
   // --- State ---
   const [products, setProducts] = useState<ProductItem[]>([]);
   const [customers, setCustomers] = useState<{ id: string; name: string; phone?: string }[]>([]);
+  const [categories, setCategories] = useState<CategoryItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [cartOpen, setCartOpen] = useState(false);
   const [activeCategory, setActiveCategory] = useState("all");
@@ -102,27 +109,65 @@ export function PosScreen() {
     }
   }, [businessId]);
 
+  // --- Fetch categories (dynamic — créées par le commerçant) ---
+  const fetchCategories = useCallback(async () => {
+    if (!businessId) {
+      setCategories([]);
+      return;
+    }
+    try {
+      const res = await fetch(
+        `/api/categories?businessId=${encodeURIComponent(businessId)}`,
+        { cache: "no-store" }
+      );
+      if (res.ok) {
+        const data = await res.json();
+        setCategories(Array.isArray(data.categories) ? data.categories : []);
+      } else {
+        setCategories([]);
+      }
+    } catch {
+      setCategories([]);
+    }
+  }, [businessId]);
+
   useEffect(() => {
     fetchProducts();
     fetchCustomers();
-  }, [fetchProducts, fetchCustomers]);
+    fetchCategories();
+  }, [fetchProducts, fetchCustomers, fetchCategories]);
 
   // --- Categories ---
-  const categories = products.reduce<Set<string>>((acc, p) => {
-    if (p.category) acc.add(p.category);
-    return acc;
-  }, new Set<string>());
-  const categoryList = ["all", ...Array.from(categories).sort()];
-
-  const categoryLabels: Record<string, string> = {
-    all: "Tous",
-    Plats: "Plats",
-    Boissons: "Boissons",
-    Epicerie: "Épicerie",
-    Cosmetiques: "Cosmétiques",
-    Vetements: "Vêtements",
-    Electronique: "Électronique",
-  };
+  // Construit la liste des chips à afficher :
+  // 1. "all" (Tous) — toujours présent
+  // 2. Catégories dynamiques (depuis /api/categories)
+  // 3. Catégories orphelines (produits avec un `category` texte qui ne correspond
+  //    à aucune catégorie dynamique — rétro-compatibilité)
+  const categoryList = useMemo(() => {
+    const dynamicNamesLower = new Set(
+      categories.map((c) => c.name.toLowerCase())
+    );
+    // Orphelins : noms de `category` (texte) qui ne sont pas dans les catégories dynamiques
+    const orphans = new Set<string>();
+    for (const p of products) {
+      if (
+        p.category &&
+        !dynamicNamesLower.has((p.category ?? "").toLowerCase())
+      ) {
+        orphans.add(p.category);
+      }
+    }
+    // On utilise ici des "clés" qui peuvent être soit l'id d'une catégorie
+    // dynamique (ex: "abc123"), soit "orphan:NomCategorie" pour les orphelins.
+    const list: Array<{ key: string; label: string; color?: string | null }> = [
+      { key: "all", label: "Tous", color: null },
+      ...categories.map((c) => ({ key: c.id, label: c.name, color: c.color })),
+      ...Array.from(orphans)
+        .sort()
+        .map((name) => ({ key: `orphan:${name}`, label: name, color: null as string | null })),
+    ];
+    return list;
+  }, [categories, products]);
 
   return (
     <div className="flex flex-col h-full">
@@ -176,13 +221,18 @@ export function PosScreen() {
         {!isRestaurantMode && categoryList.length > 1 && (
           <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-none">
             {categoryList.map((cat) => {
-              const isActive = activeCategory === cat;
+              const isActive = activeCategory === cat.key;
+              // Pour les chips dynamiques, on utilise la couleur si définie
+              const activeStyle =
+                isActive && cat.color
+                  ? { backgroundColor: cat.color, color: "#ffffff" }
+                  : undefined;
               return (
                 <Button
-                  key={cat}
+                  key={cat.key}
                   variant={isActive ? "default" : "outline"}
                   size="sm"
-                  onClick={() => setActiveCategory(cat)}
+                  onClick={() => setActiveCategory(cat.key)}
                   className={`
                     shrink-0 text-xs px-3 h-8 rounded-full transition-all
                     ${isActive
@@ -190,8 +240,16 @@ export function PosScreen() {
                       : "hover:border-[#338BE2]/30 hover:text-[#338BE2]"
                     }
                   `}
+                  style={activeStyle}
                 >
-                  {categoryLabels[cat] ?? cat}
+                  {!isActive && cat.color && (
+                    <span
+                      className="inline-block w-2 h-2 rounded-full mr-1.5"
+                      style={{ backgroundColor: cat.color }}
+                      aria-hidden
+                    />
+                  )}
+                  {cat.label}
                 </Button>
               );
             })}
@@ -208,6 +266,7 @@ export function PosScreen() {
             products={products}
             isLoading={isLoading}
             activeCategory={activeCategory}
+            categories={categories}
           />
         )}
       </div>
@@ -225,7 +284,7 @@ export function PosScreen() {
         )}
       </AnimatePresence>
 
-      <CartDrawer open={cartOpen} onOpenChange={setCartOpen} />
+      <CartDrawer open={cartOpen} onOpenChange={setCartOpen} onNavigateToCash={onNavigateToCash} />
     </div>
   );
 }

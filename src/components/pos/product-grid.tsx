@@ -23,7 +23,15 @@ export interface ProductItem {
   salePrice: number;
   quantity: number;
   category?: string;
+  categoryId?: string | null;
   imageUrl?: string;
+}
+
+// Catégorie dynamique transmise par PosScreen
+export interface CategoryItem {
+  id: string;
+  name: string;
+  color?: string | null;
 }
 
 interface ProductGridProps {
@@ -31,11 +39,16 @@ interface ProductGridProps {
   products: ProductItem[];
   /** Are products still loading? */
   isLoading: boolean;
-  /** Optional category filter */
+  /** Optional category filter (peut être "all", "<categoryId>", ou "orphan:Name") */
   activeCategory?: string;
+  /** Catégories dynamiques (pour résoudre categoryId → name) */
+  categories?: CategoryItem[];
 }
 
 // Category-based gradient placeholders — used when no imageUrl
+// On garde un fallback par "type" de produit (texte libre) pour les anciens
+// produits qui n'ont pas encore de categoryId. La couleur préférée reste
+// celle de la catégorie dynamique si elle est définie.
 const CATEGORY_GRADIENTS: Record<string, string> = {
   Plats: "from-orange-400 to-rose-400",
   Boissons: "from-cyan-400 to-blue-500",
@@ -50,7 +63,7 @@ function gradientFor(category?: string): string {
   return CATEGORY_GRADIENTS[category ?? ""] ?? "from-[#338BE2] to-yk-emerald";
 }
 
-export function ProductGrid({ products, isLoading, activeCategory }: ProductGridProps) {
+export function ProductGrid({ products, isLoading, activeCategory, categories }: ProductGridProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const addItem = useCartStore((s) => s.addItem);
 
@@ -59,7 +72,24 @@ export function ProductGrid({ products, isLoading, activeCategory }: ProductGrid
     let result = products;
 
     if (activeCategory && activeCategory !== "all") {
-      result = result.filter((p) => p.category === activeCategory);
+      if (activeCategory.startsWith("orphan:")) {
+        // Catégorie orpheline (texte libre non mappée à un categoryId)
+        const orphanName = activeCategory.slice("orphan:".length).toLowerCase();
+        result = result.filter(
+          (p) =>
+            (p.category ?? "").toLowerCase() === orphanName && !p.categoryId
+        );
+      } else {
+        // Catégorie dynamique : match par categoryId (FK) OU par category (texte)
+        // correspondant au nom de la catégorie — pour la rétro-compatibilité.
+        const cat = categories?.find((c) => c.id === activeCategory);
+        const catName = cat?.name?.toLowerCase();
+        result = result.filter(
+          (p) =>
+            p.categoryId === activeCategory ||
+            (catName && (p.category ?? "").toLowerCase() === catName)
+        );
+      }
     }
 
     if (searchQuery.trim()) {
@@ -72,7 +102,7 @@ export function ProductGrid({ products, isLoading, activeCategory }: ProductGrid
     }
 
     return result;
-  }, [products, searchQuery, activeCategory]);
+  }, [products, searchQuery, activeCategory, categories]);
 
   const handleAddToCart = (product: ProductItem) => {
     addItem({
@@ -160,12 +190,14 @@ function ProductCard({ product, onAdd }: ProductCardProps) {
             <img
               src={product.imageUrl as string}
               alt={product.name}
-              className="w-full h-full object-cover"
-              loading="lazy"
+              className="w-full aspect-square h-full object-cover rounded-lg"
+              loading="eager"
+              // Important pour le POS : pas de decoding bloquant
+              decoding="async"
             />
           ) : (
-            <div className="w-full h-full flex items-center justify-center text-white/90">
-              <Package className="w-10 h-10 drop-shadow-sm" strokeWidth={1.5} />
+            <div className="w-full aspect-square h-full rounded-lg flex items-center justify-center text-white/90">
+              <Package className="w-8 h-8 drop-shadow-sm" strokeWidth={1.5} />
             </div>
           )}
 

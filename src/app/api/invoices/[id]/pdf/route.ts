@@ -110,8 +110,11 @@ export async function GET(
             </tr>`;
 
     // Logo HTML si logoUrl
+    // ⚠️ On accepte à la fois les data URLs (base64) et les URLs classiques.
+    // `onerror` masque l'image si elle ne charge pas (URL cassée, CORS, etc.)
+    // afin de ne pas afficher d'icône "image brisée" sur la facture.
     const logoHtml = business.logoUrl
-      ? `<img src="${escapeHtml(business.logoUrl)}" alt="logo" class="logo" />`
+      ? `<img src="${escapeHtml(business.logoUrl)}" alt="${escapeHtml(business.name)}" class="logo" onerror="this.style.display='none'" />`
       : `<div class="logo-placeholder">${escapeHtml(
           business.name.charAt(0).toUpperCase()
         )}</div>`;
@@ -154,10 +157,11 @@ export async function GET(
       flex: 1;
     }
     .logo {
-      width: 56px;
-      height: 56px;
-      border-radius: 8px;
-      object-fit: cover;
+      max-width: 180px;
+      max-height: 80px;
+      width: auto;
+      height: auto;
+      object-fit: contain;
       flex-shrink: 0;
     }
     .logo-placeholder {

@@ -63,20 +63,22 @@ type OrderItemInput = {
 }
 
 // POST /api/orders
-// - businessId  : obligatoire
-// - customerId  : optionnel (walk-in par défaut créé automatiquement)
-// - items       : obligatoire, non vide — chaque item peut référencer un
-//                 productId existant OU être un article manuel (name + price).
+// - businessId    : obligatoire
+// - customerId    : optionnel (walk-in par défaut créé automatiquement)
+// - paymentMethod : optionnel ("cash" par défaut) — crée un Payment + marque la commande payée
+// - items         : obligatoire, non vide — chaque item peut référencer un
+//                   productId existant OU être un article manuel (name + price).
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { customerId, businessId, items, createdBy, status, deliveryAddress } = body as {
+    const { customerId, businessId, items, createdBy, status, deliveryAddress, paymentMethod } = body as {
       customerId?: string
       businessId?: string
       items?: OrderItemInput[]
       createdBy?: string | null
       status?: string
       deliveryAddress?: string | null
+      paymentMethod?: string
     }
 
     // --- Validation de base ---
@@ -119,6 +121,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: `Business introuvable pour businessId="${businessId}"` },
         { status: 400 }
+      )
+    }
+
+    // --- Safety net : refuser l'encaissement si aucune session de caisse ouverte ---
+    // Le frontend bloque déjà l'action, mais l'API doit aussi l'imposer
+    // (anti-fraude / appels directs hors UI).
+    const activeCashSession = await db.cashSession.findFirst({
+      where: { businessId, isActive: true, closedAt: null },
+      select: { id: true },
+    })
+    if (!activeCashSession) {
+      return NextResponse.json(
+        { error: 'Caisse fermée. Ouvrez une session de caisse avant d\'encaisser.' },
+        { status: 403 }
       )
     }
 
@@ -216,7 +232,13 @@ export async function POST(request: NextRequest) {
 
     const totalAmount = subtotal
 
-    // --- Créer la commande + items + mouvements de stock dans une transaction ---
+    // Valider le moyen de paiement (défaut: cash)
+    const VALID_PAYMENT_METHODS = ['cash', 'wave', 'orange_money', 'cb', 'cheque', 'virement']
+    const resolvedPaymentMethod = paymentMethod && VALID_PAYMENT_METHODS.includes(paymentMethod)
+      ? paymentMethod
+      : 'cash'
+
+    // --- Créer la commande + items + mouvements de stock + paiement dans une transaction ---
     const order = await db.$transaction(async (tx) => {
       const newOrder = await tx.order.create({
         data: {
@@ -225,8 +247,9 @@ export async function POST(request: NextRequest) {
           businessId,
           subtotal,
           totalAmount,
-          paidAmount: 0,
-          remainingAmount: totalAmount,
+          // Marquer comme payée (vente comptoir — encaissement immédiat)
+          paidAmount: totalAmount,
+          remainingAmount: 0,
           status: status || 'completed',
           createdBy: createdBy || null,
           deliveryAddress: deliveryAddress || null,
@@ -272,10 +295,25 @@ export async function POST(request: NextRequest) {
         }
       }
 
+      // Créer un Payment immédiat (vente comptoir encaissée sur place)
+      await tx.payment.create({
+        data: {
+          amount: totalAmount,
+          method: resolvedPaymentMethod,
+          orderId: newOrder.id,
+          receivedBy: createdBy || null,
+        },
+      })
+
       return newOrder
     })
 
-    return NextResponse.json(order, { status: 201 })
+    // Renvoyer aussi le paymentMethod pour que le front puisse l'afficher
+    // sans avoir à refetcher la commande.
+    return NextResponse.json(
+      { ...order, paymentMethod: resolvedPaymentMethod },
+      { status: 201 }
+    )
   } catch (error) {
     console.error('Error creating order:', error)
     return NextResponse.json(

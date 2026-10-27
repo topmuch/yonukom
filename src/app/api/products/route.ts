@@ -55,6 +55,7 @@ export async function POST(request: NextRequest) {
       purchasePrice,
       sku,
       category,
+      categoryId,
       description,
       imageUrl,
       quantity,
@@ -68,6 +69,7 @@ export async function POST(request: NextRequest) {
       purchasePrice?: number | string;
       sku?: string;
       category?: string;
+      categoryId?: string;
       description?: string;
       imageUrl?: string;
       quantity?: number | string;
@@ -94,6 +96,7 @@ export async function POST(request: NextRequest) {
         purchasePrice: Number(purchasePrice) || 0,
         sku: sku ? String(sku).trim() : null,
         category: category ? String(category) : null,
+        categoryId: categoryId ? String(categoryId) : null,
         description: description ? String(description) : null,
         imageUrl: imageUrl ? String(imageUrl) : null,
         quantity: Number(quantity) || 0,

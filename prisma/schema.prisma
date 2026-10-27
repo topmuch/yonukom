@@ -55,6 +55,7 @@ model Business {
   payrollEntries    PayrollEntry[]
   notificationLogs  NotificationLog[]
   notificationSetting NotificationSetting?
+  categories        Category[]
 
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
@@ -110,7 +111,12 @@ model Product {
   name              String   // Nom du produit (ex: "Thiébou Rouge", "Sac riz 25kg")
   sku               String?  // Code produit / référence
   description       String?
-  category          String?  // Catégorie (ex: "Plats", "Boissons", "Épicerie")
+  /// Catégorie (texte) — DEPRECATED, utiliser categoryId (FK vers Category)
+  /// Conservé pour la rétro-compatibilité avec les produits existants.
+  category          String?
+  /// Lien vers une Category créée par le commerçant (optionnel)
+  categoryId        String?
+  categoryRef       Category? @relation(fields: [categoryId], references: [id])
   imageUrl          String?
 
   // --- PRIX ---
@@ -146,6 +152,31 @@ model Product {
 
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
+
+  @@index([categoryId])
+}
+
+/// Catégorie de produit créée par le commerçant (remplace le select hardcoded).
+/// Chaque catégorie est propre à un Business — modèle multi-tenant simple.
+model Category {
+  id          String   @id @default(cuid())
+  businessId  String
+  business    Business @relation(fields: [businessId], references: [id])
+  /// Nom lisible : "Boissons", "Plats", "Cosmétiques", etc.
+  name        String
+  /// Couleur optionnelle (hex) pour différencier visuellement les chips
+  color       String?
+  /// Ordre d'affichage (les plus petits en premier)
+  sortOrder   Int      @default(0)
+  /// Une catégorie peut être désactivée sans être supprimée
+  isActive    Boolean  @default(true)
+
+  products    Product[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([businessId])
+  @@unique([businessId, name])
 }
 
 /// Journal de tous les mouvements de stock — traçabilité complète.

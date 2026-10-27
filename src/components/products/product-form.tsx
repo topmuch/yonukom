@@ -1,11 +1,13 @@
 // ============================================================
 // YonuKom — Product Form Dialog
 // Create / Edit product form — with image upload (base64)
+// Categories are now fetched dynamically from /api/categories
+// (the merchant can create their own — no more hardcoded list).
 // ============================================================
 
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import {
   Dialog,
   DialogContent,
@@ -24,7 +26,16 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { ImagePlus, ImageOff, Loader2, X } from "lucide-react";
+import { useAuthStore } from "@/stores/use-auth-store";
+import { toast } from "sonner";
+import {
+  ImagePlus,
+  ImageOff,
+  Loader2,
+  X,
+  Plus,
+  Tag,
+} from "lucide-react";
 import type { ProductCardData } from "./product-card";
 
 interface ProductFormProps {
@@ -39,6 +50,7 @@ export interface ProductFormData {
   name: string;
   sku: string;
   category: string;
+  categoryId?: string | null;
   salePrice: number;
   purchasePrice: number;
   quantity: number;
@@ -48,7 +60,13 @@ export interface ProductFormData {
   imageUrl?: string;
 }
 
-const CATEGORIES = ["Plats", "Boissons", "Epicerie", "Cosmetiques", "Vetements", "Electronique", "Autre"];
+// Catégorie affichable (récupérée depuis /api/categories)
+export interface CategoryOption {
+  id: string;
+  name: string;
+  color?: string | null;
+}
+
 const PRODUCT_TYPES = [
   { value: "standard", label: "Standard" },
   { value: "plate_restaurant", label: "Plat restaurant" },
@@ -63,6 +81,18 @@ const UNIT_TYPES = [
 
 const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
 const MAX_IMAGE_BYTES = 1_200_000; // ~1.2 MB → base64 ≲ 1.6 MB
+
+// Palette de couleurs prédéfinies pour les nouvelles catégories.
+const CATEGORY_COLOR_PRESETS = [
+  "#F59E0B", // amber
+  "#10B981", // emerald
+  "#3B82F6", // blue
+  "#A855F7", // purple
+  "#EC4899", // pink
+  "#EF4444", // red
+  "#14B8A6", // teal
+  "#6366F1", // indigo
+];
 
 /**
  * Lit un fichier image et retourne sa représentation en base64 (data URL).
@@ -119,10 +149,16 @@ function fileToResizedDataUrl(file: File, maxDim = 800, quality = 0.8): Promise<
 
 export function ProductForm({ product, open, onOpenChange, onSave }: ProductFormProps) {
   const isEdit = !!product;
+  const user = useAuthStore((s) => s.user);
+  const businessId = user?.businessId;
 
   const [name, setName] = useState(product?.name ?? "");
   const [sku, setSku] = useState(product?.sku ?? "");
-  const [category, setCategory] = useState(product?.category ?? "");
+  // `categoryId` est la FK vers la Category table (préféré).
+  // `category` (texte) est conservé pour la rétro-compatibilité — on le
+  // synchronise automatiquement avec le nom de la catégorie sélectionnée.
+  const [categoryId, setCategoryId] = useState<string>(product?.categoryId ?? "");
+  const [categoryName, setCategoryName] = useState<string>(product?.category ?? "");
   const [salePrice, setSalePrice] = useState(product ? String(product.salePrice) : "");
   const [purchasePrice, setPurchasePrice] = useState(product ? String(product.purchasePrice ?? 0) : "");
   const [quantity, setQuantity] = useState(product ? String(product.quantity) : "0");
@@ -135,7 +171,57 @@ export function ProductForm({ product, open, onOpenChange, onSave }: ProductForm
   const [imageError, setImageError] = useState<string | null>(null);
   const [isProcessingImage, setIsProcessingImage] = useState(false);
 
+  // --- Categories dynamiques ---
+  const [categories, setCategories] = useState<CategoryOption[]>([]);
+  const [categoriesLoading, setCategoriesLoading] = useState(false);
+  const [newCatOpen, setNewCatOpen] = useState(false);
+  const [newCatName, setNewCatName] = useState("");
+  const [newCatColor, setNewCatColor] = useState<string>(CATEGORY_COLOR_PRESETS[0]);
+  const [creatingCat, setCreatingCat] = useState(false);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // --- Fetch categories ---
+  const fetchCategories = useCallback(async () => {
+    if (!businessId) {
+      setCategories([]);
+      return;
+    }
+    setCategoriesLoading(true);
+    try {
+      const res = await fetch(
+        `/api/categories?businessId=${encodeURIComponent(businessId)}`,
+        { cache: "no-store" }
+      );
+      if (res.ok) {
+        const data = await res.json();
+        const list: CategoryOption[] = Array.isArray(data.categories)
+          ? data.categories
+          : [];
+        setCategories(list);
+
+        // Si on édite un produit existant qui a un categoryId mais que la
+        // catégorie n'existe plus (ou n'est pas dans la liste retournée),
+        // on réinitialise categoryId pour éviter une sélection fantôme.
+        if (product?.categoryId && !list.find((c) => c.id === product.categoryId)) {
+          // On garde categoryId tel quel (l'API l'acceptera) mais l'utilisateur
+          // verra le champ vide — il pourra en choisir une nouvelle.
+        }
+      } else {
+        setCategories([]);
+      }
+    } catch {
+      setCategories([]);
+    } finally {
+      setCategoriesLoading(false);
+    }
+  }, [businessId, product?.categoryId]);
+
+  useEffect(() => {
+    if (open) {
+      fetchCategories();
+    }
+  }, [open, fetchCategories]);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -159,6 +245,43 @@ export function ProductForm({ product, open, onOpenChange, onSave }: ProductForm
     setImageError(null);
   };
 
+  // --- Création inline d'une nouvelle catégorie ---
+  const handleCreateCategory = async () => {
+    if (!businessId || !newCatName.trim()) return;
+    setCreatingCat(true);
+    try {
+      const res = await fetch("/api/categories", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          businessId,
+          name: newCatName.trim(),
+          color: newCatColor,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.error || "Échec de la création");
+      }
+      // Ajouter la nouvelle catégorie à la liste + la sélectionner
+      const created: CategoryOption = {
+        id: data.id,
+        name: data.name,
+        color: data.color ?? null,
+      };
+      setCategories((prev) => [...prev, created]);
+      setCategoryId(created.id);
+      setCategoryName(created.name);
+      setNewCatName("");
+      setNewCatOpen(false);
+      toast.success(`Catégorie « ${created.name} » créée`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erreur");
+    } finally {
+      setCreatingCat(false);
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim() || !salePrice) return;
@@ -167,7 +290,9 @@ export function ProductForm({ product, open, onOpenChange, onSave }: ProductForm
       id: product?.id,
       name: name.trim(),
       sku: sku.trim(),
-      category,
+      // On envoie les DEUX : categoryId (FK, préféré) + category (texte, rétro-compat)
+      category: categoryName,
+      categoryId: categoryId || null,
       salePrice: parseInt(salePrice) || 0,
       purchasePrice: parseInt(purchasePrice) || 0,
       quantity: parseInt(quantity) || 0,
@@ -295,7 +420,7 @@ export function ProductForm({ product, open, onOpenChange, onSave }: ProductForm
             />
           </div>
 
-          {/* SKU + Category */}
+          {/* SKU + Category (dynamic) */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label htmlFor="prod-sku">Référence (SKU)</Label>
@@ -307,15 +432,48 @@ export function ProductForm({ product, open, onOpenChange, onSave }: ProductForm
               />
             </div>
             <div className="space-y-1.5">
-              <Label>Catégorie</Label>
-              <Select value={category} onValueChange={setCategory}>
+              <div className="flex items-center justify-between">
+                <Label>Catégorie</Label>
+                <button
+                  type="button"
+                  onClick={() => setNewCatOpen(true)}
+                  className="text-[10px] text-primary hover:underline flex items-center gap-0.5"
+                >
+                  <Plus className="w-3 h-3" />
+                  Nouvelle
+                </button>
+              </div>
+              <Select
+                value={categoryId || "none"}
+                onValueChange={(val) => {
+                  if (val === "none") {
+                    setCategoryId("");
+                    setCategoryName("");
+                  } else {
+                    const found = categories.find((c) => c.id === val);
+                    setCategoryId(val);
+                    setCategoryName(found?.name ?? "");
+                  }
+                }}
+              >
                 <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Choisir..." />
+                  <SelectValue placeholder={categoriesLoading ? "Chargement..." : "Choisir..."} />
                 </SelectTrigger>
                 <SelectContent>
-                  {CATEGORIES.map((cat) => (
-                    <SelectItem key={cat} value={cat}>
-                      {cat}
+                  <SelectItem value="none">
+                    <span className="text-muted-foreground">— Aucune —</span>
+                  </SelectItem>
+                  {categories.map((cat) => (
+                    <SelectItem key={cat.id} value={cat.id}>
+                      <span className="flex items-center gap-2">
+                        {cat.color && (
+                          <span
+                            className="inline-block w-2.5 h-2.5 rounded-full"
+                            style={{ backgroundColor: cat.color }}
+                          />
+                        )}
+                        {cat.name}
+                      </span>
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -430,6 +588,81 @@ export function ProductForm({ product, open, onOpenChange, onSave }: ProductForm
           </div>
         </form>
       </DialogContent>
+
+      {/* --- Sous-dialog : Nouvelle catégorie --- */}
+      <Dialog open={newCatOpen} onOpenChange={setNewCatOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Tag className="w-4 h-4 text-primary" />
+              Nouvelle catégorie
+            </DialogTitle>
+            <DialogDescription>
+              Créez une catégorie personnalisée pour vos produits.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="cat-name">Nom de la catégorie</Label>
+              <Input
+                id="cat-name"
+                value={newCatName}
+                onChange={(e) => setNewCatName(e.target.value)}
+                placeholder="Ex: Boissons, Cosmétiques, etc."
+                autoFocus
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Couleur (optionnelle)</Label>
+              <div className="flex items-center gap-2 flex-wrap">
+                {CATEGORY_COLOR_PRESETS.map((color) => (
+                  <button
+                    key={color}
+                    type="button"
+                    onClick={() => setNewCatColor(color)}
+                    className={`w-7 h-7 rounded-full transition-transform ${
+                      newCatColor === color
+                        ? "ring-2 ring-offset-2 ring-primary scale-110"
+                        : "hover:scale-110"
+                    }`}
+                    style={{ backgroundColor: color }}
+                    aria-label={`Couleur ${color}`}
+                  />
+                ))}
+              </div>
+            </div>
+            <div className="flex gap-2 pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                className="flex-1"
+                onClick={() => setNewCatOpen(false)}
+                disabled={creatingCat}
+              >
+                Annuler
+              </Button>
+              <Button
+                type="button"
+                className="flex-1 gap-1"
+                onClick={handleCreateCategory}
+                disabled={!newCatName.trim() || creatingCat}
+              >
+                {creatingCat ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    Création...
+                  </>
+                ) : (
+                  <>
+                    <Plus className="w-3.5 h-3.5" />
+                    Créer
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </Dialog>
   );
 }

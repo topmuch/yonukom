@@ -344,3 +344,119 @@ Net effect: a freshly created business (with no sales, no products, no customers
 - KPI cards showing 0 FCFA / 0 / 0 FCFA / 0
 
 No more hardcoded Fatou Diallo, Moussa Sow, Thiébou Rouge, Bissap, 185 000, 718 574, mockSession, getMockLogs, getMockDataForAI fallback anywhere in the production code paths.
+
+---
+Task ID: POS-fix
+Agent: Subagent D
+Task: POS photos + cash session + receipt printing
+
+Work Log:
+- src/components/pos/product-grid.tsx — Product images now load eagerly in POS: switched `loading="lazy"` → `loading="eager"` + added `decoding="async"`. Image className now `w-full aspect-square h-full object-cover rounded-lg`. Fallback uses `<Package className="w-8 h-8">` inside `bg-muted rounded-lg flex items-center justify-center` wrapper. Preserves existing gradient backgrounds, price pill, stock badges.
+- src/components/pos/cart-drawer.tsx (full rewrite, 697 lines):
+  - Cash session check: `cashSessionActive` state fetched on mount + on every drawer open via `/api/cash-sessions?businessId=xxx` (reads `data.activeSession`).
+  - Checkout blocked when cash session closed: clicking "Encaisser" opens a "Caisse fermée" Dialog with explanation + "Ouvrir la caisse" button → calls `onNavigateToCash` prop. "Encaisser" button also visually disabled (amber/coral gradient, lock icon, "Caisse fermée" badge above button).
+  - 403 backend response handled: sets `cashSessionActive=false` + opens dialog.
+  - Success state: after POST succeeds, `lastOrder` state holds `{id, orderNumber, totalAmount, paymentMethod}`. Drawer switches to `SuccessPanel` with two buttons: "Imprimer le ticket" (`window.open('/api/orders/${id}/receipt', '_blank', 'width=400,height=600')`) + "Nouvelle vente" (clears cart + lastOrder + closes drawer).
+  - Payment method selector: 4-button grid (Espèces/Wave/Orange/Carte) above the Total row. Default: cash. Sent as `paymentMethod` in POST body.
+  - customerId fix: payload now sends `customerId: customer?.id ?? null` (was `?? "walk-in"`).
+- src/components/pos/pos-screen.tsx — Added optional `onNavigateToCash?: () => void` prop, passed down to `<CartDrawer onNavigateToCash={...} />`.
+- src/components/layout/app-shell.tsx — Added `"caisse"` to `TabId` union + new tab config `{ id: "caisse", label: "Caisse", icon: Landmark, gradient: "from-emerald-500 to-green-500", color: "#10B981" }`. Added `Landmark` import.
+- src/app/page.tsx — Passes `onNavigateToCash={() => setActiveTab("caisse")}` to `<PosScreen />`. Renders `<CashSessionManager />` (wrapped in `PermissionGuard`) when `activeTab === "caisse"`.
+- src/app/api/orders/route.ts POST — Added backend safety net: after validating businessId/items, queries `db.cashSession.findFirst({ where: { businessId, isActive: true, closedAt: null } })`. If none → 403 `{ error: 'Caisse fermée. Ouvrez une session de caisse avant d'encaisser.' }`. Accepts new `paymentMethod` field (validated against `['cash','wave','orange_money','cb','cheque','virement']`, default `cash`). Transaction now also creates a `Payment` record (`amount: totalAmount, method, receivedBy: createdBy`). Order created with `paidAmount: totalAmount, remainingAmount: 0` (was `paidAmount: 0, remainingAmount: totalAmount`). Response includes `paymentMethod` so frontend can display it without refetch.
+- src/app/api/orders/[id]/receipt/route.ts (NEW) — GET returns HTML receipt (Content-Type: text/html). Loads order + orderItems.product + payments + customer. Loads business (name, address, city, phone, email, logoUrl) and cashier (User.name) in parallel. Renders 80mm thermal-receipt HTML with inline CSS for print, business header (logo if logoUrl), date/time, ticket number, cashier name, customer name + phone, items table (name | xqty | unit price | line total), subtotal + TOTAL, payment method label, footer "Merci de votre visite !". Auto-print script `window.onload = () => setTimeout(window.print, 250)`. Manual "Imprimer" button with `.no-print` class. 404 + 500 HTML fallbacks. HTML-escaped for safety.
+- Task 5 verification: ProductForm image upload is already fully functional. The hidden `<input type="file" accept="image/jpeg,image/png,image/webp">` + `handleFileChange` uses `FileReader.readAsDataURL` + canvas resize (max 800px, WEBP quality 0.8). The data URL is stored in `imageUrl` state and included in `onSave()` payload. POST `/api/products` accepts `imageUrl` and saves it as `Product.imageUrl`. No changes needed.
+
+Build verification:
+- `cd /home/z/my-project/yonukom && npx next build` → ✓ Compiled successfully in 18.2s, 61/61 static pages generated.
+- New route registered: `├ ƒ /api/orders/[id]/receipt`.
+- `bun run lint` → no new errors introduced. Pre-existing `react-hooks/set-state-in-effect` warnings on `theme-toggle.tsx`, `business-logo.ts`, `page.tsx`, `use-auth-store.ts` are unchanged. Pre-existing unused eslint-disable (`@next/next/no-img-element`) warnings on `product-grid.tsx`, `product-card.tsx`, `product-form.tsx` are unchanged.
+
+Files modified:
+- src/components/pos/product-grid.tsx
+- src/components/pos/cart-drawer.tsx
+- src/components/pos/pos-screen.tsx
+- src/components/layout/app-shell.tsx
+- src/app/page.tsx
+- src/app/api/orders/route.ts
+
+Files created:
+- src/app/api/orders/[id]/receipt/route.ts
+- agent-ctx/POS-fix-subagent-d.md
+
+Notes for next agent:
+- The new "caisse" tab (top-level) and the existing Settings→Caisse section both render `<CashSessionManager />`. They are kept in sync because the component fetches fresh data on mount.
+- Completed POS sales are now marked as paid (`paidAmount = totalAmount, remainingAmount = 0`) with a linked Payment record — this also feeds the cash session's `theoreticalTotal` (sum of payments during session) which previously always showed 0.
+- The receipt endpoint is HTML-only (no PDF) to avoid adding deps. Browser print dialog auto-opens; user can save as PDF from there if needed.
+- The cart drawer's `lastOrder` state persists across drawer open/close — the user can close/reopen the drawer and still print the last receipt until they click "Nouvelle vente".
+
+---
+Task ID: TAB-CAT
+Agent: Subagent E
+Task: Move Caisse + Clients tabs out of Settings + Logo on invoice + Dynamic categories
+
+Work Log:
+- Task 1 (Verify Caisse tab top-level): Confirmed Subagent D already added `"caisse"` to TabId + ALL_TABS (icon Landmark, gradient `from-emerald-500 to-green-500`, color #10B981). Removed the duplicate "Caisse" sub-section button + rendering from `SettingsTab` in `src/app/page.tsx` (was a section button at line 1088 + render at line 1097). The Caisse tab is now ONLY accessible via the top-level "Caisse" tab.
+- Task 2 (Move Clients tab out of Settings):
+  - Added `"customers"` to `TabId` union in `src/components/layout/app-shell.tsx`.
+  - Added new entry in `ALL_TABS` between "products" and "orders": `{ id: "customers", label: "Clients", icon: Users, gradient: "from-rose-500 to-pink-600", accent: "bg-rose-500", color: "#F43F5E" }`. (Users icon was already imported.)
+  - Added `<CustomersTab />` wrapper component in `src/app/page.tsx` (renders `ConnectivityBanner + CustomerList`) and wired it as `{activeTab === "customers" && <CustomersTab />}`.
+  - Removed "Clients" section button + CustomerList rendering from `SettingsTab`. Removed B2B CreditDashboard from SettingsTab too. SettingsTab now has only: header card (with Déconnexion button), "Profil" button → BusinessProfileEditor, "Audit" button → AuditLogViewer (wrapped in PermissionGuard canViewAuditLog). The `isB2B` const was removed from SettingsTab (no longer needed).
+  - Updated `HomeTab` quickActions: "Clients" card now points to `tab: "customers"` (was `tab: "settings"`).
+  - Updated `HomeTab` Caisse quick-action card to point to `tab: "caisse"` (was `tab: "settings"`).
+- Task 3 (Fix logo on invoice PDF): In `src/app/api/invoices/[id]/pdf/route.ts`:
+  - Changed `.logo` CSS from `width: 56px; height: 56px; object-fit: cover` to `max-width: 180px; max-height: 80px; width: auto; height: auto; object-fit: contain`. The logo is no longer forced into a square shape — it now respects the native aspect ratio (fits within 180×80 box).
+  - Added `onerror="this.style.display='none'"` attribute on the logo `<img>` so broken image icons never appear on the printed invoice. If `logoUrl` is null, the existing `.logo-placeholder` div (initial letter on teal background) is shown.
+  - The `escapeHtml` helper is still applied to the logo URL — base64 data URLs contain only base64 chars + commas, so escapeHtml is safe (no `&` `<` `>` `"` `'` chars in valid data URLs).
+- Task 4 (Dynamic product categories):
+  - **4.1 — Prisma schema**: Added new `Category` model in `prisma/schema.prisma`:
+    - Fields: `id` (cuid), `businessId` (FK → Business), `name`, `color?` (hex string), `sortOrder` (default 0), `isActive` (default true), `products[]` (relation back), `createdAt`, `updatedAt`.
+    - Constraints: `@@index([businessId])` + `@@unique([businessId, name])` (uniqueness per business).
+    - Added `categories Category[]` to `Business` model.
+    - Added `categoryId String?` + `categoryRef Category? @relation(...)` to `Product` model. **NOTE**: The relation field is named `categoryRef` (not `category`) because Prisma doesn't allow two fields with the same name. The existing `category String?` text column is kept for backward compatibility (deprecated).
+    - Added `@@index([categoryId])` to Product for query perf.
+    - Ran `npx prisma db push` to sync schema with SQLite — ✓ Done in 25ms.
+  - **4.2 — API routes**:
+    - `src/app/api/categories/route.ts` (NEW):
+      - `GET ?businessId=xxx` — lists categories sorted by sortOrder then name. Returns 400 if businessId missing.
+      - `POST` — body `{ businessId, name, color?, sortOrder? }`. Validates: businessId (400), name non-empty (400), business existence (404), color hex format (400 — `/^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/`). Catches Prisma P2002 (unique violation) and returns 409 with French message "Une catégorie nommée « X » existe déjà.".
+    - `src/app/api/categories/[id]/route.ts` (NEW):
+      - `PATCH ?businessId=xxx` — updates name/color/sortOrder/isActive. Validates ownership (findFirst by id+businessId — 404 if not owned). Catches P2002 → 409.
+      - `DELETE ?businessId=xxx` — first nullifies `categoryId` on all products referencing this category (`db.product.updateMany`), then deletes the category. This avoids blocking deletion if products reference it.
+    - Updated `src/app/api/products/route.ts` (POST) and `src/app/api/products/[id]/route.ts` (PUT) to accept `categoryId` field.
+  - **4.3 — ProductForm**: Replaced hardcoded `CATEGORIES = ["Plats", "Boissons", ...]` list with dynamic fetch from `/api/categories?businessId=xxx`. The fetch runs when the dialog opens (useEffect with `open` dependency). The Select dropdown lists each category with an optional color dot. Added a "+ Nouvelle" link next to the "Catégorie" label that opens a sub-Dialog (`max-w-sm`) with: name input + 8-preset color picker (amber, emerald, blue, purple, pink, red, teal, indigo). On "Créer", POSTs to `/api/categories` with `{ businessId, name, color }`. On success: adds the new category to the local list, auto-selects it, closes the sub-dialog, shows success toast. On submit, sends BOTH `categoryId` (FK, preferred) + `category` (text = category name, retro-compat).
+  - **4.4 — POS category chips**: Replaced hardcoded `categoryLabels` map in `src/components/pos/pos-screen.tsx` with dynamic categories fetched from `/api/categories?businessId=xxx`. The chips are built with: 1) "Tous" (always), 2) dynamic categories (using their color if defined — applied via inline style on the active chip), 3) orphan text categories (for products with `category` text that doesn't match any dynamic category name — retro-compat). Each chip uses key like `cat.id` or `orphan:Name`. The `categories` array is also passed down to `<ProductGrid />` so it can resolve categoryId → name when filtering.
+    - Updated `src/components/pos/product-grid.tsx` to accept optional `categories?: CategoryItem[]` prop + `categoryId?: string | null` in ProductItem. Updated filter logic to handle: "all" (no filter), "<categoryId>" (matches by categoryId OR by category text matching the category name), "orphan:Name" (text-only match, only products without categoryId).
+  - **4.5 — ProductsTab category chips**: Replaced hardcoded `CATEGORIES` list in `src/components/products/products-tab.tsx` with dynamic fetch + display. Each chip uses the category's color when active (inline style override). Added "Autres" chip for products with no category at all (visible only if count > 0). Added orphan category chips (retro-compat for products created before Category existed, whose `category` text doesn't match any dynamic category name). Each product card's category badge now resolves the label from categoryId (preferred) → category text (fallback), and uses the category color for the dot/border if defined. Sends `categoryId` in POST/PUT product requests.
+
+Build verification:
+- `cd /home/z/my-project/yonukom && npx prisma generate 2>&1 | tail -3` → ✓ Generated Prisma Client (v6.19.2) to ./node_modules/@prisma/client in 375ms
+- `cd /home/z/my-project/yonukom && npx prisma db push` → ✓ Your database is now in sync with your Prisma schema. Done in 25ms
+- `cd /home/z/my-project/yonukom && npx next build 2>&1 | tail -20` → ✓ Compiled successfully in 18.6s, 62/62 static pages generated
+- New routes registered: `├ ƒ /api/categories`, `├ ƒ /api/categories/[id]`
+- `bun run lint` → 8 pre-existing errors (same baseline as Subagent A/B/C/D noted: set-state-in-effect in page.tsx/business-logo.ts/theme-toggle.ts/superadmin-dashboard.tsx + no-require-imports in use-auth-store.ts) — **0 new errors introduced** by my changes. Only warnings are unused eslint-disable directives on `<img>` tags (preserved from previous code).
+
+Files modified:
+- `prisma/schema.prisma` (Business.categories, Product.categoryId + categoryRef, new Category model)
+- `src/app/api/products/route.ts` (POST accepts categoryId)
+- `src/app/api/products/[id]/route.ts` (PUT accepts categoryId)
+- `src/app/api/invoices/[id]/pdf/route.ts` (logo CSS + onerror fallback)
+- `src/components/layout/app-shell.tsx` (added "customers" tab)
+- `src/app/page.tsx` (CustomersTab, SettingsTab cleanup, HomeTab quickActions Caisse + Clients tabs)
+- `src/components/products/product-card.tsx` (added categoryId to ProductCardData)
+- `src/components/products/product-form.tsx` (dynamic categories + inline create dialog)
+- `src/components/products/products-tab.tsx` (dynamic category chips with colors + Autres + orphans)
+- `src/components/pos/pos-screen.tsx` (dynamic category fetch + chips with colors)
+- `src/components/pos/product-grid.tsx` (categories prop + categoryId filtering)
+
+Files created:
+- `src/app/api/categories/route.ts` (GET list + POST create)
+- `src/app/api/categories/[id]/route.ts` (PATCH update + DELETE with product nullification)
+- `agent-ctx/TAB-CAT-subagent-e.md`
+
+Notes for next agent:
+- The relation field is named `categoryRef` (not `category`) in the Product model because Prisma doesn't allow two fields with the same name. The `categoryId` FK is the source of truth going forward; the legacy `category String?` text column is kept for backward compatibility but should be considered deprecated.
+- The ProductForm sends both `categoryId` AND `category` (= the category NAME) on submit. This dual-write ensures existing POS/ProductsTab filtering logic that matches by `category` text continues to work for older products.
+- When a Category is deleted via DELETE `/api/categories/:id`, products referencing it get `categoryId = NULL` (they don't get deleted). The legacy `category` text field (if it was set) remains intact, so the product keeps its category label visually.
+- SettingsTab is now minimal: header card (with Déconnexion button) + "Profil" button (BusinessProfileEditor) + "Audit" button (AuditLogViewer, wrapped in PermissionGuard canViewAuditLog). No more Customers, Caisse, or B2B Credit sections in Settings.
+- The invoice PDF logo now properly handles both data URLs (base64) and regular URLs, with `onerror` fallback to hide broken images and `max-width: 180px; max-height: 80px` for proper aspect ratio. The placeholder (initial letter on teal) only shows when `logoUrl` is null.
+- The CustomerList is now rendered in the top-level "Clients" tab (CustomersTab) instead of being nested inside Settings. The credit-dashboard B2B view remains in PipelineTab only (it was duplicated in Settings before).

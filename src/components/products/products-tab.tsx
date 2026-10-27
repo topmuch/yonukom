@@ -2,8 +2,8 @@
 // YonuKom — Products Tab
 // CRUD products management (separate from Stock tab which is for
 // stock movements/alerts/loss declaration).
-// Header + search + category chips + product grid with stock color
-// coding + Edit/Delete actions.
+// Header + search + category chips (dynamic) + product grid with
+// stock color coding + Edit/Delete actions.
 // ============================================================
 
 "use client";
@@ -43,16 +43,12 @@ import {
 } from "@/components/products/product-form";
 import type { ProductCardData } from "@/components/products/product-card";
 
-// Same category list as ProductForm
-const CATEGORIES = [
-  "Plats",
-  "Boissons",
-  "Epicerie",
-  "Cosmetiques",
-  "Vetements",
-  "Electronique",
-  "Autre",
-];
+// Catégorie dynamique retournée par /api/categories
+interface CategoryItem {
+  id: string;
+  name: string;
+  color?: string | null;
+}
 
 /** Stock level color coding based on quantity. */
 function getStockLevel(
@@ -93,6 +89,7 @@ export function ProductsTab() {
   const userRole = user?.role;
 
   const [products, setProducts] = useState<ProductCardData[]>([]);
+  const [categories, setCategories] = useState<CategoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState<string>("all");
@@ -123,9 +120,32 @@ export function ProductsTab() {
     }
   }, [businessId]);
 
+  // --- Fetch categories ---
+  const fetchCategories = useCallback(async () => {
+    if (!businessId) {
+      setCategories([]);
+      return;
+    }
+    try {
+      const res = await fetch(
+        `/api/categories?businessId=${encodeURIComponent(businessId)}`,
+        { cache: "no-store" }
+      );
+      if (res.ok) {
+        const data = await res.json();
+        setCategories(Array.isArray(data.categories) ? data.categories : []);
+      } else {
+        setCategories([]);
+      }
+    } catch {
+      setCategories([]);
+    }
+  }, [businessId]);
+
   useEffect(() => {
     fetchProducts();
-  }, [fetchProducts]);
+    fetchCategories();
+  }, [fetchProducts, fetchCategories]);
 
   // --- Save (create or update) ---
   const handleSave = async (data: ProductFormData) => {
@@ -140,6 +160,7 @@ export function ProductsTab() {
             name: data.name,
             sku: data.sku,
             category: data.category,
+            categoryId: data.categoryId,
             salePrice: data.salePrice,
             purchasePrice: data.purchasePrice,
             quantity: data.quantity,
@@ -168,6 +189,7 @@ export function ProductsTab() {
             name: data.name,
             sku: data.sku,
             category: data.category,
+            categoryId: data.categoryId,
             salePrice: data.salePrice,
             purchasePrice: data.purchasePrice,
             quantity: data.quantity,
@@ -223,14 +245,36 @@ export function ProductsTab() {
     }
   };
 
-  // --- Derived data: categories present in this business ---
+  // --- Catégories affichables : celles créées par le commerçant + une entrée
+  // "Autres" pour les produits qui ont un `category` (texte) mais pas de categoryId.
+  // (Rétro-compatibilité : produits créés avant l'introduction de Category.)
   const availableCategories = useMemo(() => {
-    const set = new Set<string>();
+    return categories;
+  }, [categories]);
+
+  // --- Produits sans catégorie (ni categoryId, ni category textuelle) ---
+  const uncategorizedCount = useMemo(
+    () =>
+      products.filter(
+        (p) => !p.categoryId && !p.category
+      ).length,
+    [products]
+  );
+
+  // --- Produits orphelins (ont un `category` texte mais pas de categoryId,
+  // et ce texte ne correspond à aucune catégorie dynamique) ---
+  const orphanCategoryNames = useMemo(() => {
+    const names = new Set<string>();
+    const knownNames = new Set(
+      categories.map((c) => c.name.toLowerCase())
+    );
     for (const p of products) {
-      if (p.category) set.add(p.category);
+      if (p.category && !p.categoryId && !knownNames.has(p.category.toLowerCase())) {
+        names.add(p.category);
+      }
     }
-    return CATEGORIES.filter((c) => set.has(c));
-  }, [products]);
+    return Array.from(names).sort();
+  }, [products, categories]);
 
   // --- Filtered products ---
   const filtered = useMemo(() => {
@@ -240,11 +284,21 @@ export function ProductsTab() {
         !q ||
         p.name.toLowerCase().includes(q) ||
         (p.sku ?? "").toLowerCase().includes(q);
-      const matchCategory =
-        activeCategory === "all" || p.category === activeCategory;
+      let matchCategory = true;
+      if (activeCategory !== "all") {
+        if (activeCategory === "uncategorized") {
+          matchCategory = !p.categoryId && !p.category;
+        } else {
+          // Match par categoryId (FK) OU par category (texte) pour rétro-compat
+          matchCategory =
+            p.categoryId === activeCategory ||
+            (p.category ?? "").toLowerCase() ===
+              (categories.find((c) => c.id === activeCategory)?.name ?? "").toLowerCase();
+        }
+      }
       return matchSearch && matchCategory;
     });
-  }, [products, search, activeCategory]);
+  }, [products, search, activeCategory, categories]);
 
   // --- Handlers for opening dialogs ---
   const handleNew = () => {
@@ -278,6 +332,11 @@ export function ProductsTab() {
 
   // Permission check: only patron or gerant can delete
   const canDelete = userRole === "patron" || userRole === "gerant";
+
+  // Helper: renvoie la couleur d'une catégorie (si définie)
+  const colorForCategory = (id: string): string | null => {
+    return categories.find((c) => c.id === id)?.color ?? null;
+  };
 
   return (
     <div className="space-y-4">
@@ -318,9 +377,10 @@ export function ProductsTab() {
         )}
       </div>
 
-      {/* Category chips */}
-      {availableCategories.length > 0 && (
+      {/* Category chips (dynamic) */}
+      {(availableCategories.length > 0 || orphanCategoryNames.length > 0 || uncategorizedCount > 0) && (
         <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-none">
+          {/* "Tous" chip — toujours présent */}
           <button
             onClick={() => setActiveCategory("all")}
             className={`shrink-0 px-3 h-8 rounded-full text-xs font-medium transition-colors ${
@@ -334,24 +394,77 @@ export function ProductsTab() {
               {products.length}
             </span>
           </button>
+
+          {/* Catégories dynamiques */}
           {availableCategories.map((cat) => {
-            const count = products.filter((p) => p.category === cat).length;
-            const isActive = activeCategory === cat;
+            const count = products.filter(
+              (p) =>
+                p.categoryId === cat.id ||
+                (p.category ?? "").toLowerCase() === cat.name.toLowerCase()
+            ).length;
+            const isActive = activeCategory === cat.id;
+            const bgColor = cat.color || undefined;
             return (
               <button
-                key={cat}
-                onClick={() => setActiveCategory(cat)}
+                key={cat.id}
+                onClick={() => setActiveCategory(cat.id)}
+                className={`shrink-0 px-3 h-8 rounded-full text-xs font-medium transition-colors flex items-center gap-1.5 ${
+                  isActive
+                    ? "text-white"
+                    : "bg-muted text-muted-foreground hover:bg-muted/70"
+                }`}
+                style={isActive && bgColor ? { backgroundColor: bgColor } : undefined}
+              >
+                {!isActive && cat.color && (
+                  <span
+                    className="inline-block w-2 h-2 rounded-full"
+                    style={{ backgroundColor: cat.color }}
+                  />
+                )}
+                {cat.name}
+                <span className="text-[10px] opacity-80">{count}</span>
+              </button>
+            );
+          })}
+
+          {/* Catégories orphelines (texte, pas de categoryId) — rétro-compat */}
+          {orphanCategoryNames.map((name) => {
+            const count = products.filter(
+              (p) => !p.categoryId && (p.category ?? "").toLowerCase() === name.toLowerCase()
+            ).length;
+            const isActive = activeCategory === `orphan:${name}`;
+            return (
+              <button
+                key={`orphan:${name}`}
+                onClick={() => setActiveCategory(`orphan:${name}`)}
                 className={`shrink-0 px-3 h-8 rounded-full text-xs font-medium transition-colors ${
                   isActive
                     ? "bg-purple-500 text-white"
                     : "bg-muted text-muted-foreground hover:bg-muted/70"
                 }`}
               >
-                {cat}
+                {name}
                 <span className="ml-1.5 text-[10px] opacity-80">{count}</span>
               </button>
             );
           })}
+
+          {/* "Autres" chip — produits sans catégorie du tout */}
+          {uncategorizedCount > 0 && (
+            <button
+              onClick={() => setActiveCategory("uncategorized")}
+              className={`shrink-0 px-3 h-8 rounded-full text-xs font-medium transition-colors ${
+                activeCategory === "uncategorized"
+                  ? "bg-purple-500 text-white"
+                  : "bg-muted text-muted-foreground hover:bg-muted/70"
+              }`}
+            >
+              Autres
+              <span className="ml-1.5 text-[10px] opacity-80">
+                {uncategorizedCount}
+              </span>
+            </button>
+          )}
         </div>
       )}
 
@@ -388,6 +501,15 @@ export function ProductsTab() {
             <AnimatePresence mode="popLayout">
               {filtered.map((product) => {
                 const stock = getStockLevel(product.quantity);
+                // Trouver le nom de la catégorie (préfère categoryId, sinon category texte)
+                const catLabel =
+                  (product.categoryId &&
+                    categories.find((c) => c.id === product.categoryId)?.name) ||
+                  product.category ||
+                  null;
+                const catColor = product.categoryId
+                  ? colorForCategory(product.categoryId)
+                  : null;
                 return (
                   <motion.div
                     key={product.id}
@@ -412,12 +534,19 @@ export function ProductsTab() {
                             <Package className="w-10 h-10 text-muted-foreground/40" />
                           </div>
                         )}
-                        {product.category && (
+                        {catLabel && (
                           <Badge
                             variant="outline"
-                            className="absolute top-2 left-2 text-[10px] px-1.5 py-0 bg-white/85 backdrop-blur-sm"
+                            className="absolute top-2 left-2 text-[10px] px-1.5 py-0 bg-white/85 backdrop-blur-sm flex items-center gap-1"
+                            style={catColor ? { borderColor: catColor } : undefined}
                           >
-                            {product.category}
+                            {catColor && (
+                              <span
+                                className="inline-block w-1.5 h-1.5 rounded-full"
+                                style={{ backgroundColor: catColor }}
+                              />
+                            )}
+                            {catLabel}
                           </Badge>
                         )}
                         {/* Stock dot */}
@@ -492,7 +621,12 @@ export function ProductsTab() {
           {/* Count */}
           <p className="text-xs text-muted-foreground text-center">
             {filtered.length} produit{filtered.length > 1 ? "s" : ""}
-            {activeCategory !== "all" && ` dans « ${activeCategory} »`}
+            {activeCategory !== "all" &&
+              (activeCategory.startsWith("orphan:")
+                ? ` dans « ${activeCategory.slice("orphan:".length)} »`
+                : activeCategory === "uncategorized"
+                ? " sans catégorie"
+                : ` dans « ${categories.find((c) => c.id === activeCategory)?.name ?? ""} »`)}
           </p>
         </>
       )}

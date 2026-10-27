@@ -20,6 +20,7 @@ export interface ProductCardData {
   quantity: number;
   reservedQuantity?: number;
   category?: string | null;
+  categoryId?: string | null;
   productType?: string;
   unitType?: string;
   minStockAlert?: number;

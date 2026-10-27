@@ -52,7 +52,7 @@ export async function PUT(
 
     const updateData: Record<string, unknown> = {}
     const allowedFields = [
-      'name', 'sku', 'description', 'category', 'imageUrl',
+      'name', 'sku', 'description', 'category', 'categoryId', 'imageUrl',
       'purchasePrice', 'salePrice', 'quantity', 'reservedQuantity',
       'minStockAlert', 'productType', 'unitType', 'isActive',
     ]

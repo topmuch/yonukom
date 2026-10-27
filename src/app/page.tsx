@@ -771,9 +771,10 @@ function DashboardMain({ onLogout }: { onLogout: () => void }) {
   return (
     <AppShell activeTab={activeTab} onTabChange={setActiveTab}>
       {activeTab === "home" && <HomeTab onTabChange={setActiveTab} onLogout={onLogout} />}
-      {activeTab === "pos" && <PosScreen />}
+      {activeTab === "pos" && <PosScreen onNavigateToCash={() => setActiveTab("caisse")} />}
       {activeTab === "stock" && <StockTab />}
       {activeTab === "products" && <ProductsTab />}
+      {activeTab === "customers" && <CustomersTab />}
       {activeTab === "orders" && <OrdersTab />}
       {activeTab === "history" && <HistoryTab />}
       {activeTab === "pipeline" && <PipelineTab />}
@@ -784,6 +785,11 @@ function DashboardMain({ onLogout }: { onLogout: () => void }) {
       {activeTab === "notifications" && <NotificationsSettings />}
       {activeTab === "analytics-ai" && <PredictiveAnalytics />}
       {activeTab === "accounting" && <AccountingDashboard />}
+      {activeTab === "caisse" && (
+        <PermissionGuard permission="canCloseCashSession" showLocked lockedMessage="Seul le Gérant ou Patron peut gérer la caisse.">
+          <CashSessionManager />
+        </PermissionGuard>
+      )}
       {activeTab === "settings" && <SettingsTab onLogout={onLogout} />}
     </AppShell>
   );
@@ -895,7 +901,7 @@ function HomeTab({ onTabChange, onLogout }: { onTabChange: (tab: TabId) => void;
         ]
       : [
           { label: "Commandes", desc: "Kanban e-commerce", icon: Receipt, color: "bg-yk-amber/10 text-yk-amber", tab: "orders" as TabId },
-          { label: "Clients", desc: "Gestion clients", icon: Users, color: "bg-yk-emerald/10 text-yk-emerald", tab: "settings" as TabId },
+          { label: "Clients", desc: "Gestion clients", icon: Users, color: "bg-yk-emerald/10 text-yk-emerald", tab: "customers" as TabId },
         ]),
   ];
 
@@ -999,7 +1005,7 @@ function HomeTab({ onTabChange, onLogout }: { onTabChange: (tab: TabId) => void;
 
           <PermissionGuard permission="canCloseCashSession" fallback={null}>
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6 }}>
-              <Card className="cursor-pointer hover:shadow-md transition-shadow border-yk-emerald/20" onClick={() => onTabChange("settings")}>
+              <Card className="cursor-pointer hover:shadow-md transition-shadow border-yk-emerald/20" onClick={() => onTabChange("caisse")}>
                 <CardContent className="p-3 flex items-center gap-3">
                   <div className="p-2 rounded-xl bg-yk-emerald/10 text-yk-emerald"><Landmark className="w-5 h-5" /></div>
                   <div className="flex-1 min-w-0"><h3 className="font-semibold text-xs">Caisse</h3><p className="text-[10px] text-muted-foreground">Ouvrir / clôturer la caisse</p></div>
@@ -1016,6 +1022,15 @@ function HomeTab({ onTabChange, onLogout }: { onTabChange: (tab: TabId) => void;
 
 function StockTab() {
   return <div className="px-4 py-6 space-y-4"><ConnectivityBanner /><StockDashboard /></div>;
+}
+
+function CustomersTab() {
+  return (
+    <div className="px-4 py-6 space-y-4">
+      <ConnectivityBanner />
+      <CustomerList />
+    </div>
+  );
 }
 
 function OrdersTab() {
@@ -1055,9 +1070,8 @@ function PipelineTab() {
 }
 
 function SettingsTab({ onLogout }: { onLogout: () => void }) {
-  const isB2B = useConfigStore((s) => s.config?.pipeline_b2b ?? false);
   const user = useAuthStore((s) => s.user);
-  const [activeSection, setActiveSection] = useState<"main" | "cash" | "audit" | "profile">("main");
+  const [activeSection, setActiveSection] = useState<"profile" | "audit">("profile");
 
   return (
     <div className="px-4 py-6 space-y-4">
@@ -1077,19 +1091,13 @@ function SettingsTab({ onLogout }: { onLogout: () => void }) {
           </Card>
         )}
         <div className="flex gap-2 mb-3">
-          <Button variant={activeSection === "main" ? "default" : "outline"} size="sm" className="text-xs" onClick={() => setActiveSection("main")}>Clients</Button>
           <Button variant={activeSection === "profile" ? "default" : "outline"} size="sm" className="text-xs gap-1" onClick={() => setActiveSection("profile")}><Building2 className="w-3.5 h-3.5" />Profil</Button>
-          <PermissionGuard permission="canCloseCashSession" fallback={null}>
-            <Button variant={activeSection === "cash" ? "default" : "outline"} size="sm" className="text-xs gap-1" onClick={() => setActiveSection("cash")}><Landmark className="w-3.5 h-3.5" />Caisse</Button>
-          </PermissionGuard>
           <PermissionGuard permission="canViewAuditLog" fallback={null}>
             <Button variant={activeSection === "audit" ? "default" : "outline"} size="sm" className="text-xs gap-1" onClick={() => setActiveSection("audit")}><Shield className="w-3.5 h-3.5" />Audit</Button>
           </PermissionGuard>
         </div>
       </motion.div>
-      {activeSection === "main" && (<>{<CustomerList />}{isB2B && (<motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="pt-4"><div className="flex items-center gap-2 mb-3"><CreditCard className="w-5 h-5 text-primary" /><h3 className="font-semibold">Crédit B2B</h3></div><CreditDashboard /></motion.div>)}</>)}
       {activeSection === "profile" && <BusinessProfileEditor />}
-      {activeSection === "cash" && (<PermissionGuard permission="canCloseCashSession" showLocked lockedMessage="Seul le Gérant ou Patron peut gérer la caisse."><CashSessionManager /></PermissionGuard>)}
       {activeSection === "audit" && (<PermissionGuard permission="canViewAuditLog" showLocked lockedMessage="Seul le Gérant ou Patron peut voir le journal d'audit."><AuditLogViewer /></PermissionGuard>)}
     </div>
   );

@@ -32,6 +32,7 @@ import {
   MessageCircle,
   BarChart3,
   Calculator,
+  Landmark,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { Input } from "@/components/ui/input";
@@ -42,6 +43,7 @@ export type TabId =
   | "pos"
   | "stock"
   | "products"
+  | "customers"
   | "orders"
   | "history"
   | "pipeline"
@@ -52,6 +54,7 @@ export type TabId =
   | "notifications"
   | "analytics-ai"
   | "accounting"
+  | "caisse"
   | "settings";
 
 interface TabConfig {
@@ -100,6 +103,14 @@ const ALL_TABS: TabConfig[] = [
     gradient: "from-purple-500 to-indigo-500",
     accent: "bg-purple-500",
     color: "#A855F7",
+  },
+  {
+    id: "customers",
+    label: "Clients",
+    icon: Users,
+    gradient: "from-rose-500 to-pink-600",
+    accent: "bg-rose-500",
+    color: "#F43F5E",
   },
   {
     id: "orders",
@@ -181,6 +192,14 @@ const ALL_TABS: TabConfig[] = [
     gradient: "from-teal-500 to-emerald-600",
     accent: "bg-teal-500",
     color: "#14B8A6",
+  },
+  {
+    id: "caisse",
+    label: "Caisse",
+    icon: Landmark,
+    gradient: "from-emerald-500 to-green-500",
+    accent: "bg-emerald-500",
+    color: "#10B981",
   },
   {
     id: "settings",
