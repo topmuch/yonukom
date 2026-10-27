@@ -22,7 +22,7 @@
 
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useCartStore } from "@/stores/use-cart-store";
 import { useAuthStore } from "@/stores/use-auth-store";
 import { formatFCFA } from "@/lib/fcfa";
@@ -72,6 +72,9 @@ import {
   Bike,
   X,
   ArrowRight,
+  MessageCircle,
+  Send,
+  AlertCircle,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -232,6 +235,11 @@ export function CartPanelContent({
   const [cashSessionLoading, setCashSessionLoading] = useState(true);
   const [cashDialogOpen, setCashDialogOpen] = useState(false);
   const [lastOrder, setLastOrder] = useState<CreatedOrder | null>(null);
+  // Dialog de paiement Wave (numéro WhatsApp + message + bouton partager)
+  const [waveDialogOpen, setWaveDialogOpen] = useState(false);
+  const [wavePaymentLink, setWavePaymentLink] = useState<string | null>(null);
+  const [customerPhoneInput, setCustomerPhoneInput] = useState<string>("");
+  const [waveSending, setWaveSending] = useState(false);
   // Type de commande (défaut: Sur place)
   const [orderType, setOrderType] = useState<OrderType>("dine_in");
   // Frais de livraison (FCFA — entier)
@@ -274,7 +282,108 @@ export function CartPanelContent({
     checkCashSession();
   }, [checkCashSession]);
 
-  const handleCheckout = async (method: PaymentMethod) => {
+  // --- Fetch le lien de paiement Wave du business ---
+  useEffect(() => {
+    if (!businessId) return;
+    fetch(`/api/business/profile?businessId=${encodeURIComponent(businessId)}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (d?.wavePaymentLink) setWavePaymentLink(d.wavePaymentLink);
+      })
+      .catch(() => {});
+  }, [businessId]);
+
+  // --- Pré-remplir le numéro WhatsApp quand le dialog Wave s'ouvre ---
+  useEffect(() => {
+    if (waveDialogOpen) {
+      // Pré-rempli avec le téléphone du client sélectionné (modifiable)
+      setCustomerPhoneInput(customer?.phone ?? "");
+    }
+  }, [waveDialogOpen, customer]);
+
+  // --- Construire le message WhatsApp pré-rempli ---
+  const waveMessage = useMemo(() => {
+    if (!wavePaymentLink) return "";
+    const businessName = user?.businessName ?? "notre commerce";
+    const customerName = customer?.name ?? "Client";
+    const msg = `Bonjour ${customerName} ! 👋\n\nMerci pour votre achat chez ${businessName}.\nMontant à payer : ${formatFCFA(total)} FCFA\n\nCliquez pour payer par Wave :\n${wavePaymentLink}\n\nMerci de confirmer le paiement une fois effectué.`;
+    return msg;
+  }, [wavePaymentLink, user?.businessName, customer?.name, total]);
+
+  // --- Normaliser un numéro de téléphone au format international (sans +) ---
+  const normalizePhone = (phone: string): string => {
+    let cleaned = phone.replace(/\D/g, "");
+    // Si commence par 7, 8 ou 9 et fait 9 chiffres → numéro Sénégalais, préfixer 221
+    if (cleaned.length === 9 && /^[789]/.test(cleaned)) {
+      cleaned = "221" + cleaned;
+    }
+    // Si commence par 0 → remplacer par 221
+    if (cleaned.startsWith("0")) {
+      cleaned = "221" + cleaned.slice(1);
+    }
+    return cleaned;
+  };
+
+  // --- Partager le lien de paiement Wave sur WhatsApp du client ---
+  const handleShareWaveLink = async () => {
+    const normalizedPhone = normalizePhone(customerPhoneInput);
+    if (normalizedPhone.length < 9) {
+      toast({
+        title: "Numéro invalide",
+        description: "Veuillez saisir un numéro WhatsApp valide (ex: 78 382 18 22).",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (!wavePaymentLink) {
+      toast({
+        title: "Lien Wave manquant",
+        description: "Configurez votre lien de paiement Wave dans Paramètres → Profil.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setWaveSending(true);
+    try {
+      // Construire l'URL wa.me
+      const waUrl = `https://wa.me/${normalizedPhone}?text=${encodeURIComponent(waveMessage)}`;
+
+      // Logger l'envoi dans NotificationLog
+      await fetch("/api/notifications/whatsapp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          businessId,
+          recipient: normalizedPhone,
+          type: "sale_receipt",
+          message: waveMessage,
+          metadata: JSON.stringify({
+            paymentMethod: "wave",
+            amount: total,
+            wavePaymentLink,
+          }),
+        }),
+      }).catch(() => {}); // non-bloquant
+
+      // Ouvrir WhatsApp dans un nouvel onglet
+      window.open(waUrl, "_blank");
+      toast({
+        title: "Lien de paiement envoyé 📲",
+        description: "Le client va recevoir le lien Wave sur WhatsApp. Cliquez sur 'Marquer comme payée' une fois le paiement reçu.",
+      });
+      setWaveDialogOpen(false);
+    } catch (err: any) {
+      toast({
+        title: "Erreur",
+        description: err.message || "Impossible d'envoyer le lien WhatsApp",
+        variant: "destructive",
+      });
+    } finally {
+      setWaveSending(false);
+    }
+  };
+
+  const handleCheckout = async (method: PaymentMethod, skipWaveDialog = false) => {
     if (items.length === 0) return;
 
     // --- Vérifier la session de caisse ---
@@ -289,6 +398,12 @@ export function CartPanelContent({
         description: "Veuillez vous reconnecter pour encaisser la vente.",
         variant: "destructive",
       });
+      return;
+    }
+
+    // --- Pour Wave : ouvrir le dialog de paiement WhatsApp (sauf si déjà confirmé) ---
+    if (method === "wave" && !skipWaveDialog) {
+      setWaveDialogOpen(true);
       return;
     }
 
@@ -671,6 +786,111 @@ export function CartPanelContent({
               onClick={() => setCashDialogOpen(false)}
             >
               Fermer
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* --- Dialog de paiement Wave (envoi lien WhatsApp) --- */}
+      <Dialog open={waveDialogOpen} onOpenChange={setWaveDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <div className="p-2 rounded-full bg-[#1DC2FF]/15">
+                <Waves className="w-5 h-5 text-[#1DC2FF]" />
+              </div>
+              Paiement par Wave
+            </DialogTitle>
+            <DialogDescription>
+              Total à payer :{" "}
+              <span className="font-bold text-foreground">
+                {formatFCFA(total)}
+              </span>{" "}
+              FCFA
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3">
+            {/* Champ numéro WhatsApp */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium flex items-center gap-1.5">
+                <MessageCircle className="w-3.5 h-3.5 text-green-500" />
+                Numéro WhatsApp du client
+              </Label>
+              <Input
+                type="tel"
+                value={customerPhoneInput}
+                onChange={(e) => setCustomerPhoneInput(e.target.value)}
+                placeholder="Ex: 78 382 18 22"
+                className="text-base"
+                autoFocus
+              />
+              <p className="text-[10px] text-muted-foreground">
+                Le lien de paiement Wave sera envoyé sur ce numéro.
+              </p>
+            </div>
+
+            {/* Message pré-rempli (aperçu) */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium">
+                Message envoyé au client :
+              </Label>
+              <div className="rounded-lg bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-900 p-3 max-h-40 overflow-y-auto">
+                <pre className="text-xs whitespace-pre-wrap text-foreground font-sans">
+                  {waveMessage || "Configurez votre lien Wave dans Paramètres → Profil."}
+                </pre>
+              </div>
+            </div>
+
+            {/* Alerte si lien Wave manquant */}
+            {!wavePaymentLink && (
+              <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900">
+                <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                <div className="text-xs text-amber-700 dark:text-amber-300">
+                  <p className="font-semibold mb-0.5">Lien Wave non configuré</p>
+                  <p>
+                    Ajoutez votre lien de paiement Wave dans{" "}
+                    <strong>Paramètres → Profil</strong> pour activer ce mode de paiement.
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="flex-col gap-2 sm:flex-col">
+            {/* Bouton "Partager sur WhatsApp" */}
+            <Button
+              className="w-full gap-2 bg-green-500 hover:bg-green-600 text-white"
+              onClick={handleShareWaveLink}
+              disabled={waveSending || !wavePaymentLink}
+            >
+              {waveSending ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Send className="w-4 h-4" />
+              )}
+              Partager sur WhatsApp
+            </Button>
+
+            {/* Bouton "Marquer comme payée" (après réception) */}
+            <Button
+              variant="outline"
+              className="w-full gap-2"
+              onClick={() => {
+                setWaveDialogOpen(false);
+                handleCheckout("wave", true);
+              }}
+            >
+              <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+              Marquer comme payée
+            </Button>
+
+            <Button
+              variant="ghost"
+              className="w-full"
+              onClick={() => setWaveDialogOpen(false)}
+            >
+              Annuler
             </Button>
           </DialogFooter>
         </DialogContent>

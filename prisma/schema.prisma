@@ -30,6 +30,8 @@ model Business {
   country           String   @default("SN") // Sénégal par défaut
   currency          String   @default("XOF") // FCFA — toujour entier, jamais flottant
   logoUrl           String?  // Logo du commerce (URL ou base64 si upload)
+  /// Lien de paiement Wave (généré dans Wave Business) — envoyé aux clients via WhatsApp
+  wavePaymentLink   String?
 
   /// JSON généré par l'onboarding qui active/masque les modules dynamiquement.
   /// Ex: { "ecommerce_social": true, "pipeline_b2b": false, "restaurant": true, "payments": ["wave", "orange_money"] }

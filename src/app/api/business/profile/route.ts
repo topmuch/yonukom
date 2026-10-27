@@ -22,6 +22,7 @@ export async function GET(request: NextRequest) {
         country: true,
         currency: true,
         logoUrl: true,
+        wavePaymentLink: true,
       },
     });
     if (!business) {
@@ -39,7 +40,7 @@ export async function GET(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const body = await request.json();
-    const { businessId, name, phone, email, address, city, country, logoUrl } = body;
+    const { businessId, name, phone, email, address, city, country, logoUrl, wavePaymentLink } = body;
 
     if (!businessId) {
       return NextResponse.json({ error: "businessId requis" }, { status: 400 });
@@ -63,6 +64,10 @@ export async function PUT(request: NextRequest) {
       // Logo peut être long (base64 si upload direct) — on limite à 5MB en base64
       data.logoUrl = logoUrl.slice(0, 7_000_000) || null;
     }
+    if (typeof wavePaymentLink === "string") {
+      // Lien de paiement Wave (URL https://pay.wave.com/...)
+      data.wavePaymentLink = wavePaymentLink.trim().slice(0, 500) || null;
+    }
 
     if (Object.keys(data).length === 0) {
       return NextResponse.json({ error: "Aucune mise à jour fournie" }, { status: 400 });
@@ -82,6 +87,7 @@ export async function PUT(request: NextRequest) {
         country: true,
         currency: true,
         logoUrl: true,
+        wavePaymentLink: true,
       },
     });
 

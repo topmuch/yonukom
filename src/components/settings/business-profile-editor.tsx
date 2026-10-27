@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Building2, Phone, Mail, MapPin, Loader2, CheckCircle2, Upload, X } from "lucide-react";
+import { Building2, Phone, Mail, MapPin, Loader2, CheckCircle2, Upload, X, Waves } from "lucide-react";
 import { useAuthStore } from "@/stores/use-auth-store";
 
 interface BusinessProfile {
@@ -19,6 +19,7 @@ interface BusinessProfile {
   city: string | null;
   country: string;
   logoUrl: string | null;
+  wavePaymentLink: string | null;
 }
 
 export function BusinessProfileEditor() {
@@ -37,6 +38,7 @@ export function BusinessProfileEditor() {
     city: "",
     country: "SN",
     logoUrl: "",
+    wavePaymentLink: "",
   });
 
   const fetchProfile = useCallback(async () => {
@@ -57,6 +59,7 @@ export function BusinessProfileEditor() {
           city: data.city ?? "",
           country: data.country ?? "SN",
           logoUrl: data.logoUrl ?? "",
+          wavePaymentLink: data.wavePaymentLink ?? "",
         });
       } else {
         setError("Impossible de charger le profil du commerce");
@@ -289,6 +292,32 @@ export function BusinessProfileEditor() {
                 <option value="Other">Autre</option>
               </select>
             </div>
+          </div>
+
+          {/* Lien de paiement Wave */}
+          <div className="mt-4 p-4 rounded-xl bg-blue-50/50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900 space-y-2">
+            <Label htmlFor="biz-wave-link" className="text-xs font-medium flex items-center gap-1.5 text-blue-700 dark:text-blue-300">
+              <Waves className="w-3.5 h-3.5" />
+              Lien de paiement Wave
+            </Label>
+            <Input
+              id="biz-wave-link"
+              type="url"
+              value={form.wavePaymentLink}
+              onChange={(e) => setForm({ ...form, wavePaymentLink: e.target.value })}
+              placeholder="https://pay.wave.com/m/..."
+              className="bg-white dark:bg-slate-900"
+            />
+            <p className="text-[10px] text-muted-foreground leading-relaxed">
+              Collez ici votre lien de paiement Wave Business (généré depuis votre compte Wave).
+              Il sera envoyé par WhatsApp aux clients qui choisissent Wave comme moyen de paiement.
+            </p>
+            {form.wavePaymentLink && (
+              <p className="text-[10px] text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                <CheckCircle2 className="w-3 h-3" />
+                Lien configuré — les paiements Wave sont activés
+              </p>
+            )}
           </div>
 
           <div className="pt-2">
