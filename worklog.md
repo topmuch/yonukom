@@ -723,3 +723,187 @@ Notes for next agent:
 - The cart's `promoDiscount` is recomputed on every render via `useMemo` (depends on `activePromo`, `total`, `items`). If a vendor creates a promo mid-day in another tab, the cart will pick it up on next mount (it doesn't poll — but typically a vendor opens the POS once per session).
 - The `cart-drawer.tsx` uses `Tag` icon (from lucide-react) for the promo line. `Loader2`, `CheckCircle2` etc. were already imported. The `Tag` import was added in the existing icon block at the top of the file.
 
+
+---
+
+Task ID: BUG-BASH
+Agent: Subagent I
+
+Task: Fix all 32 TypeScript errors + bug bash + enable strict TS in next.config.ts
+
+Work Log:
+
+### Task 1 — Fixed all 32 TypeScript errors (32 → 0)
+
+Ran `npx tsc --noEmit --project tsconfig.json 2>&1 | grep "error TS"` to enumerate all errors, then fixed each file:
+
+1. **`examples/websocket/frontend.tsx`** + **`examples/websocket/server.ts`** (2 errors — TS2307 Cannot find module 'socket.io-client'/'socket.io'): Created **`src/types/socket-io.d.ts`** with `declare module 'socket.io-client'` (exports both default + named `io`) and `declare module 'socket.io'` (declares a `Server` class). Cleaner than `// @ts-ignore` because it provides minimal type signatures so the example code is type-checked, not just silenced.
+
+2. **`prisma/seed-superadmin.ts`** (15 errors — `tenants.push(...)` and `subscriptions.push(...)` typed as `never[]` because TS couldn't infer the element type from the empty array initializer): Added explicit annotations `const tenants: any[] = []` and `const subscriptions: any[] = []`. All 15 errors (lines 97, 136, 147, 148, 185, 201-214) resolved.
+
+3. **`src/app/api/analytics/insights/route.ts`** (2 errors at line 124 — `dayRevenue.set(dow, ...)` and `dayRevenue.get(dow)` passing a `number` to a `string`-typed Map key): Changed `new Map<string, number>()` → `new Map<number, number>()`. The keys are day-of-week integers from `getDay()` (0–6). Also made the `for (const [dow, rev] of dayRevenue.entries())` loop cleaner — `dow` is now a number, `Number(dow)` is harmless.
+
+4. **`src/app/api/analytics/route.ts`** (1 error at line 178 — `dailyRevenue.push(...)` typed as `never[]`): Added explicit annotation `const dailyRevenue: { date: string; revenue: number; orders: number }[] = []` inside `getEmptyAnalytics()`.
+
+5. **`src/app/api/auth/login/route.ts`** (4 errors):
+   - Lines 93 & 98: `'user.business' is possibly 'null'` (Business relation is optional on User, so `user.business` is `Business | null`). Wrapped with optional chaining: `user.business?.name ?? ''` and `user.business?.onboardingConfig ?? null`.
+   - Lines 62 & 79: `'string | null' not assignable to 'string | undefined'` — but AuditLog.businessId is actually `String` (required, not optional). Tried `?? undefined` first as suggested by the task brief, but the AuditLog schema requires businessId (FK). Used `user.businessId ?? 'unknown'` to match the existing pattern at line 36 (already uses `businessId: 'unknown'` for the user-not-found audit log). All 4 errors resolved.
+
+6. **`src/app/api/b2b-quotes/route.ts`** (1 error at line 78 — `Property 'paidAt' does not exist on Payment type`): The `Payment` model has no `paidAt` field — only `createdAt`. Replaced `p.paidAt?.toISOString?.()` with `p.createdAt?.toISOString?.()`. Same semantic (date when the payment was created).
+
+7. **`src/app/api/orders/[id]/receipt/route.ts`** (1 error at line 152 — `Property 'productId' does not exist on Promo type`): The `select` clause in the `db.promo.findUnique` call was missing `productId` and `minAmount`. Added both fields to the `select` so the `promo.productId` filter on line 152 works (product-type promo logic).
+
+8. **`src/components/dashboard/dashboard-analytics.tsx`** (2 errors):
+   - Line 471: `dailyRevenue.push(...)` typed as `never[]` — added explicit annotation `const dailyRevenue: { date: string; revenue: number; orders: number }[] = []`.
+   - Line 480: `'startDate' does not exist in type 'AnalyticsData'` — added `startDate?: string;` and `endDate?: string;` to the `AnalyticsData` interface (the actual API returns both, so the type was incomplete).
+
+9. **`src/components/notifications/notifications-settings.tsx`** (1 error at line 182 — TS2783 `'businessId' is specified more than once, so this usage will be overwritten`): The body was `{ businessId, ...form }` where `form` already contains `businessId` (since it's a `NotificationSettings` object). The spread overwrote the explicit `businessId` from the closure variable. Reordered to `{ ...form, businessId }` so the controlled `businessId` from `useAuthStore` always wins.
+
+10. **`src/stores/use-cart-store.ts`** (1 error at line 138 — `set({ total, itemCount })` failed because the helper function `recalculateTotals` had typed `set` as `(fn: (state: CartState) => Partial<CartState>) => void`, which only accepts the function form). Broadened the type signature to `(partial: Partial<CartState> | ((state: CartState) => Partial<CartState>)) => void` so both `set({...})` and `set((state) => ({...}))` calls work.
+
+After all 10 files were fixed:
+- `npx tsc --noEmit --project tsconfig.json 2>&1 | grep "error TS" | wc -l` → **0**
+- Total errors fixed: **32 → 0**
+
+### Task 2 — Bug bash (8 critical files reviewed)
+
+Reviewed each file in detail for null safety, missing error handling, wrong API URLs, broken imports, and edge cases. Summary of findings + fixes:
+
+1. **`src/components/pos/pos-screen.tsx`** — ✓ OK. Empty products handled (passes empty array to `ProductGrid`, which renders "Aucun produit disponible" empty state). Missing `businessId` handled: `fetchProducts` falls back to `/api/products` (without filter) which the API itself returns `{ products: [] }` for missing businessId — safe. `fetchCustomers` + `fetchCategories` short-circuit when no businessId.
+
+2. **`src/components/pos/cart-drawer.tsx`** — ✓ OK. Wave dialog works without a selected customer: `customerPhoneInput` defaults to `""` via `customer?.phone ?? ""`, validation in `handleShareWaveLink` blocks submission if `< 9` digits. Promo calc handles edge cases: `pct <= 0` returns 0 (0% promo), empty cart → `total = 0` → promoDiscount = 0, `amount`-type promo returns 0 when `total < minAmount`. No fix needed.
+
+3. **`src/components/pos/product-grid.tsx`** — ✓ OK. Products without `imageUrl` are handled via `hasImage = Boolean(product.imageUrl)` check — falls back to a `Package` icon in a gradient container. No fix needed.
+
+4. **`src/components/cash/cash-session-manager.tsx`** — **BUG FIXED**. The close-session flow opens the closure book via `window.open(...)` wrapped in `try/catch`. But `window.open` doesn't throw when blocked — it returns `null`. The `try/catch` was therefore useless: when the browser blocked the popup, the user got NO fallback to access the closure book (which only opens automatically on close, never from the History tab). Fixed by checking the return value of `window.open` and, if `null`, showing a `toast.info` with an action button "Ouvrir" that re-attempts the popup on user click (user-initiated clicks bypass popup blockers).
+
+5. **`src/app/api/orders/route.ts`** POST — ✓ OK. Missing items array handled: lines 95-100 return HTTP 400 with explicit French error message. businessId ownership validated: lines 119-128 fetch the Business by id and return 400 if not found. Cash session required: lines 133-142 return HTTP 403 if no active session. No fix needed.
+
+6. **`src/components/stats/stats-dashboard.tsx`** — ✓ OK. Empty stats handled at 3 levels: (a) no businessId → fetch skipped, `data` stays `null` → "Aucune donnée disponible pour ce commerce." card; (b) `data.dailyRevenue.every((d) => d.revenue === 0)` → "Aucune vente sur cette période." placeholder instead of empty chart; (c) `totalPayment === 0` → message "Aucun paiement enregistré sur cette période."; (d) `data.topProducts.length === 0` → "Aucune vente sur cette période." No fix needed.
+
+7. **`src/components/settings/ticket-customization.tsx`** — ✓ OK. Promo form validates all required fields: `promoName` non-empty (line 165), `promoPercentage` 0-100 numeric (line 169-173), `promoProductId` required if type=`product` (line 174-177), `promoMinAmount` required if type=`amount` (line 178-184). No fix needed.
+
+8. **`src/app/api/orders/[id]/receipt/route.ts`** — ✓ OK. Missing business handled with null-safe optional chaining everywhere: `business?.name ?? 'YonuKom'`, `business?.logoUrl ? ... : ''`, `business?.qrCodeUrl?.trim() || DEFAULT_QR_URL`, `business?.ticketFooterMessage?.trim() || ''`, `business?.phone ? ... : ''`, `business?.email ? ... : ''`, `addressLine ? ... : ''`, `cashier ? ... : ''`, `mainPayment ? ... : ''`. No fix needed.
+
+**Bugs fixed during bug bash: 1** (cash-session popup-blocked fallback).
+
+### Task 3 — next.config.ts
+
+Changed `typescript.ignoreBuildErrors: true` → `false` (line 7). Added a comment documenting that the 32 pre-existing TS errors have been fixed (BUG-BASH worklog entry). Future builds will now FAIL on TS errors, enforcing production-quality TypeScript.
+
+### Build verification
+
+- `npx tsc --noEmit --project tsconfig.json 2>&1 | grep "error TS" | wc -l` → **0** ✓
+- `npx next build 2>&1 | tail -25` → ✓ Compiled successfully in 17.7s. All API routes + static pages registered.
+
+Files created:
+- `src/types/socket-io.d.ts` — type declarations for `socket.io-client` and `socket.io` (used by `examples/websocket/*`)
+
+Files modified:
+- `prisma/seed-superadmin.ts` — typed `tenants: any[]` and `subscriptions: any[]`
+- `src/app/api/analytics/insights/route.ts` — `Map<string, number>` → `Map<number, number>`
+- `src/app/api/analytics/route.ts` — typed `dailyRevenue` array explicitly in `getEmptyAnalytics()`
+- `src/app/api/auth/login/route.ts` — optional chaining on `user.business?.name` + `?.onboardingConfig`; `user.businessId ?? 'unknown'` for AuditLog businessId (matching existing pattern)
+- `src/app/api/b2b-quotes/route.ts` — `p.paidAt` → `p.createdAt` (Payment has no `paidAt` field)
+- `src/app/api/orders/[id]/receipt/route.ts` — added `productId: true` + `minAmount: true` to Promo `select`
+- `src/components/dashboard/dashboard-analytics.tsx` — added `startDate?` + `endDate?` to `AnalyticsData` interface; typed `dailyRevenue` array explicitly
+- `src/components/notifications/notifications-settings.tsx` — reordered spread `{ ...form, businessId }` (was `{ businessId, ...form }`)
+- `src/stores/use-cart-store.ts` — broadened `set` type in `recalculateTotals` helper to accept both partial + function forms
+- `src/components/cash/cash-session-manager.tsx` — `handleClose`: handle `window.open` returning `null` (popup blocked) with a `toast.info` action button fallback
+- `next.config.ts` — `typescript.ignoreBuildErrors: false` + explanatory comment
+
+Notes for next agent:
+- `src/types/socket-io.d.ts` is a global ambient declaration file. The Next.js TypeScript config picks it up automatically (it's under `src/`). If you install `socket.io-client` and `socket.io` as real dependencies in the main project later, you can safely delete this file — the real type defs will take precedence.
+- The `examples/websocket/` folder is now type-checked by `tsc`. If you add more example code that uses socket.io features beyond `Server` (constructor, `on`, `emit`, `close`) or `io` (default + named), extend the ambient declarations.
+- The login route's `user.businessId ?? 'unknown'` pattern is intentional: AuditLog.businessId is a required FK in the schema, and using 'unknown' matches the existing pattern at line 36 (for the user-not-found case). For real production hardening, consider making AuditLog.businessId nullable (`String?` + `business Business? @relation(...)`) so audit logs can be created without a real business context (e.g., superadmin actions, login failures for non-existent emails). That's a schema migration — out of scope for this bug bash.
+- The cash-session closure-book popup fallback now relies on `sonner`'s `action` API (`toast.info(..., { action: { label, onClick } })`). Make sure the `sonner` `<Toaster />` is mounted at the app root (it is — see `src/app/layout.tsx`).
+- All `next.config.ts` builds now enforce strict TypeScript. Any future PR that introduces a TS error will fail `next build` immediately. This is intentional.
+
+---
+Task ID: AUTH-IMAGES
+Agent: Subagent J
+
+Task: JWT Authentication (stateless, backward-compatible) + Image file storage (replace base64 in DB)
+
+Work Log:
+- Installed `jsonwebtoken@9.0.3` + `@types/jsonwebtoken@9.0.10` via `bun add`.
+- Created `src/lib/auth.ts` — JWT helpers: `signToken`, `verifyToken`, `getTokenFromRequest`. Secret from `JWT_SECRET` env (with dev fallback), 7-day expiry.
+- Created `src/lib/auth-middleware.ts` — `withAuth(handler)` HOF wrapper for Next.js API routes. Extracts `Bearer` token, verifies via `verifyToken`, passes `JwtPayload` to handler. Returns 401 in French on missing/invalid token. NOT yet applied to existing routes (kept backward-compatible per task spec — see "Notes" below).
+- Updated `src/app/api/auth/login/route.ts` — after successful bcrypt verification, signs a JWT containing `{ userId, email, role, businessId }` and returns `{ user, onboardingConfig, token }` in the response.
+- Updated `src/stores/use-auth-store.ts`:
+  - Added `token: string | null` to `AuthState`.
+  - `login(user, token?)` now persists the JWT in `localStorage` as `yonukom_token` (alongside the existing `yonukom_user`).
+  - `logout()` clears `yonukom_token` from localStorage.
+  - Hydration block now reads both `yonukom_user` AND `yonukom_token` from localStorage on app boot.
+- Updated `src/components/auth/login-screen.tsx` — `login(data.user, data.token)` so the JWT returned by the API reaches the store + localStorage.
+- Created `src/lib/api-client.ts` — client-side `apiFetch(url, options)` wrapper that automatically injects `Authorization: Bearer <token>` from `localStorage["yonukom_token"]` when running in the browser.
+- Created `src/app/api/upload/route.ts` — `POST /api/upload` multipart upload:
+  - Accepts FormData with `file` (+ optional `businessId` form-field).
+  - Validates MIME type (PNG/JPEG/WEBP only) and size (max 2 MB).
+  - Resolves uploads root: `process.env.UPLOADS_DIR` → `/app/uploads` in production → `./.uploads` in dev.
+  - Saves to `{uploadsRoot}/{sanitizedBusinessId}/{timestamp}-{random}-{sanitizedName}.{ext}`.
+  - Creates the dir with `fs.mkdirSync(dir, { recursive: true })`.
+  - Returns `{ url: "/api/uploads/{businessId}/{filename}" }` (HTTP 201).
+  - Uses `getTokenFromRequest` to optionally derive `businessId` from JWT (falls back to form field, then `_shared`).
+- Created `src/app/api/uploads/[...path]/route.ts` — `GET /api/uploads/{businessId}/{filename}`:
+  - Reads the file from disk and streams it back with correct `Content-Type` (inferred from extension).
+  - Sets `Cache-Control: public, max-age=31536000, immutable` (filenames include timestamp+random suffix so they're cache-bust-safe).
+  - Path-traversal protection: rejects any segment containing `..`, `/`, `\`, `\0`, or starting with `.`; double-checks that the resolved absolute path stays inside the uploads root.
+- Updated `src/components/products/product-form.tsx`:
+  - Removed the duplicate `fileToResizedDataUrl` function (was previously defined twice).
+  - Added `dataUrlToFile(dataUrl, filename)` helper to convert a (resized) base64 data URL into a `File` for multipart upload.
+  - Added `uploadImage(file, businessId)` helper that POSTs FormData to `/api/upload` and returns the public URL.
+  - `handleFileChange` now: resize client-side → convert to File → POST to `/api/upload` → store the returned URL in `form.imageUrl`. No more base64 stored in DB.
+- Created `src/scripts/migrate-base64-to-files.ts` — one-off migration script:
+  - Iterates all products with a non-null `imageUrl`.
+  - Skips products whose `imageUrl` already starts with `/api/uploads/`, `/uploads/`, `http://`, or `https://` (idempotent).
+  - For each base64 `data:image/*` URL: decodes the base64 payload, writes the binary buffer to `{uploadsRoot}/{sanitizedBusinessId}/{sanitizedProductId}.{ext}`, updates the DB row's `imageUrl` to `/api/uploads/{businessKey}/{productId}.{ext}`.
+  - Reports counts: migrated / skipped / errors. Disconnects Prisma at the end.
+  - Run with: `bun run src/scripts/migrate-base64-to-files.ts`.
+- Updated `next.config.ts`:
+  - Added a `rewrites()` rule so `/uploads/:path*` is forwarded to `/api/uploads/:path*` (shorter, cleaner public URLs are also valid).
+- Updated `Dockerfile`:
+  - `RUN mkdir -p /app/uploads && chmod 777 /app/uploads` after the build (Coolify mounts the persistent volume here).
+  - CMD now also does `mkdir -p /app/uploads` at startup (idempotent, in case the volume isn't mounted the dir still exists).
+- Updated `.gitignore` — added `/.uploads/` (dev-only local uploads dir).
+
+Files created:
+- `src/lib/auth.ts` — JWT helpers (`signToken`, `verifyToken`, `getTokenFromRequest`, `JwtPayload` interface)
+- `src/lib/auth-middleware.ts` — `withAuth(handler)` HOF for API routes
+- `src/lib/api-client.ts` — `apiFetch` client wrapper
+- `src/app/api/upload/route.ts` — POST image upload endpoint
+- `src/app/api/uploads/[...path]/route.ts` — GET file-serving endpoint with path-traversal protection
+- `src/scripts/migrate-base64-to-files.ts` — idempotent migration script
+
+Files modified:
+- `src/app/api/auth/login/route.ts` — signs + returns JWT token
+- `src/stores/use-auth-store.ts` — `token` field + localStorage persistence + hydration
+- `src/components/auth/login-screen.tsx` — passes `data.token` to `login()`
+- `src/components/products/product-form.tsx` — base64 → upload API (and removed duplicate function)
+- `next.config.ts` — rewrites for `/uploads/*`
+- `Dockerfile` — create + chmod `/app/uploads`
+- `.gitignore` — ignore `/.uploads/`
+- `package.json` + `bun.lock` — added `jsonwebtoken` + `@types/jsonwebtoken`
+
+Verification:
+- `npx tsc --noEmit --project tsconfig.json 2>&1 | grep "error TS" | wc -l` → **0 errors**
+- `npx next build 2>&1 | tail -20` → **✓ Compiled successfully in 19.3s**, all 65 pages generated. Both `/api/upload` and `/api/uploads/[...path]` routes are recognized in the route manifest.
+- `bun run lint` → 8 errors, but all are PRE-EXISTING (in `superadmin-dashboard.tsx`, `business-logo.ts`, and the pre-existing `require()` in `use-auth-store.ts:77`). NONE introduced by this task. The auth-store `require("@/stores/use-config-store")` was there BEFORE my changes (in the original `logout()` function); I only added `localStorage.removeItem("yonukom_token")` lines around it. Not fixing pre-existing lint issues per the task scope.
+
+Notes for next agent:
+- The JWT auth is **opt-in**: existing API routes continue to work without authentication. To require auth on a route, wrap the handler with `withAuth`:
+  ```ts
+  import { withAuth } from "@/lib/auth-middleware";
+  export const POST = withAuth(async (req, user) => {
+    // `user` is the JwtPayload (userId, email, role, businessId)
+    ...
+  });
+  ```
+- The `getTokenFromRequest(request)` helper in `src/lib/auth.ts` is also useful for "optional auth" routes — it returns `null` if no token is present, instead of rejecting.
+- For client-side code, prefer `apiFetch` from `@/lib/api-client` over raw `fetch` — it automatically adds the JWT. Existing fetch calls still work (auth is optional server-side), but switching them progressively is the migration path.
+- The upload endpoint uses `process.env.UPLOADS_DIR` if set, otherwise `/app/uploads` in production (Coolify volume mount) and `.uploads/` at project root in dev. The `.uploads/` directory is gitignored.
+- Uploaded files are served via `/api/uploads/{businessId}/{filename}`. A rewrite in `next.config.ts` makes `/uploads/{businessId}/{filename}` equivalent (cleaner URLs for embedding in `<img src>`).
+- Path-traversal protection in the serving route is double-layered: per-segment validation + resolved-path prefix check. Don't loosen these without a security review.
+- The migration script (`src/scripts/migrate-base64-to-files.ts`) is idempotent — safe to run multiple times. It only touches products whose `imageUrl` is a `data:image/*` URL. After migration, the DB no longer contains base64 strings, just `/api/uploads/...` URLs.
+- Demo logins (the "Démo rapide" buttons in `login-screen.tsx`) don't go through `/api/auth/login`, so they don't get a JWT. This is fine — auth is still optional. If demo mode needs auth later, generate a demo token in `handleDemoLogin`.
+- The `JwtPayload.businessId` is `string | null` because superadmin users have no business. The `withAuth` wrapper passes the payload as-is — handlers that need a non-null businessId should validate it themselves.

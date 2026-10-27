@@ -129,7 +129,7 @@ export const useCartStore = create<CartState>((set, get) => ({
 
 // --- HELPER ---
 function recalculateTotals(
-  set: (fn: (state: CartState) => Partial<CartState>) => void,
+  set: (partial: Partial<CartState> | ((state: CartState) => Partial<CartState>)) => void,
   get: () => CartState
 ) {
   const { items } = get();

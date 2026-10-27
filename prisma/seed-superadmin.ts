@@ -91,7 +91,7 @@ async function main() {
     },
   ];
 
-  const tenants = [];
+  const tenants: any[] = [];
   for (const data of tenantsData) {
     const tenant = await prisma.tenant.create({ data });
     tenants.push(tenant);
@@ -129,7 +129,7 @@ async function main() {
     { tenantIdx: 7, plan: 'pro', status: 'active', amount: 15000, periodStart: daysAgo(8), periodEnd: daysFromNow(22), paymentMethod: 'wave', lastPayment: daysAgo(8), nextBilling: daysFromNow(22) },
   ];
 
-  const subscriptions = [];
+  const subscriptions: any[] = [];
   for (const s of subscriptionsData) {
     const sub = await prisma.subscription.create({
       data: {

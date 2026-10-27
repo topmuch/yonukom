@@ -80,26 +80,17 @@ const UNIT_TYPES = [
 ];
 
 const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
-const MAX_IMAGE_BYTES = 1_200_000; // ~1.2 MB → base64 ≲ 1.6 MB
-
-// Palette de couleurs prédéfinies pour les nouvelles catégories.
-const CATEGORY_COLOR_PRESETS = [
-  "#F59E0B", // amber
-  "#10B981", // emerald
-  "#3B82F6", // blue
-  "#A855F7", // purple
-  "#EC4899", // pink
-  "#EF4444", // red
-  "#14B8A6", // teal
-  "#6366F1", // indigo
-];
+// On redimensionne côté client avant l'upload pour rester en dessous de la
+// limite serveur (2 Mo côté /api/upload) et économiser de la bande passante.
+const MAX_IMAGE_BYTES = 1_500_000; // ~1.5 Mo après redimensionnement
 
 /**
- * Lit un fichier image et retourne sa représentation en base64 (data URL).
- * On redimensionne côté client si l'image est trop grosse pour rester
- * compatible avec les limits de column Prisma (Text).
+ * Lit un fichier image et retourne sa représentation en base64 (data URL)
+ * redimensionnée côté client si elle est trop grosse. Utilisé UNIQUEMENT
+ * comme étape intermédiaire avant l'upload vers /api/upload — on ne stocke
+ * plus de base64 dans la DB.
  */
-function fileToResizedDataUrl(file: File, maxDim = 800, quality = 0.8): Promise<string> {
+function fileToResizedDataUrl(file: File, maxDim = 1024, quality = 0.85): Promise<string> {
   return new Promise((resolve, reject) => {
     if (!ACCEPTED_IMAGE_TYPES.includes(file.type)) {
       reject(new Error("Format non supporté. Utilisez JPG, PNG ou WEBP."));
@@ -138,7 +129,9 @@ function fileToResizedDataUrl(file: File, maxDim = 800, quality = 0.8): Promise<
         }
         ctx.drawImage(img, 0, 0, width, height);
         // WEBP d'abord (plus compact), fallback JPEG
-        const out = canvas.toDataURL("image/webp", quality) || canvas.toDataURL("image/jpeg", quality);
+        const out =
+          canvas.toDataURL("image/webp", quality) ||
+          canvas.toDataURL("image/jpeg", quality);
         resolve(out);
       };
       img.src = dataUrl;
@@ -146,6 +139,60 @@ function fileToResizedDataUrl(file: File, maxDim = 800, quality = 0.8): Promise<
     reader.readAsDataURL(file);
   });
 }
+
+/**
+ * Convertit une data URL base64 en objet File pour l'upload multipart.
+ */
+function dataUrlToFile(dataUrl: string, filename = "image.jpg"): File {
+  const [meta, base64] = dataUrl.split(",");
+  const mimeMatch = meta.match(/data:(.*?);base64/);
+  const mime = mimeMatch ? mimeMatch[1] : "image/jpeg";
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return new File([bytes], filename, { type: mime });
+}
+
+/**
+ * Upload une image vers /api/upload et retourne l'URL publique.
+ * Le `businessId` est passé en form-field (le serveur utilise aussi le JWT
+ * si présent — voir /api/upload/route.ts).
+ */
+async function uploadImage(
+  file: File,
+  businessId: string
+): Promise<string> {
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("businessId", businessId);
+
+  const res = await fetch("/api/upload", {
+    method: "POST",
+    body: formData,
+  });
+
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || `Échec de l'upload (HTTP ${res.status})`);
+  }
+
+  const data = (await res.json()) as { url: string };
+  return data.url;
+}
+
+// Palette de couleurs prédéfinies pour les nouvelles catégories.
+const CATEGORY_COLOR_PRESETS = [
+  "#F59E0B", // amber
+  "#10B981", // emerald
+  "#3B82F6", // blue
+  "#A855F7", // purple
+  "#EC4899", // pink
+  "#EF4444", // red
+  "#14B8A6", // teal
+  "#6366F1", // indigo
+];
 
 export function ProductForm({ product, open, onOpenChange, onSave }: ProductFormProps) {
   const isEdit = !!product;
@@ -229,8 +276,35 @@ export function ProductForm({ product, open, onOpenChange, onSave }: ProductForm
     setImageError(null);
     setIsProcessingImage(true);
     try {
+      // Validation côté client : type MIME
+      if (!ACCEPTED_IMAGE_TYPES.includes(file.type)) {
+        throw new Error("Format non supporté. Utilisez JPG, PNG ou WEBP.");
+      }
+      // NB: si le fichier dépasse la limite serveur (2 Mo), on le redimensionne
+      // ci-dessous via canvas avant de l'envoyer — pas de rejet explicite ici.
+
+      // 1) Redimensionner côté client pour réduire la taille de l'upload
+      //    (et rester compatible avec la limite serveur).
       const dataUrl = await fileToResizedDataUrl(file);
-      setImageUrl(dataUrl);
+      // 2) Convertir la data URL en File pour multipart upload
+      const ext =
+        file.type === "image/png"
+          ? "png"
+          : file.type === "image/webp"
+          ? "webp"
+          : "jpg";
+      const preparedFile = dataUrlToFile(
+        dataUrl,
+        `product-${Date.now()}.${ext}`
+      );
+
+      // 3) Upload vers /api/upload → on récupère l'URL publique
+      //    On ne stocke PAS le base64 dans la DB, seulement l'URL.
+      const uploadedUrl = await uploadImage(
+        preparedFile,
+        businessId || "_shared"
+      );
+      setImageUrl(uploadedUrl);
     } catch (err) {
       setImageError(err instanceof Error ? err.message : "Erreur lors du chargement de l'image");
     } finally {

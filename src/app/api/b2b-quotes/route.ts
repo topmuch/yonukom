@@ -75,7 +75,7 @@ export async function GET(request: NextRequest) {
         id: p.id,
         amount: p.amount,
         method: p.method,
-        paidAt: p.paidAt?.toISOString?.() ?? null,
+        paidAt: p.createdAt?.toISOString?.() ?? null,
       })),
       createdAt: o.createdAt?.toISOString?.() ?? String(o.createdAt),
       updatedAt: o.updatedAt?.toISOString?.() ?? String(o.updatedAt),

@@ -106,7 +106,7 @@ export function LoginScreen({ onLoginSuccess, successMessage }: LoginScreenProps
       const data = await res.json();
 
       if (res.ok && data.user) {
-        login(data.user);
+        login(data.user, data.token);
 
         // Charger la config d'onboarding si elle existe côté serveur.
         // Si pas de config → isOnboarded reste false → onboarding wizard s'affiche.

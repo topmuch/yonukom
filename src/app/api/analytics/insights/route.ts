@@ -109,7 +109,7 @@ async function computeBusinessStats(businessId: string) {
   const topProduct = topProducts[0] || null;
 
   // Jour le plus actif (par revenu)
-  const dayRevenue = new Map<string, number>(); // 0=dim, ..., 6=sam
+  const dayRevenue = new Map<number, number>(); // 0=dim, ..., 6=sam
   const dayLabels = [
     "dimanche",
     "lundi",

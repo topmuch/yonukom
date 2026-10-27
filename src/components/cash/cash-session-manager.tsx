@@ -154,14 +154,31 @@ export function CashSessionManager() {
         setDeclaredAmount("");
         toast.success("Caisse fermée. Le livre de clôture s'ouvre dans un nouvel onglet.");
         // Ouvrir le livre de clôture de caisse dans un nouvel onglet (page imprimable A4)
+        // window.open renvoie `null` quand le popup est bloqué (pas d'exception).
+        // On propose un fallback : un lien cliquable dans la liste Historique.
         try {
-          window.open(
+          const popup = window.open(
             `/api/cash-sessions/${closedId}/closure-book`,
             "_blank",
             "noopener,noreferrer"
           );
+          if (!popup) {
+            // Popup bloqué : on notifie l'utilisateur avec un lien cliquable.
+            toast.info("Popup bloqué par le navigateur", {
+              description: "Cliquez ici pour ouvrir le livre de clôture.",
+              action: {
+                label: "Ouvrir",
+                onClick: () =>
+                  window.open(
+                    `/api/cash-sessions/${closedId}/closure-book`,
+                    "_blank",
+                    "noopener,noreferrer"
+                  ),
+              },
+            });
+          }
         } catch {
-          // Le popup peut être bloqué — non bloquant, la fermeture a réussi
+          // Non bloquant — la fermeture a réussi.
         }
       } else {
         const err = await res.json().catch(() => ({}));

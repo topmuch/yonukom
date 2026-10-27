@@ -17,6 +17,9 @@ ENV DATABASE_URL=file:/app/data/yonukom.db
 RUN bun run build
 
 RUN mkdir -p /app/data
+# Persistent uploads directory (mounted as Coolify volume in production).
+# Created here so the app can write to it even on first boot.
+RUN mkdir -p /app/uploads && chmod 777 /app/uploads
 
 EXPOSE 3000
 
@@ -24,7 +27,7 @@ ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 ENV DATABASE_URL=file:/app/data/yonukom.db
 
-CMD sh -c "mkdir -p /app/data && export DATABASE_URL=file:/app/data/yonukom.db && \
+CMD sh -c "mkdir -p /app/data /app/uploads && export DATABASE_URL=file:/app/data/yonukom.db && \
     if [ ! -f /app/data/yonukom.db ]; then \
         echo 'DB does not exist yet — initializing schema only (no demo data)'; \
         npx prisma db push --skip-generate --accept-data-loss 2>&1 || true; \

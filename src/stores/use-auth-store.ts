@@ -23,10 +23,15 @@ export interface AuthState {
   permissions: PermissionSet | null;
   /** Session chargée ? */
   isLoaded: boolean;
+  /** JWT token (stateless auth). Stored in localStorage as `yonukom_token`. */
+  token: string | null;
 
   // --- ACTIONS ---
-  /** Connecter un utilisateur */
-  login: (user: NonNullable<AuthState["user"]>) => void;
+  /** Connecter un utilisateur (+ stocker le token JWT si fourni) */
+  login: (
+    user: NonNullable<AuthState["user"]>,
+    token?: string | null
+  ) => void;
   /** Déconnecter */
   logout: () => void;
   /** Vérifier une permission spécifique */
@@ -37,23 +42,30 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   permissions: null,
   isLoaded: false,
+  token: null,
 
-  login: (user) => {
+  login: (user, token) => {
     const permissions = ROLE_PERMISSIONS[user.role];
-    set({ user, permissions, isLoaded: true });
+    set({ user, permissions, isLoaded: true, token: token ?? null });
 
     // Persister dans localStorage pour survie au rechargement
     if (typeof window !== "undefined") {
       localStorage.setItem("yonukom_user", JSON.stringify(user));
+      if (token) {
+        localStorage.setItem("yonukom_token", token);
+      } else {
+        localStorage.removeItem("yonukom_token");
+      }
     }
   },
 
   logout: () => {
     // Synchronously clear state + storage, no async work, no delay
-    set({ user: null, permissions: null, isLoaded: true });
+    set({ user: null, permissions: null, isLoaded: true, token: null });
     if (typeof window !== "undefined") {
       try {
         localStorage.removeItem("yonukom_user");
+        localStorage.removeItem("yonukom_token");
         // Vider aussi la config d'onboarding pour qu'au prochain login
         // on la recharge depuis le serveur (et pas depuis l'ancienne session).
         localStorage.removeItem("yonukom_config");
@@ -80,12 +92,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 // --- HYDRATATION AUTO au chargement ---
 if (typeof window !== "undefined") {
   const stored = localStorage.getItem("yonukom_user");
+  const storedToken = localStorage.getItem("yonukom_token");
   if (stored) {
     try {
       const user = JSON.parse(stored);
-      useAuthStore.getState().login(user);
+      useAuthStore.getState().login(user, storedToken);
     } catch {
       localStorage.removeItem("yonukom_user");
+      localStorage.removeItem("yonukom_token");
       // Marquer comme chargé même si le localStorage est corrompu
       useAuthStore.setState({ isLoaded: true });
     }

@@ -179,7 +179,7 @@ export function NotificationsSettings() {
       const res = await fetch(`/api/notifications/settings`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ businessId, ...form }),
+        body: JSON.stringify({ ...form, businessId }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));

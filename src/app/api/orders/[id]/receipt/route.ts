@@ -117,6 +117,8 @@ export async function GET(
               percentage: true,
               type: true,
               ticketMessage: true,
+              productId: true,
+              minAmount: true,
             },
           })
         : Promise.resolve(null),

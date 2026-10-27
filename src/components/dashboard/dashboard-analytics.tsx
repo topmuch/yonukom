@@ -45,6 +45,8 @@ import {
 
 interface AnalyticsData {
   period: string;
+  startDate?: string;
+  endDate?: string;
   metrics: {
     totalRevenue: number;
     totalPaid: number;
@@ -464,7 +466,7 @@ function getEmptyAnalytics(period: string): AnalyticsData {
   const now = new Date();
   const days = period === "month" ? 30 : period === "week" ? 7 : 1;
 
-  const dailyRevenue = [];
+  const dailyRevenue: { date: string; revenue: number; orders: number }[] = [];
   for (let i = days - 1; i >= 0; i--) {
     const d = new Date(now);
     d.setDate(d.getDate() - i);

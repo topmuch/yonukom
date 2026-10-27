@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import bcrypt from 'bcryptjs'
 import { db } from '@/lib/db'
+import { signToken } from '@/lib/auth'
 
 // POST /api/auth/login
 export async function POST(request: NextRequest) {
@@ -59,7 +60,7 @@ export async function POST(request: NextRequest) {
           entityType: 'user',
           entityId: user.id,
           userId: user.id,
-          businessId: user.businessId,
+          businessId: user.businessId ?? 'unknown',
           details: JSON.stringify({ email, reason: 'wrong_password' }),
         },
       })
@@ -76,12 +77,23 @@ export async function POST(request: NextRequest) {
         entityType: 'user',
         entityId: user.id,
         userId: user.id,
-        businessId: user.businessId,
+        businessId: user.businessId ?? 'unknown',
         details: JSON.stringify({ email, role: user.role }),
       },
     })
 
     // Return user info (without password)
+    // Generate a JWT token for stateless authentication.
+    // The frontend stores this token in localStorage and sends it
+    // back in the Authorization header ("Bearer <token>") for any
+    // API route that requires auth (via the `withAuth` wrapper).
+    const token = signToken({
+      userId: user.id,
+      email: user.email,
+      role: user.role,
+      businessId: user.businessId,
+    })
+
     return NextResponse.json({
       user: {
         id: user.id,
@@ -90,12 +102,13 @@ export async function POST(request: NextRequest) {
         phone: user.phone,
         role: user.role,
         businessId: user.businessId,
-        businessName: user.business.name,
+        businessName: user.business?.name ?? '',
       },
       // Inclure la config d'onboarding du business pour que le frontend
       // puisse savoir si l'utilisateur a déjà fait l'onboarding ou non.
       // Si null → nouvel utilisateur → onboarding à refaire.
-      onboardingConfig: user.business.onboardingConfig ?? null,
+      onboardingConfig: user.business?.onboardingConfig ?? null,
+      token,
     })
   } catch (error) {
     console.error('Error during login:', error)
