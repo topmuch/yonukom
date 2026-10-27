@@ -104,8 +104,11 @@ export function QuoteForm({
   useEffect(() => {
     if (!open) return;
 
+    const bid = businessId && businessId !== "demo" ? businessId : null;
+    const qs = bid ? `?businessId=${encodeURIComponent(bid)}` : "";
+
     setCustomersLoading(true);
-    fetch("/api/b2b-customers")
+    fetch(`/api/b2b-customers${qs}`)
       .then((r) => r.json())
       .then((data) => {
         const list = Array.isArray(data) ? data : data.customers ?? [];
@@ -115,7 +118,7 @@ export function QuoteForm({
       .finally(() => setCustomersLoading(false));
 
     setProductsLoading(true);
-    fetch("/api/ecom-products")
+    fetch(`/api/ecom-products${qs}`)
       .then((r) => r.json())
       .then((data) => {
         const list = Array.isArray(data) ? data : data.products ?? [];
@@ -123,7 +126,7 @@ export function QuoteForm({
       })
       .catch(() => toast.error("Erreur de chargement des produits"))
       .finally(() => setProductsLoading(false));
-  }, [open]);
+  }, [open, businessId]);
 
   // Reset form on close
   useEffect(() => {

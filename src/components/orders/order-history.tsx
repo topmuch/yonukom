@@ -23,8 +23,20 @@ import {
   XCircle,
   Loader2,
   ChevronRight,
+  Trash2,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { toast } from "sonner";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   OrderDetailDialog,
   type OrderDetailData,
@@ -167,6 +179,8 @@ export function OrderHistory() {
   const [search, setSearch] = useState("");
   const [selectedOrder, setSelectedOrder] = useState<OrderDetailData | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<ApiOrder | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const fetchOrders = useCallback(async () => {
     if (!businessId) {
@@ -216,6 +230,31 @@ export function OrderHistory() {
   const handleOpen = (order: ApiOrder) => {
     setSelectedOrder(buildDetailData(order));
     setDetailOpen(true);
+  };
+
+  // --- Delete order ---
+  const handleDelete = async () => {
+    if (!deleteTarget || !businessId) return;
+    setDeletingId(deleteTarget.id);
+    try {
+      const res = await fetch(
+        `/api/orders/${deleteTarget.id}?businessId=${encodeURIComponent(businessId)}`,
+        { method: "DELETE" }
+      );
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Échec de la suppression");
+      }
+      setOrders((prev) => prev.filter((o) => o.id !== deleteTarget.id));
+      toast.success(`Commande ${deleteTarget.orderNumber} supprimée`);
+      setDeleteTarget(null);
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Erreur lors de la suppression"
+      );
+    } finally {
+      setDeletingId(null);
+    }
   };
 
   const counts = {
@@ -383,18 +422,38 @@ export function OrderHistory() {
                               </Badge>
                             </td>
                             <td className="px-3 py-2.5 text-right">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-7 text-xs gap-1"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleOpen(order);
-                                }}
-                              >
-                                <Eye className="w-3.5 h-3.5" />
-                                Voir
-                              </Button>
+                              <div className="flex items-center justify-end gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 text-xs gap-1"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleOpen(order);
+                                  }}
+                                >
+                                  <Eye className="w-3.5 h-3.5" />
+                                  Voir
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 w-7 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                  disabled={deletingId === order.id}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setDeleteTarget(order);
+                                  }}
+                                  title="Supprimer"
+                                  aria-label={`Supprimer la commande ${order.orderNumber}`}
+                                >
+                                  {deletingId === order.id ? (
+                                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                  ) : (
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  )}
+                                </Button>
+                              </div>
                             </td>
                           </motion.tr>
                         );
@@ -462,9 +521,28 @@ export function OrderHistory() {
                           </span>
                         </div>
 
-                        <div className="flex items-center justify-end text-[10px] text-primary">
-                          Voir le détail
-                          <ChevronRight className="w-3 h-3" />
+                        <div className="flex items-center justify-between gap-2 pt-1">
+                          <button
+                            type="button"
+                            className="inline-flex items-center gap-1 text-[10px] text-destructive hover:text-destructive disabled:opacity-50"
+                            disabled={deletingId === order.id}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setDeleteTarget(order);
+                            }}
+                            aria-label={`Supprimer la commande ${order.orderNumber}`}
+                          >
+                            {deletingId === order.id ? (
+                              <Loader2 className="w-3 h-3 animate-spin" />
+                            ) : (
+                              <Trash2 className="w-3 h-3" />
+                            )}
+                            Supprimer
+                          </button>
+                          <span className="text-[10px] text-primary flex items-center gap-0.5">
+                            Voir le détail
+                            <ChevronRight className="w-3 h-3" />
+                          </span>
                         </div>
                       </CardContent>
                     </Card>
@@ -475,6 +553,48 @@ export function OrderHistory() {
           </div>
         </>
       )}
+
+      {/* Delete confirmation */}
+      <AlertDialog
+        open={!!deleteTarget}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTarget(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Supprimer cette commande ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Supprimer cette commande ? Cette action est irréversible.
+              {deleteTarget && (
+                <span className="block mt-1 font-mono text-xs">
+                  {deleteTarget.orderNumber}
+                </span>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={!!deletingId}>Annuler</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={!!deletingId}
+              onClick={(e) => {
+                e.preventDefault();
+                handleDelete();
+              }}
+            >
+              {deletingId ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin mr-1" />
+                  Suppression...
+                </>
+              ) : (
+                "Supprimer"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Detail dialog */}
       <OrderDetailDialog

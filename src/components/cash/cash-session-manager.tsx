@@ -36,6 +36,7 @@ import {
   CircleDollarSign,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { toast } from "sonner";
 import { formatFCFA } from "@/lib/fcfa";
 import { useAuthStore } from "@/stores/use-auth-store";
 
@@ -65,19 +66,33 @@ export function CashSessionManager() {
   const canClose = useAuthStore((s) => s.can("canCloseCashSession"));
 
   const fetchSessions = useCallback(async () => {
+    // Pas de businessId valide → pas de sessions. On ne crée JAMAIS de session mock.
+    if (!user?.businessId || user.businessId === "demo") {
+      setSessions([]);
+      setActiveSession(null);
+      setLoading(false);
+      return;
+    }
     try {
-      const res = await fetch("/api/cash-sessions?businessId=demo");
+      const res = await fetch(
+        `/api/cash-sessions?businessId=${encodeURIComponent(user.businessId)}`
+      );
       if (res.ok) {
         const data = await res.json();
         setSessions(data.sessions || []);
         setActiveSession(data.activeSession || null);
+      } else {
+        setSessions([]);
+        setActiveSession(null);
       }
     } catch {
-      // Offline or error
+      // Erreur réseau — on reste en état "caisse fermée".
+      setSessions([]);
+      setActiveSession(null);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [user?.businessId]);
 
   useEffect(() => {
     fetchSessions();
@@ -85,47 +100,34 @@ export function CashSessionManager() {
 
   // Open a new cash session
   const handleOpen = async () => {
+    if (!user?.businessId || user.businessId === "demo") {
+      toast.error("Aucun commerce rattaché à votre compte. Reconnectez-vous.");
+      return;
+    }
     setOpening(true);
     try {
       const res = await fetch("/api/cash-sessions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          businessId: "demo",
-          openedBy: user?.id || "demo-user",
+          businessId: user.businessId,
+          openedBy: user.id,
         }),
       });
       if (res.ok) {
         const session = await res.json();
         setActiveSession(session);
         setSessions((prev) => [session, ...prev]);
+        toast.success("Caisse ouverte");
       } else {
-        // API error (e.g. businessId not found) → use mock session
-        createMockOpenSession();
+        const err = await res.json().catch(() => ({}));
+        toast.error(err?.error || "Impossible d'ouvrir la caisse.");
       }
     } catch {
-      // Create a mock active session for demo
-      createMockOpenSession();
+      toast.error("Erreur réseau — impossible d'ouvrir la caisse.");
     } finally {
       setOpening(false);
     }
-  };
-
-  // Create a mock open session (for demo/offline mode)
-  const createMockOpenSession = () => {
-    const mockSession: CashSessionData = {
-      id: `mock-${Date.now()}`,
-      openedAt: new Date().toISOString(),
-      closedAt: null,
-      theoreticalTotal: null,
-      declaredTotal: null,
-      difference: null,
-      openedBy: user?.id || "demo-user",
-      closedBy: null,
-      isActive: true,
-    };
-    setActiveSession(mockSession);
-    setSessions((prev) => [mockSession, ...prev]);
   };
 
   // Close the active cash session
@@ -138,7 +140,7 @@ export function CashSessionManager() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           declaredTotal: parseInt(declaredAmount, 10),
-          closedBy: user?.id || "demo-user",
+          closedBy: user?.id,
         }),
       });
       if (res.ok) {
@@ -149,38 +151,16 @@ export function CashSessionManager() {
         );
         setCloseDialogOpen(false);
         setDeclaredAmount("");
+        toast.success("Caisse clôturée");
       } else {
-        // API error → use mock close
-        mockCloseSession();
+        const err = await res.json().catch(() => ({}));
+        toast.error(err?.error || "Échec de la clôture de la caisse.");
       }
     } catch {
-      // Mock close for demo
-      mockCloseSession();
+      toast.error("Erreur réseau — impossible de clôturer la caisse.");
     } finally {
       setClosing(false);
     }
-  };
-
-  // Mock close for demo/offline mode
-  const mockCloseSession = () => {
-    if (!activeSession || !declaredAmount) return;
-    const declared = parseInt(declaredAmount, 10);
-    const theoretical = 185000; // Demo value
-    const mockClosed: CashSessionData = {
-      ...activeSession,
-      closedAt: new Date().toISOString(),
-      theoreticalTotal: theoretical,
-      declaredTotal: declared,
-      difference: declared - theoretical,
-      isActive: false,
-      closedBy: user?.id || "demo-user",
-    };
-    setActiveSession(null);
-    setSessions((prev) =>
-      prev.map((s) => (s.id === mockClosed.id ? mockClosed : s))
-    );
-    setCloseDialogOpen(false);
-    setDeclaredAmount("");
   };
 
   // Format time duration
@@ -267,7 +247,7 @@ export function CashSessionManager() {
             <div className="bg-muted/50 rounded-lg p-3">
               <p className="text-xs text-muted-foreground mb-1">Montant théorique (ventes)</p>
               <p className="text-lg font-bold text-yk-emerald">
-                {formatFCFA(activeSession?.theoreticalTotal ?? 185000)}
+                {formatFCFA(activeSession?.theoreticalTotal ?? 0)}
               </p>
               <p className="text-xs text-muted-foreground mt-1">
                 Calculé à partir des paiements reçus pendant la session
@@ -301,7 +281,7 @@ export function CashSessionManager() {
                 >
                   {(() => {
                     const declared = parseInt(declaredAmount, 10);
-                    const theoretical = activeSession?.theoreticalTotal ?? 185000;
+                    const theoretical = activeSession?.theoreticalTotal ?? 0;
                     const diff = declared - theoretical;
                     const isPositive = diff > 0;
                     const isZero = diff === 0;
@@ -437,14 +417,14 @@ function ActiveCashView({
             <Card>
               <CardContent className="p-3 text-center">
                 <TrendingUp className="w-4 h-4 text-yk-emerald mx-auto mb-1" />
-                <p className="text-sm font-bold">185 000</p>
+                <p className="text-sm font-bold">{formatFCFA(activeSession?.theoreticalTotal ?? 0)}</p>
                 <p className="text-[9px] text-muted-foreground">Théorique</p>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="p-3 text-center">
                 <Clock className="w-4 h-4 text-primary mx-auto mb-1" />
-                <p className="text-sm font-bold">12</p>
+                <p className="text-sm font-bold">—</p>
                 <p className="text-[9px] text-muted-foreground">Ventes</p>
               </CardContent>
             </Card>

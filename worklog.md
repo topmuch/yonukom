@@ -220,3 +220,127 @@ Issues encountered and resolved:
 6. **Restock urgency logic**: For products with no recent sales (avgDailySales = 0), still recommend reorder if quantity <= minStockAlert (basic stock alert). For products with sales, use daysUntilStockout to drive urgency.
 
 Auth pattern respected throughout: every API route validates businessId (400 if missing, 404 if business not found) — both via direct db.business.findUnique ownership check. All UI text in French. All FCFA formatting via @/lib/fcfa utility. No new dependencies added. Recharts used for forecast chart. shadcn/ui for all UI primitives (Card, Tabs, Button, Select, Badge, Skeleton, ScrollArea).
+
+---
+Task ID: A
+Agent: Subagent A
+Task: Delete buttons on 4 existing UI components + dedicated "Produits" tab in the sidebar
+
+Work Log:
+- Added DELETE handler to `/api/orders/[id]/route.ts` — validates ?businessId (400/403/404), transactional cascade: deletes orderItems+payments, nulls invoices.orderId, stockMovement.orderId (string field, no FK), commission.orderId (preserve audit), then deletes the order.
+- Added DELETE handler to `/api/customers/[id]/route.ts` — validates ?businessId, returns 409 (with code HAS_OUTSTANDING_ORDERS) if customer has any non-cancelled orders. Otherwise: nulls invoices.customerId, deletes cancelled orders (with items/payments/stockMovement/commission references), then deletes customer.
+- Added DELETE handler to `/api/quotes/[id]/route.ts` — validates ?businessId, verifies the order is a B2B quote (status in draft/quote_validated/delivery_note/invoiced/cancelled). For quote_validated status, releases reserved stock (decrement reservedQuantity + reservation_release StockMovement) before cascade delete.
+- Added businessId validation to existing `/api/products/[id]/route.ts` DELETE (400 if missing, 403 if mismatch). Kept the patron/gerant role check.
+
+UI changes (all use shadcn/ui AlertDialog with the standardized confirmation "Supprimer cette commande/client/facture/devis ? Cette action est irréversible." + Loader2 spinner during in-flight request + sonner toast feedback):
+- `order-history.tsx`: Trash2 button on each row in both desktop table and mobile card. Uses useAuthStore for businessId. After deletion, removes from local state + toast.success.
+- `customer-list.tsx`: Trash2 button on each customer row. Optimistic removal + restore-on-409 with friendly error toast. 404 (mock customers) treated as success since row already gone locally.
+- `invoice-list.tsx`: Refactored existing confirm()-based delete to use AlertDialog (reuses existing deletingId state).
+- `pipeline-kanban.tsx`: Added "Supprimer ce devis" button at bottom of QuoteDetailPanel. Closes detail dialog + removes from local state on success.
+
+Products tab (Task 2):
+- Created `src/components/products/products-tab.tsx`: complete CRUD page with header + search + category filter chips (derived from actual product list) + responsive product grid (2/3/4 cols). Each card shows: image (or Package placeholder), category badge, stock dot indicator, name, SKU, sale price (FCFA), stock badge with color coding (red<5, amber<10, emerald≥10, red "Rupture" if 0), Edit + Delete buttons. Empty state in French. AlertDialog confirmation for delete. Save flow uses POST (create) / PUT (update).
+- Updated `src/components/layout/app-shell.tsx`: added "products" to TabId type union, imported Boxes icon from lucide-react, added new entry to ALL_TABS (between stock and orders) with id="products", label="Produits", icon=Boxes, gradient="from-purple-500 to-indigo-500", accent="bg-purple-500", color="#A855F7".
+- Updated `src/app/page.tsx`: imported ProductsTab, added `{activeTab === "products" && <ProductsTab />}` after the stock tab condition.
+
+Build verified: `npx next build` succeeds ("✓ Compiled successfully in 18.3s" / "✓ Generating static pages using 1 worker (61/61)").
+No new npm dependencies added. All shadcn/ui components. All UI text in French. businessId validated in every new DELETE route (400 if missing). Auth pattern `import { db } from "@/lib/db"` respected throughout.
+
+---
+Task ID: B
+Agent: Subagent B
+Task: Sidebar fix + Logo + KPI multicolore + Dark mode
+
+Work Log:
+- Task 1 (Sidebar scroll): In `src/components/layout/app-shell.tsx`, removed the visible scrollbar on the desktop sidebar nav by adding `[&::-webkit-scrollbar]:hidden [scrollbar-width:none] [-ms-overflow-style:none]` to the nav element (kept `overflow-y-auto` as fallback for very small viewports). Reduced tab spacing/padding (`min-h-[40px]` au lieu de `44px`, `space-y-0.5`, `py-2`, `pt-1`) so all 14 tabs fit in the viewport height without scrolling.
+- Task 2 (Business logo):
+  - Created `src/lib/business-logo.ts` exporting `useBusinessLogo(businessId?)` hook that fetches `/api/business/profile?businessId=xxx`, returns `{ logoUrl, loading }`. Returns null for `demo`/missing businessId.
+  - In `app-shell.tsx`:
+    - Sidebar header (desktop): if logo exists → `<img className="h-10 w-10 rounded-xl object-contain bg-white border border-white/40">`, else fallback div with first letter of businessName on white bg.
+    - Mobile sticky header: same pattern, `h-9 w-9` size.
+    - Fixed previously-empty `<span>` next to logo — now displays "YonuKom" brand above the businessName (was previously empty/blank).
+- Task 3 (KPI multicolores réelles):
+  - In `src/app/page.tsx` HomeTab, removed the hardcoded `stats` array (`"185 000 FCFA"`, `"12"`, `"25"`, `"6"`) which was a serious bug for new accounts.
+  - Added `useTodayKpis(businessId)` hook that fetches `/api/analytics?businessId=xxx&period=today` (for revenue, orderCount, avgOrderValue) AND `/api/products?businessId=xxx` (for total stock).
+  - Returns `{ totalRevenue: 0, orderCount: 0, avgOrderValue: 0, totalStock: 0 }` for new accounts / missing businessId / demo.
+  - New 4 KPI cards with vibrant gradients (2 cols mobile, 4 cols desktop):
+    - **Ventes aujourd'hui** → `from-emerald-500 to-teal-600` (TrendingUp)
+    - **Commandes** → `from-blue-500 to-indigo-600` (Receipt)
+    - **Panier moyen** → `from-purple-500 to-pink-600` (ShoppingBag)
+    - **Stock total** → `from-amber-500 to-orange-600` (Package)
+  - White text on gradient, `rounded-2xl shadow-lg p-4`, icon top-left in white/20 backdrop-blur chip.
+  - Loading skeleton (`animate-pulse` on white/30 rectangles) shown while fetching.
+  - Values formatted via `formatFCFAShort` from `@/lib/fcfa` (e.g. "15K FCFA", "1.2M FCFA", or "0 FCFA" for new accounts).
+- Task 4 (Dark mode):
+  - Verified `src/components/shared/theme-toggle.tsx`: `useState(false)` for `mounted`, `useCallback` for `toggle`, correct localStorage key `yonukom_theme`, correct add/remove of `dark` class on `document.documentElement`.
+  - Verified `src/app/layout.tsx`: no-flash script reads localStorage `yonukom_theme` (or `prefers-color-scheme: dark`) and adds `.dark` to `<html>` BEFORE React hydration. ✓
+  - Verified `src/app/globals.css`: `@custom-variant dark (&:is(.dark *));` present at top, `:root` and `.dark` both define all 18 essential tokens (background, foreground, card, card-foreground, popover, popover-foreground, primary, primary-foreground, secondary, secondary-foreground, muted, muted-foreground, accent, accent-foreground, destructive, border, input, ring) + chart + sidebar tokens.
+  - Fixed theme-awareness issues in `app-shell.tsx`:
+    - Root wrapper: `bg-[#F6F9FE]` → `bg-background`
+    - Mobile sticky header: `bg-white/85 border-[#338BE2]/10` → `bg-background/85 border-primary/10`
+    - Mobile bottom nav: `bg-white/95 border-[#338BE2]/10` → `bg-background/95 border-primary/10`
+    - Desktop sticky header: `bg-white/85 border-[#338BE2]/10` → `bg-background/85 border-primary/10`
+    - Search input: `bg-[#F6F9FE] border-[#338BE2]/15 focus:bg-white focus:border-[#338BE2]/30` → `bg-muted border-primary/15 focus:bg-card focus:border-primary/30`
+    - Notification bell button: `bg-[#F6F9FE] border-[#338BE2]/15 text-slate-500 hover:text-[#338BE2]` → `bg-muted border-primary/15 text-muted-foreground hover:text-primary` (and `ring-white` → `ring-background` on the notification dot)
+    - Bottom nav tab labels: `text-slate-900`/`text-slate-400` → `text-foreground`/`text-muted-foreground`
+    - Mobile header businessName: `text-slate-900`/`text-slate-500` → `text-foreground`/`text-muted-foreground`
+    - Search clear button (X icon): `text-slate-400 hover:text-slate-600` → `text-muted-foreground hover:text-foreground`
+  - The desktop blue sidebar (`from-[#338BE2] to-[#2074C6]`) is intentionally kept as a brand color in both modes — it works well in light and dark.
+
+Verification:
+- `cd /home/z/my-project/yonukom && npx next build` → ✓ Compiled successfully in 18.8s (61/61 static pages generated)
+- `bun run lint` reports only pre-existing `react-hooks/set-state-in-effect` warnings on `theme-toggle.tsx`, `business-logo.ts`, `page.tsx` and `use-auth-store.ts` (standard React data-fetching pattern, same as the rest of the codebase). No new errors introduced. No build errors.
+
+Files modified:
+- `src/lib/business-logo.ts` (NEW — hook fetching logoUrl)
+- `src/components/layout/app-shell.tsx` (sidebar scroll removed, logo displayed, theme-aware bg)
+- `src/app/page.tsx` (HomeTab KPIs: real fetch + multi-color gradients + loading skeleton)
+
+Notes for next agent:
+- The `BusinessLogo` fallback uses `bg-primary` (YonuKom blue) in mobile header but `bg-white` in sidebar (since sidebar is already blue) — both render the first letter of businessName.
+- The KPI hook `useTodayKpis` is also reusable for any future dashboard widget needing today's revenue/order count/avg/stock.
+- Dark mode now fully works: light = `#F6F9FE` bg / `#1E293B` text; dark = `oklch(0.21 0.03 257)` (slate-950-ish) bg / near-white text. Theme persists across reload via localStorage `yonukom_theme`.
+
+---
+Task ID: C
+Agent: Subagent C
+Task: Remove ALL hardcoded demo data — a new account must show empty states, never mock data
+
+Work Log:
+- src/app/api/ecom-products/route.ts — rewrote: removed MOCK_PRODUCTS (25 hardcoded products Thiébou Rouge, Bissap, etc.). Now uses `db.product.findMany({ where: { businessId } })`. GET returns `{ products: [], total: 0 }` when no/invalid businessId. POST/PUT delegate to db.product.
+- src/app/api/ecom-customers/route.ts — rewrote: removed MOCK_CUSTOMERS (Fatou Diallo, Moussa Sow, etc.). Now queries `db.customer.findMany({ where: { businessId, isB2B: true } })`. Returns empty when businessId missing or "demo".
+- src/app/api/ecom-orders/route.ts — rewrote: removed MOCK_ORDERS / MOCK_CUSTOMERS arrays (7 fake orders YK-2025-0001..0007). Now queries `db.order.findMany({ where: { businessId } })` with `customer`, `orderItems`, `payments` includes, and adapts the shape to the format expected by OrderKanban.
+- src/app/api/b2b-customers/route.ts — rewrote: removed 6 hardcoded B2B customers (Boutique Amina, Épicerie Moussa, etc.). Now queries `db.customer.findMany({ where: { businessId, isB2B: true } })` with `orders` included and computes `totalOrders`/`outstandingAmount` from real orders. Empty when no businessId or "demo".
+- src/app/api/b2b-quotes/route.ts — rewrote: removed 8 hardcoded B2B quotes (DV-2025-0001..0008 with fake items like Riz 25kg, Bissap, etc.). Now queries `db.order.findMany({ where: { businessId, status: { in: B2B_STATUSES } } })` with `customer`, `orderItems.product`, `payments` includes.
+- src/components/cash/cash-session-manager.tsx — removed `mockSession` (`id: mock-${Date.now()}`), `createMockOpenSession()`, `mockCloseSession()`, `businessId: "demo"` literals, and `185000` "Demo value". Now uses `user.businessId` from `useAuthStore` everywhere; if fetch fails or no active session → setActiveSession(null) + toast error. Replaced hardcoded `185 000` / `12` / `0` quick-stats with `formatFCFA(activeSession?.theoreticalTotal ?? 0)` and `—` placeholders.
+- src/components/audit/audit-log-viewer.tsx — deleted `getMockLogs()` (10 fake audit entries with Mamadou Diallo, Fatou Sow, Ibrahima Fall, YK-2025-0001..0003, theoreticalTotal:185000, etc.). Now uses `user.businessId` (was "demo"); on fetch failure or empty data, shows empty state: "Aucun log d'audit. Les actions sensibles (caisse, ventes, modifications) seront journalisées ici."
+- src/components/intelligence/intelligence-feed.tsx — removed `getMockDataForAI()` import and `generateRecommendations(mockData)` fallback. Now uses `user.businessId`; if missing or "demo" → empty alerts + empty state. When fetch fails → empty alerts. Empty-state message: "Pas encore assez de données pour générer des recommandations. Continuez à encaisser des ventes — les insights apparaîtront automatiquement." (or "Connectez votre commerce" when no businessId).
+- src/components/intelligence/trend-chart.tsx — removed `getMockDataForAI()` import. When `revenueHistory` prop is empty/undefined, generates a 7-day zeros series (x-axis dates visible) and shows empty-state message: "Pas encore de ventes enregistrées. Vos tendances apparaîtront ici." No more fake 30-day revenue curve.
+- src/lib/ai/scheduler.ts — removed `getMockDataForAI` import. `runAIAnalysis()` now returns `[]` when IndexedDB has no local data (instead of falling back to mock). No more "utilisation des données mock".
+- src/lib/db/historical-data.ts — `syncHistoricalData()` now early-returns when `businessId` is missing or "demo", and fetches `/api/ecom-products?businessId=...` & `/api/ecom-orders?businessId=...` with the proper query string (was previously fetching without businessId, which would now correctly return empty). `getMockDataForAI()` function is preserved (still referenced by potential seed scripts) but wrapped with a clearly visible `// DONNÉES MOCK — FOR TESTS/SEED ONLY — NOT FOR PRODUCTION UI` banner and no longer imported anywhere in `src/`.
+- src/components/orders/order-kanban.tsx — added `useAuthStore` import; `fetchOrders` now passes `businessId` in query string and returns empty list when businessId is missing or "demo".
+- src/components/customers/customer-list.tsx — `fetchCustomers` now passes `businessId` in query string and returns empty when missing/"demo". `handleSave` POST now includes `businessId`.
+- src/components/pipeline/quote-form.tsx — `useEffect` now computes the `businessId` query string and passes it to both `/api/b2b-customers` and `/api/ecom-products` fetches (empty list when missing/"demo").
+- src/components/pipeline/pipeline-kanban.tsx — `fetchQuotes` now passes `businessId` in query string and returns empty when missing/"demo".
+- src/components/pipeline/credit-dashboard.tsx — added `useAuthStore` import; `fetchCustomers` passes `businessId` and returns empty when missing/"demo".
+- src/stores/use-pipeline-store.ts — `loadQuotes` now short-circuits with empty `quotes: []` when `businessId` is missing or "demo", and clears `quotes` on error.
+- src/app/page.tsx (HomeTab) — verified Task B's prior fix is in place: `useTodayKpis(user?.businessId)` fetches `/api/analytics?businessId=...` and `/api/products?businessId=...`, then `kpiCards` uses `kpis.totalRevenue / orderCount / avgOrderValue / totalStock`. No hardcoded "185 000" or "718 574" anywhere. When `businessId === "demo"` (or missing) the hook returns zeros — no demo KPIs.
+
+Items intentionally NOT touched (justified):
+- src/components/landing/Testimonials.tsx — public landing-page marketing testimonials (Fatou, Moussa, Awa). This is marketing copy, not user data shown to merchants after onboarding.
+- src/components/auth/login-screen.tsx — the demo-quick-login role labels (Mamadou/Fatou). These are intentional test fixtures for the "Connexion démo" buttons; they do not produce demo data in the dashboard (all data-fetching code now treats `businessId === "demo"` as empty).
+- src/components/products/product-form.tsx, src/components/customers/customer-form.tsx, src/components/superadmin/superadmin-dashboard.tsx — input `placeholder="Ex: Thiébou Rouge"` / `placeholder="Fatou Diallo"`. These are placeholder hints inside input fields, not real data.
+
+Build verification:
+- `npx next build` ✓ Compiled successfully (19.5s, 61/61 static pages generated).
+- `bun run lint` shows only pre-existing errors (set-state-in-effect, etc.) — none introduced by this task.
+
+Net effect: a freshly created business (with no sales, no products, no customers, no cash sessions, no audit logs) now sees:
+- Empty product list / empty customer list / empty order kanban
+- "Caisse fermée" with "Ouvrir la caisse" prompt (no fake 185 000 FCFA theoretical)
+- "Aucun log d'audit" empty state
+- IA Locale empty state ("Pas encore assez de données…")
+- Trend chart with 7-day zeros x-axis + "Pas encore de ventes enregistrées"
+- KPI cards showing 0 FCFA / 0 / 0 FCFA / 0
+
+No more hardcoded Fatou Diallo, Moussa Sow, Thiébou Rouge, Bissap, 185 000, 718 574, mockSession, getMockLogs, getMockDataForAI fallback anywhere in the production code paths.

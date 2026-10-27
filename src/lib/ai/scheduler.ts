@@ -8,7 +8,7 @@
 // ============================================================
 
 import { generateRecommendations, type AIAlert, type AIAllData } from "@/lib/ai/rules-engine";
-import { getLocalDataForAI, getMockDataForAI, syncHistoricalData } from "@/lib/db/historical-data";
+import { getLocalDataForAI, syncHistoricalData } from "@/lib/db/historical-data";
 
 /** Intervalle entre deux analyses (1 heure) */
 const ANALYSIS_INTERVAL_MS = 60 * 60 * 1000;
@@ -26,7 +26,7 @@ let syncTimerId: ReturnType<typeof setInterval> | null = null;
 /**
  * Exécute une analyse IA complète :
  * 1. Récupère les données locales (IndexedDB)
- * 2. Si pas de données → utilise les données mock
+ * 2. Si pas de données locales → retourne [] (pas de données démo)
  * 3. Lance le moteur de règles
  * 4. Retourne les alertes générées
  */
@@ -34,13 +34,13 @@ export async function runAIAnalysis(): Promise<AIAlert[]> {
   console.log("[IA] 🔍 Analyse en cours...");
 
   try {
-    // Tenter de récupérer les données locales
-    let data = await getLocalDataForAI();
+    // Récupérer les données locales
+    const data: AIAllData = await getLocalDataForAI();
 
-    // Si pas assez de données locales → utiliser mock pour démo
+    // Si pas de données locales → pas d'alertes (pas de données démo).
     if (data.products.length === 0 && data.sales.length === 0) {
-      console.log("[IA] Pas de données locales — utilisation des données mock");
-      data = getMockDataForAI();
+      console.log("[IA] Pas de données locales — aucune alerte générée");
+      return [];
     }
 
     // Lancer le moteur de règles

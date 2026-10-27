@@ -17,6 +17,7 @@ import {
   Home,
   ShoppingBag,
   Package,
+  Boxes,
   ClipboardList,
   Settings,
   Building2,
@@ -34,11 +35,13 @@ import {
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { Input } from "@/components/ui/input";
+import { useBusinessLogo } from "@/lib/business-logo";
 
 export type TabId =
   | "home"
   | "pos"
   | "stock"
+  | "products"
   | "orders"
   | "history"
   | "pipeline"
@@ -89,6 +92,14 @@ const ALL_TABS: TabConfig[] = [
     gradient: "from-emerald-500 to-teal-500",
     accent: "bg-emerald-500",
     color: "#10B981",
+  },
+  {
+    id: "products",
+    label: "Produits",
+    icon: Boxes,
+    gradient: "from-purple-500 to-indigo-500",
+    accent: "bg-purple-500",
+    color: "#A855F7",
   },
   {
     id: "orders",
@@ -194,6 +205,9 @@ export function AppShell({ activeTab, onTabChange, children }: AppShellProps) {
   const config = useConfigStore((s) => s.config);
   const user = useAuthStore((s) => s.user);
   const [searchQuery, setSearchQuery] = useState("");
+  const { logoUrl } = useBusinessLogo(user?.businessId);
+  const businessName = user?.businessName ?? "YonuKom";
+  const businessInitial = businessName.trim().charAt(0).toUpperCase() || "Y";
 
   // Dynamic tabs based on active modules
   const tabs = useMemo(() => {
@@ -213,19 +227,30 @@ export function AppShell({ activeTab, onTabChange, children }: AppShellProps) {
   const activeTabLabel = activeTabConfig.label;
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#F6F9FE]">
+    <div className="min-h-screen flex flex-col bg-background">
       {/* ---- Sticky Header (mobile + tablet) ---- */}
-      <header className="lg:hidden sticky top-0 z-40 bg-white/85 backdrop-blur-xl border-b border-[#338BE2]/10">
+      <header className="lg:hidden sticky top-0 z-40 bg-background/85 backdrop-blur-xl border-b border-primary/10">
         <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className={`w-9 h-9 rounded-xl bg-gradient-to-br ${activeTabConfig.gradient} flex items-center justify-center shadow-md`}>
-              <img src="/brand/logo-white.png" alt="YonuKom" className="h-7 w-auto" />
-            </div>
+            {logoUrl ? (
+              <img
+                src={logoUrl}
+                alt={businessName}
+                className="h-9 w-9 rounded-xl object-contain bg-white border border-slate-200 shrink-0"
+              />
+            ) : (
+              <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-[#338BE2] to-[#2074C6] flex items-center justify-center shadow-md shrink-0">
+                <span className="text-white font-bold text-sm">
+                  {businessInitial}
+                </span>
+              </div>
+            )}
             <div className="flex flex-col">
-              <span className="font-bold text-base leading-tight text-slate-900">
+              <span className="font-bold text-sm leading-tight text-foreground">
+                YonuKom
               </span>
               {user && (
-                <span className="text-[10px] text-slate-500 leading-tight">
+                <span className="text-[10px] text-muted-foreground leading-tight truncate max-w-[140px]">
                   {user.businessName}
                 </span>
               )}
@@ -242,20 +267,20 @@ export function AppShell({ activeTab, onTabChange, children }: AppShellProps) {
       {/* ---- Content Area ---- */}
       <main className="flex-1 max-w-7xl mx-auto w-full pb-20 lg:pb-6 lg:ml-60">
         {/* ---- Desktop Header (sticky top bar with search) ---- */}
-        <header className="hidden lg:flex sticky top-0 z-30 px-6 py-3.5 items-center justify-between bg-white/85 backdrop-blur-xl border-b border-[#338BE2]/10">
+        <header className="hidden lg:flex sticky top-0 z-30 px-6 py-3.5 items-center justify-between bg-background/85 backdrop-blur-xl border-b border-primary/10">
           <div className="flex items-center gap-3 flex-1 max-w-md">
             <div className="relative w-full">
-              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
                 placeholder={`Rechercher dans ${activeTabLabel.toLowerCase()}...`}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 pr-9 h-10 bg-[#F6F9FE] border-[#338BE2]/15 rounded-xl text-sm focus:bg-white focus:border-[#338BE2]/30 transition-colors"
+                className="pl-10 pr-9 h-10 bg-muted border-primary/15 rounded-xl text-sm focus:bg-card focus:border-primary/30 transition-colors"
               />
               {searchQuery && (
                 <button
                   onClick={() => setSearchQuery("")}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                   aria-label="Effacer"
                 >
                   <X className="w-4 h-4" />
@@ -266,11 +291,11 @@ export function AppShell({ activeTab, onTabChange, children }: AppShellProps) {
 
           <div className="flex items-center gap-2">
             <button
-              className="w-9 h-9 rounded-lg bg-[#F6F9FE] border border-[#338BE2]/15 hover:bg-[#338BE2]/5 hover:border-[#338BE2]/30 flex items-center justify-center text-slate-500 hover:text-[#338BE2] transition-colors relative"
+              className="w-9 h-9 rounded-lg bg-muted border border-primary/15 hover:bg-primary/5 hover:border-primary/30 flex items-center justify-center text-muted-foreground hover:text-primary transition-colors relative"
               aria-label="Notifications"
             >
               <Bell className="w-4 h-4" />
-              <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-amber-400 ring-2 ring-white" />
+              <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-amber-400 ring-2 ring-background" />
             </button>
             <RoleBadge />
             <ConnectivityDot />
@@ -283,7 +308,7 @@ export function AppShell({ activeTab, onTabChange, children }: AppShellProps) {
 
       {/* ---- Bottom Navigation (Mobile) ---- */}
       <nav
-        className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur-xl border-t border-[#338BE2]/10 safe-area-bottom"
+        className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-background/95 backdrop-blur-xl border-t border-primary/10 safe-area-bottom"
         role="tablist"
         aria-label="Navigation principale"
       >
@@ -303,7 +328,7 @@ export function AppShell({ activeTab, onTabChange, children }: AppShellProps) {
                   flex flex-col items-center justify-center gap-1
                   min-h-[56px] min-w-[48px] flex-1 py-2
                   transition-colors duration-150 relative
-                  ${isActive ? "text-slate-900" : "text-slate-400 hover:text-slate-600"}
+                  ${isActive ? "text-foreground" : "text-muted-foreground hover:text-foreground"}
                 `}
                 style={isActive ? { color: tab.color } : undefined}
               >
@@ -334,12 +359,23 @@ export function AppShell({ activeTab, onTabChange, children }: AppShellProps) {
       {/* ---- Desktop Sidebar (lg+) — BLUE with vibrant per-tab accents ---- */}
       <aside className="hidden lg:flex fixed left-0 top-0 bottom-0 w-60 bg-gradient-to-b from-[#338BE2] to-[#2074C6] text-white shadow-[8px_0_24px_-12px_rgba(51,139,226,0.4)] flex-col z-40">
         {/* Logo header */}
-        <div className="px-5 py-5 flex items-center gap-2.5 border-b border-white/15">
-          <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center shadow-md">
-            <img src="/brand/logo-white.png" alt="YonuKom" className="h-6 w-auto" />
-          </div>
-          <div className="flex flex-col">
-            <span className="font-bold text-base leading-tight text-white">
+        <div className="px-5 py-4 flex items-center gap-2.5 border-b border-white/15">
+          {logoUrl ? (
+            <img
+              src={logoUrl}
+              alt={businessName}
+              className="h-10 w-10 rounded-xl object-contain bg-white border border-white/40 shrink-0 shadow-md"
+            />
+          ) : (
+            <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center shadow-md shrink-0">
+              <span className="text-[#338BE2] font-bold text-base">
+                {businessInitial}
+              </span>
+            </div>
+          )}
+          <div className="flex flex-col min-w-0">
+            <span className="font-bold text-sm leading-tight text-white">
+              YonuKom
             </span>
             {user && (
               <span className="text-[10px] text-white/70 leading-tight truncate max-w-[150px]">
@@ -361,13 +397,17 @@ export function AppShell({ activeTab, onTabChange, children }: AppShellProps) {
           </div>
         </div>
 
-        {/* Nav — white-on-blue, with vibrant accent for the active item */}
+        {/* Nav — white-on-blue, with vibrant accent for the active item.
+             Pas de scrollbar visible : on cache le scrollbar webkit et firefox,
+             et on réduit légèrement l'espacement pour que tous les tabs tiennent
+             sans scroll dans la hauteur du viewport. */}
         <nav
-          className="flex-1 py-3 px-3 space-y-1 overflow-y-auto"
+          className="flex-1 py-2 px-3 space-y-0.5 overflow-y-auto
+            [&::-webkit-scrollbar]:hidden [scrollbar-width:none] [-ms-overflow-style:none]"
           role="tablist"
           aria-label="Navigation principale"
         >
-          <p className="px-3 pt-2 pb-1 text-[10px] font-semibold text-white/50 uppercase tracking-wider">
+          <p className="px-3 pt-1 pb-1 text-[10px] font-semibold text-white/50 uppercase tracking-wider">
             Menu
           </p>
           {tabs.map((tab) => {
@@ -382,8 +422,8 @@ export function AppShell({ activeTab, onTabChange, children }: AppShellProps) {
                 aria-label={tab.label}
                 onClick={() => onTabChange(tab.id)}
                 className={`
-                  w-full flex items-center gap-3 px-3 py-2.5 rounded-xl
-                  transition-all duration-150 min-h-[44px] font-medium text-sm relative overflow-hidden
+                  w-full flex items-center gap-3 px-3 py-2 rounded-xl
+                  transition-all duration-150 min-h-[40px] font-medium text-sm relative overflow-hidden
                   ${
                     isActive
                       ? "bg-white text-slate-900 shadow-md"

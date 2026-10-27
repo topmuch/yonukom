@@ -99,6 +99,12 @@ export const usePipelineStore = create<PipelineState>((set, get) => ({
     set({ isLoading: true });
     _lastBusinessId = businessId;
 
+    // Pas de businessId valide → liste vide (pas de données démo).
+    if (!businessId || businessId === "demo") {
+      set({ quotes: [], isLoading: false });
+      return;
+    }
+
     try {
       const res = await fetch("/api/b2b-quotes?businessId=" + encodeURIComponent(businessId));
 
@@ -111,7 +117,7 @@ export const usePipelineStore = create<PipelineState>((set, get) => ({
     } catch (error) {
       const message = error instanceof Error ? error.message : "Erreur de chargement des devis";
       toast.error(message);
-      set({ isLoading: false });
+      set({ quotes: [], isLoading: false });
     }
   },
 

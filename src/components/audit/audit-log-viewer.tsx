@@ -34,6 +34,7 @@ import {
   Filter,
 } from "lucide-react";
 import { motion } from "framer-motion";
+import { useAuthStore } from "@/stores/use-auth-store";
 
 interface AuditLogEntry {
   id: string;
@@ -72,11 +73,20 @@ export function AuditLogViewer() {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [entityFilter, setEntityFilter] = useState<string>("all");
+  const user = useAuthStore((s) => s.user);
+  const businessId = user?.businessId;
 
   const fetchLogs = useCallback(async () => {
+    // Pas de businessId valide → liste vide (pas de données démo).
+    if (!businessId || businessId === "demo") {
+      setLogs([]);
+      setTotal(0);
+      setLoading(false);
+      return;
+    }
     try {
       const params = new URLSearchParams({
-        businessId: "demo",
+        businessId,
         limit: "50",
       });
       if (entityFilter !== "all") {
@@ -86,27 +96,20 @@ export function AuditLogViewer() {
       const res = await fetch(`/api/audit-logs?${params}`);
       if (res.ok) {
         const data = await res.json();
-        // Si aucune donnée en DB, utiliser les données mock
-        if (data.logs && data.logs.length > 0) {
-          setLogs(data.logs);
-          setTotal(data.total || 0);
-        } else {
-          const mockLogs = getMockLogs();
-          setLogs(mockLogs);
-          setTotal(mockLogs.length);
-        }
+        setLogs(data.logs || []);
+        setTotal(data.total || 0);
       } else {
-        setLogs(getMockLogs());
-        setTotal(getMockLogs().length);
+        setLogs([]);
+        setTotal(0);
       }
     } catch {
-      // Show mock data for demo
-      setLogs(getMockLogs());
-      setTotal(getMockLogs().length);
+      // Erreur réseau — on reste en état vide.
+      setLogs([]);
+      setTotal(0);
     } finally {
       setLoading(false);
     }
-  }, [entityFilter]);
+  }, [businessId, entityFilter]);
 
   useEffect(() => {
     fetchLogs();
@@ -235,130 +238,17 @@ export function AuditLogViewer() {
         </ScrollArea>
       ) : (
         <Card>
-          <CardContent className="p-6 text-center">
-            <Shield className="w-10 h-10 text-muted-foreground/40 mx-auto mb-2" />
-            <p className="text-sm text-muted-foreground">
-              Aucune entrée d&apos;audit pour cette période
+          <CardContent className="p-6 text-center space-y-2">
+            <Shield className="w-10 h-10 text-muted-foreground/40 mx-auto" />
+            <p className="text-sm font-medium text-muted-foreground">
+              Aucun log d&apos;audit
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Les actions sensibles (caisse, ventes, modifications) seront journalisées ici.
             </p>
           </CardContent>
         </Card>
       )}
     </div>
   );
-}
-
-// Mock audit logs for demo
-function getMockLogs(): AuditLogEntry[] {
-  const now = new Date();
-  return [
-    {
-      id: "al-1",
-      action: "cash_open",
-      entityType: "cash_session",
-      entityId: "cs-1",
-      details: null,
-      userId: "u-1",
-      user: { id: "u-1", name: "Mamadou Diallo", email: "mamadou@yonukom.sn", role: "gerant" },
-      businessId: "demo",
-      createdAt: new Date(now.getTime() - 3600000 * 8).toISOString(),
-    },
-    {
-      id: "al-2",
-      action: "sale_created",
-      entityType: "order",
-      entityId: "o-1",
-      details: '{"orderNumber":"YK-2025-0001","amount":15000}',
-      userId: "u-2",
-      user: { id: "u-2", name: "Fatou Sow", email: "fatou@yonukom.sn", role: "vendeur" },
-      businessId: "demo",
-      createdAt: new Date(now.getTime() - 3600000 * 7.5).toISOString(),
-    },
-    {
-      id: "al-3",
-      action: "payment_received",
-      entityType: "payment",
-      entityId: "p-1",
-      details: '{"method":"wave","amount":15000}',
-      userId: "u-2",
-      user: { id: "u-2", name: "Fatou Sow", email: "fatou@yonukom.sn", role: "vendeur" },
-      businessId: "demo",
-      createdAt: new Date(now.getTime() - 3600000 * 7).toISOString(),
-    },
-    {
-      id: "al-4",
-      action: "sale_created",
-      entityType: "order",
-      entityId: "o-2",
-      details: '{"orderNumber":"YK-2025-0002","amount":45000}',
-      userId: "u-2",
-      user: { id: "u-2", name: "Fatou Sow", email: "fatou@yonukom.sn", role: "vendeur" },
-      businessId: "demo",
-      createdAt: new Date(now.getTime() - 3600000 * 6).toISOString(),
-    },
-    {
-      id: "al-5",
-      action: "stock_loss",
-      entityType: "product",
-      entityId: "pr-1",
-      details: '{"product":"Thiébou Rouge","quantity":2,"reason":"Brûlé"}',
-      userId: "u-1",
-      user: { id: "u-1", name: "Mamadou Diallo", email: "mamadou@yonukom.sn", role: "gerant" },
-      businessId: "demo",
-      createdAt: new Date(now.getTime() - 3600000 * 5).toISOString(),
-    },
-    {
-      id: "al-6",
-      action: "sale_cancelled",
-      entityType: "order",
-      entityId: "o-3",
-      details: '{"orderNumber":"YK-2025-0003","reason":"Client absent","amount":25000}',
-      userId: "u-2",
-      user: { id: "u-2", name: "Fatou Sow", email: "fatou@yonukom.sn", role: "vendeur" },
-      businessId: "demo",
-      createdAt: new Date(now.getTime() - 3600000 * 4).toISOString(),
-    },
-    {
-      id: "al-7",
-      action: "price_change",
-      entityType: "product",
-      entityId: "pr-2",
-      details: '{"product":"Riz 25kg","oldPrice":7000,"newPrice":7500}',
-      userId: "u-3",
-      user: { id: "u-3", name: "Ibrahima Fall", email: "ibrahima@yonukom.sn", role: "patron" },
-      businessId: "demo",
-      createdAt: new Date(now.getTime() - 3600000 * 3).toISOString(),
-    },
-    {
-      id: "al-8",
-      action: "login",
-      entityType: "user",
-      entityId: "u-1",
-      details: null,
-      userId: "u-1",
-      user: { id: "u-1", name: "Mamadou Diallo", email: "mamadou@yonukom.sn", role: "gerant" },
-      businessId: "demo",
-      createdAt: new Date(now.getTime() - 3600000 * 2).toISOString(),
-    },
-    {
-      id: "al-9",
-      action: "login_failed",
-      entityType: "user",
-      entityId: null,
-      details: '{"email":"unknown@test.com","reason":"user_not_found"}',
-      userId: null,
-      businessId: "demo",
-      createdAt: new Date(now.getTime() - 3600000 * 1.5).toISOString(),
-    },
-    {
-      id: "al-10",
-      action: "cash_close",
-      entityType: "cash_session",
-      entityId: "cs-1",
-      details: '{"theoreticalTotal":185000,"declaredTotal":183000,"difference":-2000}',
-      userId: "u-1",
-      user: { id: "u-1", name: "Mamadou Diallo", email: "mamadou@yonukom.sn", role: "gerant" },
-      businessId: "demo",
-      createdAt: new Date(now.getTime() - 3600000 * 0.5).toISOString(),
-    },
-  ];
 }

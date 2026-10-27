@@ -24,6 +24,16 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -142,6 +152,7 @@ export function InvoiceList() {
   const [creating, setCreating] = useState(false);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Invoice | null>(null);
 
   // --- Fetch invoices ---
   const fetchInvoices = useCallback(async () => {
@@ -203,13 +214,9 @@ export function InvoiceList() {
   };
 
   // --- Delete invoice ---
-  const handleDelete = async (invoice: Invoice) => {
-    if (
-      !confirm(
-        `Supprimer la facture ${invoice.number} ? Cette action est irréversible.`
-      )
-    )
-      return;
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    const invoice = deleteTarget;
     setDeletingId(invoice.id);
     try {
       const res = await fetch(
@@ -222,6 +229,7 @@ export function InvoiceList() {
       }
       setInvoices((prev) => prev.filter((inv) => inv.id !== invoice.id));
       toast.success(`Facture ${invoice.number} supprimée`);
+      setDeleteTarget(null);
     } catch (err) {
       toast.error(
         err instanceof Error ? err.message : "Erreur lors de la suppression"
@@ -435,9 +443,10 @@ export function InvoiceList() {
                             size="sm"
                             variant="ghost"
                             className="h-8 text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950"
-                            onClick={() => handleDelete(inv)}
+                            onClick={() => setDeleteTarget(inv)}
                             disabled={deletingId === inv.id}
                             title="Supprimer"
+                            aria-label={`Supprimer la facture ${inv.number}`}
                           >
                             {deletingId === inv.id ? (
                               <Loader2 className="w-4 h-4 animate-spin" />
@@ -461,6 +470,49 @@ export function InvoiceList() {
           {invoices.length} facture{invoices.length > 1 ? "s" : ""}
         </p>
       )}
+
+      {/* Delete confirmation */}
+      <AlertDialog
+        open={!!deleteTarget}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTarget(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Supprimer cette facture ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Supprimer cette commande/client/facture/devis ? Cette action est
+              irréversible.
+              {deleteTarget && (
+                <span className="block mt-1 font-mono text-xs">
+                  {deleteTarget.number}
+                </span>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={!!deletingId}>Annuler</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={!!deletingId}
+              onClick={(e) => {
+                e.preventDefault();
+                handleDelete();
+              }}
+            >
+              {deletingId ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin mr-1" />
+                  Suppression...
+                </>
+              ) : (
+                "Supprimer"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* New invoice dialog */}
       <NewInvoiceDialog

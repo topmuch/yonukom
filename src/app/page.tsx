@@ -40,6 +40,7 @@ import { PipelineKanban } from "@/components/pipeline/pipeline-kanban";
 import { CreditDashboard } from "@/components/pipeline/credit-dashboard";
 import { QuoteForm } from "@/components/pipeline/quote-form";
 import { StockDashboard } from "@/components/stock/stock-dashboard";
+import { ProductsTab } from "@/components/products/products-tab";
 import { CustomerList } from "@/components/customers/customer-list";
 import { CashSessionManager } from "@/components/cash/cash-session-manager";
 import { AuditLogViewer } from "@/components/audit/audit-log-viewer";
@@ -61,6 +62,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { ProductForm, type ProductFormData } from "@/components/products/product-form";
+import { formatFCFAShort } from "@/lib/fcfa";
 import {
   ShoppingBag,
   Package,
@@ -771,6 +773,7 @@ function DashboardMain({ onLogout }: { onLogout: () => void }) {
       {activeTab === "home" && <HomeTab onTabChange={setActiveTab} onLogout={onLogout} />}
       {activeTab === "pos" && <PosScreen />}
       {activeTab === "stock" && <StockTab />}
+      {activeTab === "products" && <ProductsTab />}
       {activeTab === "orders" && <OrdersTab />}
       {activeTab === "history" && <HistoryTab />}
       {activeTab === "pipeline" && <PipelineTab />}
@@ -787,16 +790,99 @@ function DashboardMain({ onLogout }: { onLogout: () => void }) {
 }
 
 // --- Home Tab ---
+interface KpiData {
+  totalRevenue: number;
+  orderCount: number;
+  avgOrderValue: number;
+  totalStock: number;
+}
+
+function useTodayKpis(businessId?: string) {
+  const [data, setData] = useState<KpiData>({
+    totalRevenue: 0,
+    orderCount: 0,
+    avgOrderValue: 0,
+    totalStock: 0,
+  });
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<boolean>(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!businessId || businessId === "demo") {
+      setData({ totalRevenue: 0, orderCount: 0, avgOrderValue: 0, totalStock: 0 });
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    Promise.all([
+      fetch(`/api/analytics?businessId=${encodeURIComponent(businessId)}&period=today`).then((r) => r.ok ? r.json() : null),
+      fetch(`/api/products?businessId=${encodeURIComponent(businessId)}`).then((r) => r.ok ? r.json() : null),
+    ])
+      .then(([a, p]) => {
+        if (cancelled) return;
+        const m = a?.metrics ?? {};
+        const productsList: Array<{ quantity?: number; stock?: number }> = p?.products ?? p ?? [];
+        const totalStock = productsList.reduce(
+          (sum: number, pr: { quantity?: number; stock?: number }) =>
+            sum + (typeof pr.quantity === "number" ? pr.quantity : typeof pr.stock === "number" ? pr.stock : 0),
+          0,
+        );
+        setData({
+          totalRevenue: m.totalRevenue ?? 0,
+          orderCount: m.orderCount ?? 0,
+          avgOrderValue: m.avgOrderValue ?? 0,
+          totalStock,
+        });
+        setError(false);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setError(true);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [businessId]);
+
+  return { data, loading, error };
+}
+
 function HomeTab({ onTabChange, onLogout }: { onTabChange: (tab: TabId) => void; onLogout: () => void }) {
   const isB2B = useConfigStore((s) => s.config?.pipeline_b2b ?? false);
   const user = useAuthStore((s) => s.user);
   const [activeView, setActiveView] = useState<"dashboard" | "analytics" | "intelligence">("dashboard");
+  const { data: kpis, loading: kpisLoading } = useTodayKpis(user?.businessId);
 
-  const stats = [
-    { label: "Ventes aujourd'hui", value: "185 000 FCFA", accent: "text-yk-emerald", icon: TrendingUp },
-    { label: isB2B ? "Devis" : "Commandes", value: isB2B ? "8" : "12", accent: "text-yk-deep", icon: isB2B ? FileText : Receipt },
-    { label: "Produits", value: "25", accent: "text-yk-deep-light", icon: Package },
-    { label: "Clients", value: isB2B ? "6 B2B" : "6", accent: "text-yk-amber", icon: Users },
+  // KPI cards — multi-color gradients, white text, real data (no hardcoded values)
+  const kpiCards = [
+    {
+      label: "Ventes aujourd'hui",
+      value: kpis.totalRevenue > 0 ? formatFCFAShort(kpis.totalRevenue) : "0 FCFA",
+      icon: TrendingUp,
+      gradient: "from-emerald-500 to-teal-600",
+    },
+    {
+      label: isB2B ? "Devis du jour" : "Commandes",
+      value: `${kpis.orderCount}`,
+      icon: isB2B ? FileText : Receipt,
+      gradient: "from-blue-500 to-indigo-600",
+    },
+    {
+      label: "Panier moyen",
+      value: kpis.avgOrderValue > 0 ? formatFCFAShort(kpis.avgOrderValue) : "0 FCFA",
+      icon: ShoppingBag,
+      gradient: "from-purple-500 to-pink-600",
+    },
+    {
+      label: "Stock total",
+      value: `${kpis.totalStock}`,
+      icon: Package,
+      gradient: "from-amber-500 to-orange-600",
+    },
   ];
 
   const quickActions = [
@@ -837,24 +923,39 @@ function HomeTab({ onTabChange, onLogout }: { onTabChange: (tab: TabId) => void;
         <DashboardAnalytics />
       ) : (
         <>
-          <div className="grid grid-cols-2 gap-3">
-            {stats.map((stat, i) => {
-              const Icon = stat.icon;
+          {/* KPI cards — vibrant gradients, white text, 2 cols mobile / 4 cols desktop */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            {kpiCards.map((card, i) => {
+              const Icon = card.icon;
               return (
-                <motion.div key={i} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.1 }}>
-                  <Card className="overflow-hidden hover:shadow-md transition-shadow">
-                    <CardContent className="p-4 relative">
-                      {/* Subtle accent stripe at top */}
-                      <div className={`absolute top-0 left-0 right-0 h-1 ${stat.accent.replace("text-", "bg-")}/80`} />
-                      <div className="flex items-center justify-between mb-2 pt-1">
-                        <div className={`p-1.5 rounded-md bg-muted`}>
-                          <Icon className={`w-4 h-4 ${stat.accent}`} />
-                        </div>
+                <motion.div
+                  key={i}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: i * 0.08 }}
+                >
+                  <div
+                    className={`relative overflow-hidden rounded-2xl shadow-lg p-4 bg-gradient-to-br ${card.gradient} text-white`}
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="p-1.5 rounded-lg bg-white/20 backdrop-blur-sm">
+                        <Icon className="w-4 h-4 text-white" strokeWidth={2.2} />
                       </div>
-                      <p className={`text-xl font-bold ${stat.accent}`}>{stat.value}</p>
-                      <p className="text-xs text-muted-foreground mt-0.5">{stat.label}</p>
-                    </CardContent>
-                  </Card>
+                    </div>
+                    {kpisLoading ? (
+                      <>
+                        <div className="h-6 w-24 bg-white/30 rounded animate-pulse mb-1.5" />
+                        <div className="h-3 w-20 bg-white/20 rounded animate-pulse" />
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-xl lg:text-2xl font-bold leading-tight text-white drop-shadow-sm break-words">
+                          {card.value}
+                        </p>
+                        <p className="text-[11px] text-white/85 mt-1 font-medium">{card.label}</p>
+                      </>
+                    )}
+                  </div>
                 </motion.div>
               );
             })}

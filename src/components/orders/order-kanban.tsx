@@ -17,6 +17,7 @@ import { Receipt, ShoppingCart, Package, CheckCircle2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { generateWhatsAppLink } from "@/lib/whatsapp";
 import type { EcomOrderStatus } from "@/types/index";
+import { useAuthStore } from "@/stores/use-auth-store";
 
 interface EcomOrder {
   id: string;
@@ -63,10 +64,21 @@ export function OrderKanban() {
   const [loading, setLoading] = useState(true);
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
 
+  const user = useAuthStore((s) => s.user);
+  const businessId = user?.businessId;
+
   // Fetch orders
   const fetchOrders = useCallback(async () => {
+    // Pas de businessId valide → liste vide (pas de données démo).
+    if (!businessId || businessId === "demo") {
+      setOrders([]);
+      setLoading(false);
+      return;
+    }
     try {
-      const res = await fetch("/api/ecom-orders");
+      const res = await fetch(
+        `/api/ecom-orders?businessId=${encodeURIComponent(businessId)}`
+      );
       if (!res.ok) throw new Error("Failed to fetch");
       const data = await res.json();
       setOrders(data.orders || []);
@@ -75,7 +87,7 @@ export function OrderKanban() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [businessId]);
 
   useEffect(() => {
     fetchOrders();

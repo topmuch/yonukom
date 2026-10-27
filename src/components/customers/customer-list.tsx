@@ -12,20 +12,45 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent } from "@/components/ui/card";
-import { Plus, Search, Users, UserPlus } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { useAuthStore } from "@/stores/use-auth-store";
+import { toast } from "sonner";
+import { Plus, Search, Users, UserPlus, Trash2, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 export function CustomerList() {
+  const user = useAuthStore((s) => s.user);
+  const businessId = user?.businessId;
+
   const [customers, setCustomers] = useState<CustomerCardData[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [formOpen, setFormOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<CustomerCardData | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<CustomerCardData | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   // Fetch customers
   const fetchCustomers = useCallback(async () => {
+    // Pas de businessId valide → liste vide (pas de données démo).
+    if (!businessId || businessId === "demo") {
+      setCustomers([]);
+      setLoading(false);
+      return;
+    }
     try {
-      const res = await fetch("/api/ecom-customers");
+      const res = await fetch(
+        `/api/ecom-customers?businessId=${encodeURIComponent(businessId)}`
+      );
       if (!res.ok) throw new Error("Failed to fetch");
       const data = await res.json();
       setCustomers(data.customers || []);
@@ -34,7 +59,7 @@ export function CustomerList() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [businessId]);
 
   useEffect(() => {
     fetchCustomers();
@@ -51,7 +76,7 @@ export function CustomerList() {
   const handleSave = async (data: CustomerFormData) => {
     try {
       if (data.id) {
-        // Update locally (mock)
+        // Update locally (no PUT endpoint on ecom-customers for now)
         setCustomers((prev) =>
           prev.map((c) =>
             c.id === data.id
@@ -60,11 +85,11 @@ export function CustomerList() {
           )
         );
       } else {
-        // Create
+        // Create — forwards businessId so the API can persist it.
         const res = await fetch("/api/ecom-customers", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(data),
+          body: JSON.stringify({ ...data, businessId }),
         });
         if (res.ok) {
           const newCustomer = await res.json();
@@ -86,6 +111,58 @@ export function CustomerList() {
   const handleQuickAdd = () => {
     setEditingCustomer(null);
     setFormOpen(true);
+  };
+
+  // --- Delete customer ---
+  // Optimistically removes the row, then calls DELETE /api/customers/[id].
+  // If the API returns 409 (outstanding orders), we restore the row and
+  // show a friendly error. Mock customers (ecom-customers) won't exist in
+  // DB → 404 is treated as success since the row is already gone locally.
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    const target = deleteTarget;
+    setDeletingId(target.id);
+
+    // Optimistic removal
+    setCustomers((prev) => prev.filter((c) => c.id !== target.id));
+
+    try {
+      const url = businessId
+        ? `/api/customers/${target.id}?businessId=${encodeURIComponent(businessId)}`
+        : `/api/customers/${target.id}`;
+      const res = await fetch(url, { method: "DELETE" });
+
+      if (res.status === 409) {
+        // Restore — customer has outstanding orders
+        const err = await res.json().catch(() => ({}));
+        setCustomers((prev) =>
+          prev.some((c) => c.id === target.id) ? prev : [target, ...prev]
+        );
+        toast.error(
+          err.error ||
+            "Impossible de supprimer ce client : des commandes en cours y sont rattachées."
+        );
+        return;
+      }
+
+      if (!res.ok && res.status !== 404) {
+        const err = await res.json().catch(() => ({}));
+        // Restore on unexpected error
+        setCustomers((prev) =>
+          prev.some((c) => c.id === target.id) ? prev : [target, ...prev]
+        );
+        throw new Error(err.error || "Échec de la suppression");
+      }
+
+      toast.success(`Client ${target.name} supprimé`);
+      setDeleteTarget(null);
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Erreur lors de la suppression"
+      );
+    } finally {
+      setDeletingId(null);
+    }
   };
 
   // Loading skeleton
@@ -134,11 +211,32 @@ export function CustomerList() {
         <div className="space-y-0.5">
           <AnimatePresence mode="popLayout">
             {filtered.map((customer) => (
-              <CustomerCard
+              <div
                 key={customer.id}
-                customer={customer}
-                onClick={handleEdit}
-              />
+                className="flex items-center gap-1"
+              >
+                <div className="flex-1 min-w-0">
+                  <CustomerCard
+                    customer={customer}
+                    onClick={handleEdit}
+                  />
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-9 w-9 p-0 shrink-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                  disabled={deletingId === customer.id}
+                  onClick={() => setDeleteTarget(customer)}
+                  title="Supprimer"
+                  aria-label={`Supprimer le client ${customer.name}`}
+                >
+                  {deletingId === customer.id ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Trash2 className="w-4 h-4" />
+                  )}
+                </Button>
+              </div>
             ))}
           </AnimatePresence>
         </div>
@@ -189,6 +287,49 @@ export function CustomerList() {
         onOpenChange={setFormOpen}
         onSave={handleSave}
       />
+
+      {/* Delete confirmation */}
+      <AlertDialog
+        open={!!deleteTarget}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTarget(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Supprimer ce client ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Supprimer cette commande/client/facture/devis ? Cette action est
+              irréversible.
+              {deleteTarget && (
+                <span className="block mt-1 text-xs font-medium">
+                  {deleteTarget.name} — {deleteTarget.phone}
+                </span>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={!!deletingId}>Annuler</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={!!deletingId}
+              onClick={(e) => {
+                e.preventDefault();
+                handleDelete();
+              }}
+            >
+              {deletingId ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin mr-1" />
+                  Suppression...
+                </>
+              ) : (
+                "Supprimer"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

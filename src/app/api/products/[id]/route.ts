@@ -96,6 +96,7 @@ export async function PUT(
 }
 
 // DELETE /api/products/:id (soft delete — only patron or gerant)
+// Requires ?businessId=xxx — validated against the product's businessId.
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -104,10 +105,18 @@ export async function DELETE(
     const { id } = await params
     const { searchParams } = new URL(request.url)
     const userRole = searchParams.get('userRole')
+    const businessId = searchParams.get('businessId')
+
+    if (!businessId) {
+      return NextResponse.json(
+        { error: 'businessId est requis' },
+        { status: 400 }
+      )
+    }
 
     if (userRole !== 'patron' && userRole !== 'gerant') {
       return NextResponse.json(
-        { error: 'Only patron or gerant can delete products' },
+        { error: 'Seul un patron ou gérant peut supprimer un produit' },
         { status: 403 }
       )
     }
@@ -118,8 +127,15 @@ export async function DELETE(
 
     if (!existingProduct) {
       return NextResponse.json(
-        { error: 'Product not found' },
+        { error: 'Produit introuvable' },
         { status: 404 }
+      )
+    }
+
+    if (existingProduct.businessId !== businessId) {
+      return NextResponse.json(
+        { error: 'Accès refusé : ce produit n\'appartient pas à votre business' },
+        { status: 403 }
       )
     }
 
@@ -132,7 +148,7 @@ export async function DELETE(
   } catch (error) {
     console.error('Error deleting product:', error)
     return NextResponse.json(
-      { error: 'Failed to delete product' },
+      { error: 'Échec de la suppression du produit' },
       { status: 500 }
     )
   }

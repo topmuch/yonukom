@@ -10,6 +10,117 @@ const VALID_TRANSITIONS: Record<string, string[]> = {
   cancelled: [],
 }
 
+// DELETE /api/quotes/:id — hard delete B2B quote (Order with B2B status)
+// Requires ?businessId=xxx — validated against the quote's businessId.
+// Releases reserved stock for quote_validated status before deletion.
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params
+    const { searchParams } = new URL(request.url)
+    const businessId = searchParams.get('businessId')
+
+    if (!businessId) {
+      return NextResponse.json(
+        { error: 'businessId est requis' },
+        { status: 400 }
+      )
+    }
+
+    const existingQuote = await db.order.findUnique({
+      where: { id },
+      include: {
+        orderItems: true,
+      },
+    })
+
+    if (!existingQuote) {
+      return NextResponse.json(
+        { error: 'Devis introuvable' },
+        { status: 404 }
+      )
+    }
+
+    // Verify this is a B2B quote
+    const b2bStatuses = ['draft', 'quote_validated', 'delivery_note', 'invoiced', 'cancelled']
+    if (!b2bStatuses.includes(existingQuote.status)) {
+      return NextResponse.json(
+        { error: 'Cette commande n\'est pas un devis B2B' },
+        { status: 400 }
+      )
+    }
+
+    if (existingQuote.businessId !== businessId) {
+      return NextResponse.json(
+        { error: 'Accès refusé : ce devis n\'appartient pas à votre business' },
+        { status: 403 }
+      )
+    }
+
+    await db.$transaction(async (tx) => {
+      // If quote is in 'quote_validated' status, reserved stock still exists
+      // — release it before deleting the quote.
+      if (existingQuote.status === 'quote_validated') {
+        for (const item of existingQuote.orderItems) {
+          await tx.product.update({
+            where: { id: item.productId },
+            data: {
+              reservedQuantity: {
+                decrement: item.quantity,
+              },
+            },
+          })
+
+          await tx.stockMovement.create({
+            data: {
+              type: 'reservation_release',
+              quantity: item.quantity,
+              productId: item.productId,
+              orderId: existingQuote.id,
+              reason: 'Devis supprimé',
+            },
+          })
+        }
+      }
+
+      // Cascade delete order items + payments
+      await tx.orderItem.deleteMany({ where: { orderId: id } })
+      await tx.payment.deleteMany({ where: { orderId: id } })
+
+      // Disconnect invoices (keep history)
+      await tx.invoice.updateMany({
+        where: { orderId: id },
+        data: { orderId: null },
+      })
+
+      // Null out stock movement references
+      await tx.stockMovement.updateMany({
+        where: { orderId: id },
+        data: { orderId: null },
+      })
+
+      // Null out commissions
+      await tx.commission.updateMany({
+        where: { orderId: id },
+        data: { orderId: null },
+      })
+
+      // Finally delete the quote
+      await tx.order.delete({ where: { id } })
+    })
+
+    return NextResponse.json({ success: true, id })
+  } catch (error) {
+    console.error('Error deleting quote:', error)
+    return NextResponse.json(
+      { error: 'Échec de la suppression du devis' },
+      { status: 500 }
+    )
+  }
+}
+
 // GET /api/quotes/:id — single quote with full details
 export async function GET(
   request: NextRequest,

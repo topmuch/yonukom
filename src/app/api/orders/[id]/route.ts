@@ -39,6 +39,82 @@ export async function GET(
   }
 }
 
+// DELETE /api/orders/:id — hard delete order + cascade (items, payments; null invoices.orderId)
+// Requires ?businessId=xxx — validated against the order's businessId.
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params
+    const { searchParams } = new URL(request.url)
+    const businessId = searchParams.get('businessId')
+
+    if (!businessId) {
+      return NextResponse.json(
+        { error: 'businessId est requis' },
+        { status: 400 }
+      )
+    }
+
+    const existing = await db.order.findUnique({
+      where: { id },
+      include: { orderItems: true },
+    })
+
+    if (!existing) {
+      return NextResponse.json(
+        { error: 'Commande introuvable' },
+        { status: 404 }
+      )
+    }
+
+    if (existing.businessId !== businessId) {
+      return NextResponse.json(
+        { error: 'Accès refusé : cette commande n\'appartient pas à votre business' },
+        { status: 403 }
+      )
+    }
+
+    await db.$transaction(async (tx) => {
+      // 1. Delete order items
+      await tx.orderItem.deleteMany({ where: { orderId: id } })
+
+      // 2. Delete payments
+      await tx.payment.deleteMany({ where: { orderId: id } })
+
+      // 3. Disconnect invoices (set orderId = null — keeps invoice history)
+      await tx.invoice.updateMany({
+        where: { orderId: id },
+        data: { orderId: null },
+      })
+
+      // 4. Null out stock movement references (orderId is just a string field, no FK)
+      await tx.stockMovement.updateMany({
+        where: { orderId: id },
+        data: { orderId: null },
+      })
+
+      // 5. Null out commissions tied to this order (keep audit trail, release FK)
+      await tx.commission.updateMany({
+        where: { orderId: id },
+        data: { orderId: null },
+      })
+
+      // 6. Finally delete the order
+      await tx.order.delete({ where: { id } })
+    })
+
+    return NextResponse.json({ success: true, id })
+  } catch (error) {
+    console.error('Error deleting order:', error)
+    return NextResponse.json(
+      { error: 'Échec de la suppression de la commande' },
+      { status: 500 }
+    )
+  }
+}
+
 // PUT /api/orders/:id — update status; special handling for cancellation
 export async function PUT(
   request: NextRequest,

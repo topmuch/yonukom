@@ -1,56 +1,99 @@
 // ============================================================
-// YonuKom — API E-Commerce Customers (mock for dev)
+// YonuKom — API E-Commerce Customers
+// Compat endpoint : conserve la forme { customers, total } mais
+// interroge la DB réelle (comme /api/customers).
+// Nouveau business = liste vide (pas de données démo).
 // ============================================================
 
 import { NextRequest, NextResponse } from "next/server";
+import { db } from "@/lib/db";
 
-const MOCK_CUSTOMERS = [
-  { id: "c1", name: "Fatou Diallo", phone: "771234567", paymentMethod: "wave", isB2B: false, totalOrders: 2 },
-  { id: "c2", name: "Moussa Sow", phone: "782345678", paymentMethod: "orange_money", isB2B: false, totalOrders: 2 },
-  { id: "c3", name: "Aïssa Ba", phone: "763456789", paymentMethod: "cash", isB2B: false, totalOrders: 1 },
-  { id: "c4", name: "Ibrahima Ndiaye", phone: "774567890", paymentMethod: "wave", isB2B: true, totalOrders: 1 },
-  { id: "c5", name: "Mariama Fall", phone: "705678901", paymentMethod: "orange_money", isB2B: false, totalOrders: 1 },
-  { id: "c6", name: "Ousmane Sy", phone: "776789012", paymentMethod: "cash", isB2B: true, totalOrders: 3 },
-];
-
+// GET /api/ecom-customers?businessId=xxx&search=yyy
+// Si businessId absent ou "demo" → liste vide.
 export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url);
-  const search = searchParams.get("search");
+  try {
+    const { searchParams } = new URL(request.url);
+    const businessId = searchParams.get("businessId");
+    const search = searchParams.get("search");
 
-  let filtered = MOCK_CUSTOMERS;
-  if (search) {
-    const q = search.toLowerCase();
-    filtered = MOCK_CUSTOMERS.filter(
-      (c) => c.name.toLowerCase().includes(q) || c.phone.includes(q)
-    );
+    if (!businessId || businessId === "demo") {
+      return NextResponse.json({ customers: [], total: 0 });
+    }
+
+    const where: Record<string, unknown> = {
+      businessId,
+      isB2B: true,
+    };
+
+    if (search) {
+      where.OR = [
+        { name: { contains: search } },
+        { phone: { contains: search } },
+      ];
+    }
+
+    const customers = await db.customer.findMany({
+      where,
+      orderBy: { name: "asc" },
+    });
+
+    return NextResponse.json({ customers, total: customers.length });
+  } catch (error) {
+    console.error("[ecom-customers] GET error:", error);
+    return NextResponse.json({ customers: [], total: 0 });
   }
-
-  return NextResponse.json({ customers: filtered, total: filtered.length });
 }
 
-// POST — add customer (mock)
+// POST /api/ecom-customers — crée un nouveau client B2B
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { name, phone } = body;
-
-    if (!name || !phone) {
-      return NextResponse.json({ error: "name and phone are required" }, { status: 400 });
-    }
-
-    const newCustomer = {
-      id: `c${Date.now()}`,
+    const {
       name,
       phone,
-      paymentMethod: body.paymentMethod || "cash",
-      isB2B: body.isB2B || false,
-      totalOrders: 0,
+      businessId,
+      email,
+      address,
+      paymentMethod,
+      isB2B,
+      creditLimit,
+    } = body as {
+      name?: string;
+      phone?: string;
+      businessId?: string;
+      email?: string;
+      address?: string;
+      paymentMethod?: string;
+      isB2B?: boolean;
+      creditLimit?: number;
     };
 
-    MOCK_CUSTOMERS.push(newCustomer);
+    if (!name || !phone || !businessId || businessId === "demo") {
+      return NextResponse.json(
+        { error: "Champs obligatoires manquants : name, phone, businessId" },
+        { status: 400 }
+      );
+    }
 
-    return NextResponse.json(newCustomer, { status: 201 });
-  } catch {
-    return NextResponse.json({ error: "Failed to create customer" }, { status: 500 });
+    const customer = await db.customer.create({
+      data: {
+        name: String(name).trim(),
+        phone: String(phone).trim(),
+        businessId: String(businessId),
+        email: email || null,
+        address: address || null,
+        paymentMethod: paymentMethod || "cash",
+        isB2B: isB2B ?? true,
+        creditLimit: creditLimit !== undefined ? Number(creditLimit) : null,
+      },
+    });
+
+    return NextResponse.json(customer, { status: 201 });
+  } catch (error) {
+    console.error("[ecom-customers] POST error:", error);
+    return NextResponse.json(
+      { error: "Failed to create customer" },
+      { status: 500 }
+    );
   }
 }

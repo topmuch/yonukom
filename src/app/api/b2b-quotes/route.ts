@@ -1,282 +1,89 @@
-import { NextResponse } from "next/server";
+// ============================================================
+// YonuKom — API B2B Quotes (Pipeline B2B)
+// Retourne les devis/commandes B2B du commerce (filtré par businessId).
+// Statuts B2B : "draft" | "quote_validated" | "delivery_note" | "invoiced"
+// Nouveau business = liste vide (pas de données démo).
+// ============================================================
 
-const b2bQuotes = [
-  // ─── Brouillon (draft) ───
-  {
-    id: "quote_1",
-    orderNumber: "DV-2025-0001",
-    status: "draft",
-    subtotal: 127500,
-    totalAmount: 127500,
-    paidAmount: 0,
-    remainingAmount: 127500,
-    deliveryAddress: "Médina, Dakar",
-    deliveryDate: null,
-    isDelivered: false,
-    isCancelled: false,
-    whatsappSent: false,
-    isOfflineCreated: false,
-    businessId: "biz_1",
-    customerId: "b2b_1",
-    customer: {
-      id: "b2b_1",
-      name: "Boutique Amina",
-      phone: "221771234567",
-      isB2B: true,
-      creditLimit: 500000,
-    },
-    orderItems: [
-      { id: "qi_1", productName: "Riz 25kg", quantity: 10, unitPrice: 10000, totalPrice: 100000 },
-      { id: "qi_2", productName: "Huile 5L", quantity: 5, unitPrice: 3500, totalPrice: 17500 },
-      { id: "qi_3", productName: "Sucre 1kg", quantity: 20, unitPrice: 500, totalPrice: 10000 },
-    ],
-    payments: [],
-    createdAt: "2025-01-15T10:30:00Z",
-    updatedAt: "2025-01-15T10:30:00Z",
-  },
-  {
-    id: "quote_2",
-    orderNumber: "DV-2025-0002",
-    status: "draft",
-    subtotal: 47500,
-    totalAmount: 47500,
-    paidAmount: 0,
-    remainingAmount: 47500,
-    deliveryAddress: "Parcelles Assainies, Dakar",
-    deliveryDate: null,
-    isDelivered: false,
-    isCancelled: false,
-    whatsappSent: false,
-    isOfflineCreated: false,
-    businessId: "biz_1",
-    customerId: "b2b_2",
-    customer: {
-      id: "b2b_2",
-      name: "Épicerie Moussa",
-      phone: "221782345678",
-      isB2B: true,
-      creditLimit: 300000,
-    },
-    orderItems: [
-      { id: "qi_4", productName: "Savon 500g", quantity: 50, unitPrice: 500, totalPrice: 25000 },
-      { id: "qi_5", productName: "Lait concentré", quantity: 30, unitPrice: 750, totalPrice: 22500 },
-    ],
-    payments: [],
-    createdAt: "2025-01-16T09:15:00Z",
-    updatedAt: "2025-01-16T09:15:00Z",
-  },
+import { NextRequest, NextResponse } from "next/server";
+import { db } from "@/lib/db";
 
-  // ─── Devis Validé (quote_validated) ───
-  {
-    id: "quote_3",
-    orderNumber: "DV-2025-0003",
-    status: "quote_validated",
-    subtotal: 215000,
-    totalAmount: 215000,
-    paidAmount: 100000,
-    remainingAmount: 115000,
-    deliveryAddress: "Plateau, Dakar",
-    deliveryDate: "2025-01-20T08:00:00Z",
-    isDelivered: false,
-    isCancelled: false,
-    whatsappSent: true,
-    isOfflineCreated: false,
-    businessId: "biz_1",
-    customerId: "b2b_3",
-    customer: {
-      id: "b2b_3",
-      name: "Restaurant Le Baobab",
-      phone: "221763456789",
-      isB2B: true,
-      creditLimit: 1000000,
-    },
-    orderItems: [
-      { id: "qi_6", productName: "Riz 25kg", quantity: 20, unitPrice: 10000, totalPrice: 200000 },
-      { id: "qi_7", productName: "Huile 5L", quantity: 10, unitPrice: 3500, totalPrice: 35000 },
-      { id: "qi_8", productName: "Oignon 10kg", quantity: 5, unitPrice: 3000, totalPrice: 15000 },
-      { id: "qi_9", productName: "Tomate concentré", quantity: 30, unitPrice: 500, totalPrice: 15000 },
-    ],
-    payments: [
-      { id: "pay_1", amount: 100000, method: "virement", paidAt: "2025-01-17T14:00:00Z" },
-    ],
-    createdAt: "2025-01-17T11:00:00Z",
-    updatedAt: "2025-01-17T14:00:00Z",
-  },
-  {
-    id: "quote_4",
-    orderNumber: "DV-2025-0004",
-    status: "quote_validated",
-    subtotal: 190000,
-    totalAmount: 190000,
-    paidAmount: 0,
-    remainingAmount: 190000,
-    deliveryAddress: "Keur Massar, Dakar",
-    deliveryDate: "2025-01-22T09:00:00Z",
-    isDelivered: false,
-    isCancelled: false,
-    whatsappSent: true,
-    isOfflineCreated: false,
-    businessId: "biz_1",
-    customerId: "b2b_4",
-    customer: {
-      id: "b2b_4",
-      name: "Supermarché Keur Massar",
-      phone: "221704567890",
-      isB2B: true,
-      creditLimit: 2000000,
-    },
-    orderItems: [
-      { id: "qi_10", productName: "Café Touba", quantity: 100, unitPrice: 1000, totalPrice: 100000 },
-      { id: "qi_11", productName: "Thé Ataya", quantity: 80, unitPrice: 800, totalPrice: 64000 },
-      { id: "qi_12", productName: "Bissap", quantity: 50, unitPrice: 520, totalPrice: 26000 },
-    ],
-    payments: [],
-    createdAt: "2025-01-18T08:45:00Z",
-    updatedAt: "2025-01-18T08:45:00Z",
-  },
+const B2B_STATUSES = ["draft", "quote_validated", "delivery_note", "invoiced"];
 
-  // ─── Bon de Livraison (delivery_note) ───
-  {
-    id: "quote_5",
-    orderNumber: "DV-2025-0005",
-    status: "delivery_note",
-    subtotal: 132500,
-    totalAmount: 132500,
-    paidAmount: 132500,
-    remainingAmount: 0,
-    deliveryAddress: "Grand Yoff, Dakar",
-    deliveryDate: "2025-01-19T10:00:00Z",
-    isDelivered: true,
-    isCancelled: false,
-    whatsappSent: true,
-    isOfflineCreated: false,
-    businessId: "biz_1",
-    customerId: "b2b_5",
-    customer: {
-      id: "b2b_5",
-      name: "Alimentation Cheikh",
-      phone: "221775678901",
-      isB2B: true,
-      creditLimit: 400000,
-    },
-    orderItems: [
-      { id: "qi_13", productName: "Riz 25kg", quantity: 15, unitPrice: 10000, totalPrice: 150000 },
-      { id: "qi_14", productName: "Sucre 1kg", quantity: 40, unitPrice: 500, totalPrice: 20000 },
-    ],
-    payments: [
-      { id: "pay_2", amount: 132500, method: "cash", paidAt: "2025-01-19T10:30:00Z" },
-    ],
-    createdAt: "2025-01-19T09:00:00Z",
-    updatedAt: "2025-01-19T10:30:00Z",
-  },
-  {
-    id: "quote_6",
-    orderNumber: "DV-2025-0006",
-    status: "delivery_note",
-    subtotal: 104000,
-    totalAmount: 104000,
-    paidAmount: 50000,
-    remainingAmount: 54000,
-    deliveryAddress: "Pikine, Dakar",
-    deliveryDate: "2025-01-20T11:00:00Z",
-    isDelivered: false,
-    isCancelled: false,
-    whatsappSent: true,
-    isOfflineCreated: false,
-    businessId: "biz_1",
-    customerId: "b2b_6",
-    customer: {
-      id: "b2b_6",
-      name: "Boutique Fatou",
-      phone: "221786789012",
-      isB2B: true,
-      creditLimit: 500000,
-    },
-    orderItems: [
-      { id: "qi_15", productName: "Huile 5L", quantity: 8, unitPrice: 3500, totalPrice: 28000 },
-      { id: "qi_16", productName: "Savon 500g", quantity: 100, unitPrice: 500, totalPrice: 50000 },
-      { id: "qi_17", productName: "Lait concentré", quantity: 40, unitPrice: 750, totalPrice: 30000 },
-    ],
-    payments: [
-      { id: "pay_3", amount: 50000, method: "wave", paidAt: "2025-01-20T11:15:00Z" },
-    ],
-    createdAt: "2025-01-20T10:00:00Z",
-    updatedAt: "2025-01-20T11:15:00Z",
-  },
+// GET /api/b2b-quotes?businessId=xxx
+// Si businessId absent ou "demo" → liste vide.
+export async function GET(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const businessId = searchParams.get("businessId");
 
-  // ─── Facturé (invoiced) ───
-  {
-    id: "quote_7",
-    orderNumber: "DV-2025-0007",
-    status: "invoiced",
-    subtotal: 1050000,
-    totalAmount: 1050000,
-    paidAmount: 700000,
-    remainingAmount: 350000,
-    deliveryAddress: "Zone Industrielle, Dakar",
-    deliveryDate: "2025-01-18T07:00:00Z",
-    isDelivered: true,
-    isCancelled: false,
-    whatsappSent: true,
-    isOfflineCreated: false,
-    businessId: "biz_1",
-    customerId: "b2b_6",
-    customer: {
-      id: "b2b_6",
-      name: "Distributeur Sénégal",
-      phone: "221786789012",
-      isB2B: true,
-      creditLimit: 5000000,
-    },
-    orderItems: [
-      { id: "qi_18", productName: "Riz 25kg", quantity: 50, unitPrice: 10000, totalPrice: 500000 },
-      { id: "qi_19", productName: "Huile 5L", quantity: 30, unitPrice: 3500, totalPrice: 105000 },
-      { id: "qi_20", productName: "Sucre 1kg", quantity: 100, unitPrice: 500, totalPrice: 50000 },
-      { id: "qi_21", productName: "Café Touba", quantity: 200, unitPrice: 1000, totalPrice: 200000 },
-      { id: "qi_22", productName: "Thé Ataya", quantity: 150, unitPrice: 800, totalPrice: 120000 },
-    ],
-    payments: [
-      { id: "pay_4", amount: 400000, method: "virement", paidAt: "2025-01-18T12:00:00Z" },
-      { id: "pay_5", amount: 300000, method: "cheque", paidAt: "2025-01-19T09:00:00Z" },
-    ],
-    createdAt: "2025-01-17T16:00:00Z",
-    updatedAt: "2025-01-19T09:00:00Z",
-  },
-  {
-    id: "quote_8",
-    orderNumber: "DV-2025-0008",
-    status: "invoiced",
-    subtotal: 130000,
-    totalAmount: 130000,
-    paidAmount: 130000,
-    remainingAmount: 0,
-    deliveryAddress: "Sandaga, Dakar",
-    deliveryDate: "2025-01-21T08:00:00Z",
-    isDelivered: true,
-    isCancelled: false,
-    whatsappSent: true,
-    isOfflineCreated: false,
-    businessId: "biz_1",
-    customerId: "b2b_2",
-    customer: {
-      id: "b2b_2",
-      name: "Quincaillerie Dakar",
-      phone: "221782345678",
-      isB2B: true,
-      creditLimit: 300000,
-    },
-    orderItems: [
-      { id: "qi_23", productName: "Savon 500g", quantity: 200, unitPrice: 500, totalPrice: 100000 },
-      { id: "qi_24", productName: "Lait concentré", quantity: 100, unitPrice: 750, totalPrice: 75000 },
-    ],
-    payments: [
-      { id: "pay_6", amount: 130000, method: "orange_money", paidAt: "2025-01-21T08:30:00Z" },
-    ],
-    createdAt: "2025-01-21T07:30:00Z",
-    updatedAt: "2025-01-21T08:30:00Z",
-  },
-];
+    if (!businessId || businessId === "demo") {
+      return NextResponse.json([]);
+    }
 
-export async function GET() {
-  return NextResponse.json(b2bQuotes);
+    const orders = await db.order.findMany({
+      where: {
+        businessId,
+        status: { in: B2B_STATUSES },
+      },
+      include: {
+        customer: true,
+        orderItems: {
+          include: {
+            product: { select: { id: true, name: true } },
+          },
+        },
+        payments: true,
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    // Adapter au format B2BQuote attendu par l'UI Pipeline.
+    const adapted = orders.map((o) => ({
+      id: o.id,
+      orderNumber: o.orderNumber,
+      status: o.status,
+      subtotal: o.subtotal,
+      totalAmount: o.totalAmount,
+      paidAmount: o.paidAmount,
+      remainingAmount: o.remainingAmount,
+      deliveryAddress: o.deliveryAddress ?? undefined,
+      deliveryDate: o.deliveryDate?.toISOString?.() ?? null,
+      isDelivered: o.isDelivered,
+      isCancelled: o.isCancelled,
+      whatsappSent: o.whatsappSent,
+      isOfflineCreated: o.isOfflineCreated,
+      businessId: o.businessId,
+      customerId: o.customerId,
+      customer: o.customer
+        ? {
+            id: o.customer.id,
+            name: o.customer.name,
+            phone: o.customer.phone,
+            isB2B: o.customer.isB2B,
+            creditLimit: o.customer.creditLimit ?? undefined,
+          }
+        : { id: "", name: "Client", phone: "", isB2B: true },
+      orderItems: o.orderItems.map((oi) => ({
+        id: oi.id,
+        productName: oi.product?.name ?? "Article",
+        quantity: oi.quantity,
+        unitPrice: oi.unitPrice,
+        totalPrice: oi.totalPrice,
+      })),
+      payments: (o.payments ?? []).map((p) => ({
+        id: p.id,
+        amount: p.amount,
+        method: p.method,
+        paidAt: p.paidAt?.toISOString?.() ?? null,
+      })),
+      createdAt: o.createdAt?.toISOString?.() ?? String(o.createdAt),
+      updatedAt: o.updatedAt?.toISOString?.() ?? String(o.updatedAt),
+    }));
+
+    return NextResponse.json(adapted);
+  } catch (error) {
+    console.error("[b2b-quotes] GET error:", error);
+    return NextResponse.json([]);
+  }
 }

@@ -14,6 +14,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { motion } from "framer-motion";
 import { Building2, AlertTriangle, Users, TrendingUp, ChevronRight } from "lucide-react";
+import { useAuthStore } from "@/stores/use-auth-store";
 
 // ── Types ────────────────────────────────────────────────────────
 
@@ -71,19 +72,30 @@ export function CreditDashboard() {
   const [customers, setCustomers] = useState<B2BCustomer[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const user = useAuthStore((s) => s.user);
+  const businessId = user?.businessId;
+
   // Fetch B2B customers
   const fetchCustomers = useCallback(async () => {
+    // Pas de businessId valide → liste vide (pas de données démo).
+    if (!businessId || businessId === "demo") {
+      setCustomers([]);
+      setLoading(false);
+      return;
+    }
     try {
-      const res = await fetch("/api/b2b-customers");
+      const res = await fetch(
+        `/api/b2b-customers?businessId=${encodeURIComponent(businessId)}`
+      );
       if (!res.ok) throw new Error("Failed to fetch");
       const data = await res.json();
-      setCustomers(data);
+      setCustomers(Array.isArray(data) ? data : []);
     } catch {
       setCustomers([]);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [businessId]);
 
   useEffect(() => {
     fetchCustomers();

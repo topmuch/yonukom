@@ -31,10 +31,24 @@ import {
   MessageCircle,
   Clock,
   MapPin,
+  Trash2,
+  Loader2,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useAuthStore } from "@/stores/use-auth-store";
+import { toast } from "sonner";
 import { generateWhatsAppLink } from "@/lib/whatsapp";
 import { formatFCFA } from "@/lib/fcfa";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import type { B2BOrderStatus } from "@/types/index";
 
 /** Full quote shape from /api/b2b-quotes */
@@ -158,14 +172,27 @@ function formatTimeAgo(dateStr: string): string {
 }
 
 export function PipelineKanban() {
+  const user = useAuthStore((s) => s.user);
+  const businessId = user?.businessId;
+
   const [quotes, setQuotes] = useState<B2BQuote[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedQuoteId, setSelectedQuoteId] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<B2BQuote | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   // Fetch quotes from /api/b2b-quotes
   const fetchQuotes = useCallback(async () => {
+    // Pas de businessId valide → liste vide (pas de données démo).
+    if (!businessId || businessId === "demo") {
+      setQuotes([]);
+      setLoading(false);
+      return;
+    }
     try {
-      const res = await fetch("/api/b2b-quotes");
+      const res = await fetch(
+        `/api/b2b-quotes?businessId=${encodeURIComponent(businessId)}`
+      );
       if (!res.ok) throw new Error("Failed to fetch");
       const data = await res.json();
       setQuotes(Array.isArray(data) ? data : data.quotes || []);
@@ -174,7 +201,7 @@ export function PipelineKanban() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [businessId]);
 
   useEffect(() => {
     fetchQuotes();
@@ -264,6 +291,33 @@ export function PipelineKanban() {
 
   // Find selected quote for detail dialog
   const selectedQuote = quotes.find((q) => q.id === selectedQuoteId) || null;
+
+  // --- Delete quote ---
+  const handleDelete = async () => {
+    if (!deleteTarget || !businessId) return;
+    const target = deleteTarget;
+    setDeletingId(target.id);
+    try {
+      const res = await fetch(
+        `/api/quotes/${target.id}?businessId=${encodeURIComponent(businessId)}`,
+        { method: "DELETE" }
+      );
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Échec de la suppression");
+      }
+      setQuotes((prev) => prev.filter((q) => q.id !== target.id));
+      toast.success(`Devis ${target.orderNumber} supprimé`);
+      setSelectedQuoteId(null);
+      setDeleteTarget(null);
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Erreur lors de la suppression"
+      );
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   // Compute pipeline summary stats
   const totalPipelineValue = quotes
@@ -415,8 +469,56 @@ export function PipelineKanban() {
           onClose={() => setSelectedQuoteId(null)}
           onStatusChange={handleStatusChange}
           onWhatsApp={handleWhatsApp}
+          onDelete={(q) => {
+            setSelectedQuoteId(null);
+            setDeleteTarget(q);
+          }}
+          deleting={deletingId === selectedQuote.id}
         />
       )}
+
+      {/* Delete confirmation */}
+      <AlertDialog
+        open={!!deleteTarget}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTarget(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Supprimer ce devis ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Supprimer cette commande/client/facture/devis ? Cette action est
+              irréversible.
+              {deleteTarget && (
+                <span className="block mt-1 font-mono text-xs">
+                  {deleteTarget.orderNumber}
+                </span>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={!!deletingId}>Annuler</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={!!deletingId}
+              onClick={(e) => {
+                e.preventDefault();
+                handleDelete();
+              }}
+            >
+              {deletingId ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin mr-1" />
+                  Suppression...
+                </>
+              ) : (
+                "Supprimer"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
@@ -431,11 +533,15 @@ function QuoteDetailPanel({
   onClose,
   onStatusChange,
   onWhatsApp,
+  onDelete,
+  deleting,
 }: {
   quote: B2BQuote;
   onClose: () => void;
   onStatusChange: (quoteId: string, newStatus: B2BOrderStatus) => void;
   onWhatsApp: (quoteId: string) => void;
+  onDelete: (quote: B2BQuote) => void;
+  deleting?: boolean;
 }) {
   const statusCfg = B2B_STATUS_CONFIG[quote.status] || B2B_STATUS_CONFIG.draft;
 
@@ -613,6 +719,21 @@ function QuoteDetailPanel({
                 )}
               </div>
             )}
+
+            {/* Delete button — available for all statuses */}
+            <Button
+              variant="outline"
+              className="w-full gap-2 text-destructive border-destructive/30 hover:bg-destructive/10 hover:text-destructive"
+              disabled={deleting}
+              onClick={() => onDelete(quote)}
+            >
+              {deleting ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Trash2 className="w-4 h-4" />
+              )}
+              Supprimer ce devis
+            </Button>
           </div>
         </div>
       </DialogContent>

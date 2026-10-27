@@ -24,11 +24,16 @@ import type { AIProduct, AISale, AIEmployee, AIRevenuePoint, AIAllData } from "@
  * 4. Supprime les entrées trop anciennes (> 90 jours)
  */
 export async function syncHistoricalData(businessId: string = "demo"): Promise<void> {
+  // Pas de businessId valide → rien à synchroniser (pas de données démo).
+  if (!businessId || businessId === "demo") {
+    return;
+  }
   try {
-    // 1. Récupérer les données du backend
+    // 1. Récupérer les données du backend (filtrées par businessId)
+    const qs = `businessId=${encodeURIComponent(businessId)}`;
     const [productsRes, ordersRes] = await Promise.all([
-      fetch("/api/ecom-products"),
-      fetch("/api/ecom-orders"),
+      fetch(`/api/ecom-products?${qs}`),
+      fetch(`/api/ecom-orders?${qs}`),
     ]);
 
     if (!productsRes.ok || !ordersRes.ok) {
@@ -225,12 +230,17 @@ function aggregatePaymentMethods(sales: SalesHistoryEntry[]): Record<string, num
 }
 
 // ==========================================
-// DONNÉES MOCK (pour la démo)
+// DONNÉES MOCK — FOR TESTS/SEED ONLY — NOT FOR PRODUCTION UI
 // ==========================================
+//
+// ⚠️ La fonction ci-dessous n'est plus importée nulle part dans l'app.
+// Elle ne sert qu'aux scripts de seed / tests automatisés.
+// Ne JAMAIS l'utiliser comme fallback dans une route API ou un composant UI.
+// Tout nouveau compte doit afficher un état vide, PAS ces données factices.
 
 /**
- * Génère des données mock réalistes pour la démo.
- * Simule 30 jours de ventes avec des tendances sénégalaises.
+ * Génère des données mock réalistes pour les tests / seeds.
+ * ⚠️ FOR TESTS/SEED ONLY — NOT FOR PRODUCTION UI.
  */
 export function getMockDataForAI(): AIAllData {
   const now = new Date();

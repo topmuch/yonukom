@@ -7,11 +7,11 @@
 
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useAIStore } from "@/stores/use-ai-store";
 import { runAIAnalysis } from "@/lib/ai/scheduler";
-import { getMockDataForAI } from "@/lib/db/historical-data";
-import { generateRecommendations, type AIAlert, type AIPriority } from "@/lib/ai/rules-engine";
+import { type AIAlert, type AIPriority } from "@/lib/ai/rules-engine";
+import { useAuthStore } from "@/stores/use-auth-store";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -94,18 +94,24 @@ export function IntelligenceFeed() {
   const setAnalyzing = useAIStore((s) => s.setAnalyzing);
   const setPriorityFilter = useAIStore((s) => s.setPriorityFilter);
   const dismissAlert = useAIStore((s) => s.dismissAlert);
+  const user = useAuthStore((s) => s.user);
+  const businessId = user?.businessId;
 
   // Charger les analyses IA
   const loadAnalysis = async () => {
+    // Pas de businessId valide → pas de recommandations (pas de données démo).
+    if (!businessId || businessId === "demo") {
+      setAlerts([] as AIAlert[]);
+      setAnalyzing(false);
+      return;
+    }
     setAnalyzing(true);
     try {
       const result = await runAIAnalysis();
       setAlerts(result);
     } catch {
-      // Fallback: use mock data
-      const mockData = getMockDataForAI();
-      const mockAlerts = generateRecommendations(mockData);
-      setAlerts(mockAlerts);
+      // Erreur → état vide, pas de données mock.
+      setAlerts([] as AIAlert[]);
     }
   };
 
@@ -211,9 +217,15 @@ export function IntelligenceFeed() {
         <Card>
           <CardContent className="p-6 text-center space-y-2">
             <Sparkles className="w-8 h-8 text-yk-emerald mx-auto" />
-            <p className="text-sm font-medium text-yk-emerald">Tout va bien !</p>
+            <p className="text-sm font-medium text-yk-emerald">
+              {!businessId || businessId === "demo"
+                ? "Connectez votre commerce"
+                : "Pas encore assez de données"}
+            </p>
             <p className="text-xs text-muted-foreground">
-              Aucune alerte active. L&apos;IA surveille votre activité en permanence.
+              {!businessId || businessId === "demo"
+                ? "Vos recommandations IA apparaîtront ici dès que votre commerce sera configuré."
+                : "Pas encore assez de données pour générer des recommandations. Continuez à encaisser des ventes — les insights apparaîtront automatiquement."}
             </p>
           </CardContent>
         </Card>

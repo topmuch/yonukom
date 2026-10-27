@@ -14,7 +14,6 @@ import { TrendingUp, TrendingDown, Minus, BarChart3 } from "lucide-react";
 import { motion } from "framer-motion";
 import { formatFCFA } from "@/lib/fcfa";
 import { calculateTrendLine, movingAverage, type AIRevenuePoint } from "@/lib/ai/rules-engine";
-import { getMockDataForAI } from "@/lib/db/historical-data";
 import {
   ComposedChart,
   Bar,
@@ -33,13 +32,26 @@ interface TrendChartProps {
 export function TrendChart({ revenueHistory }: TrendChartProps) {
   const [showMovingAvg, setShowMovingAvg] = useState(true);
 
-  // Calculer les données du chart (pas de setState dans useEffect)
-  const data = useMemo(() => {
+  // Calculer les données du chart — utilise revenueHistory passé en prop.
+  // Si aucune donnée n'est fournie, on génère 7 jours à zéro (axe du temps
+  // visible même sans ventes).
+  const data = useMemo<AIRevenuePoint[]>(() => {
     if (revenueHistory && revenueHistory.length > 0) {
       return revenueHistory;
     }
-    const mockData = getMockDataForAI();
-    return mockData.revenueHistory;
+    // Générer les 7 derniers jours à 0 pour ne pas afficher un graphe vide.
+    const days: AIRevenuePoint[] = [];
+    const now = new Date();
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(now);
+      d.setDate(d.getDate() - i);
+      days.push({
+        date: d.toISOString().split("T")[0],
+        revenue: 0,
+        orderCount: 0,
+      });
+    }
+    return days;
   }, [revenueHistory]);
 
   // Calculer la tendance
@@ -89,11 +101,59 @@ export function TrendChart({ revenueHistory }: TrendChartProps) {
   const TrendIcon = trendData.direction === "up" ? TrendingUp : trendData.direction === "down" ? TrendingDown : Minus;
   const trendColor = trendData.direction === "up" ? "text-yk-emerald" : trendData.direction === "down" ? "text-destructive" : "text-muted-foreground";
 
-  if (data.length === 0) {
+  // Détecter si on n'a AUCUNE donnée réelle (toutes à 0 ou pas de prop)
+  const hasRealData =
+    !!revenueHistory && revenueHistory.some((p) => p.revenue > 0 || p.orderCount > 0);
+
+  if (!hasRealData) {
     return (
       <Card>
-        <CardContent className="p-4 text-center">
-          <p className="text-sm text-muted-foreground">Pas assez de données</p>
+        <CardContent className="p-4">
+          {/* Header */}
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <BarChart3 className="w-4 h-4 text-primary" />
+              <h3 className="text-sm font-semibold">Tendance CA (7 derniers jours)</h3>
+            </div>
+          </div>
+          {/* Chart avec zeros */}
+          <ResponsiveContainer width="100%" height={220}>
+            <ComposedChart data={chartData} margin={{ top: 5, right: 5, left: -15, bottom: 5 }}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
+              <XAxis
+                dataKey="date"
+                tickFormatter={(v: string) => {
+                  const d = new Date(v);
+                  return `${d.getDate()}/${d.getMonth() + 1}`;
+                }}
+                tick={{ fontSize: 9 }}
+                axisLine={false}
+                tickLine={false}
+                interval={Math.floor(chartData.length / 6)}
+              />
+              <YAxis
+                tickFormatter={(v: number) => `${Math.round(v / 1000)}k`}
+                tick={{ fontSize: 9 }}
+                axisLine={false}
+                tickLine={false}
+              />
+              <Tooltip
+                formatter={(value: number, name: string) => {
+                  if (name === "revenue") return [formatFCFA(value), "CA"];
+                  return [value, name];
+                }}
+                labelFormatter={(label: string) => {
+                  const d = new Date(label);
+                  return d.toLocaleDateString("fr-FR", { weekday: "short", day: "2-digit", month: "short" });
+                }}
+                contentStyle={{ fontSize: 11, borderRadius: 8 }}
+              />
+              <Bar dataKey="revenue" fill="var(--color-primary)" radius={[3, 3, 0, 0]} opacity={0.7} />
+            </ComposedChart>
+          </ResponsiveContainer>
+          <p className="text-center text-xs text-muted-foreground mt-2">
+            Pas encore de ventes enregistrées. Vos tendances apparaîtront ici.
+          </p>
         </CardContent>
       </Card>
     );
