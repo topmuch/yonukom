@@ -426,23 +426,22 @@ export function AppShell({ activeTab, onTabChange, children }: AppShellProps) {
           </div>
         </div>
 
-        {/* Nav — white-on-blue, with vibrant accent for the active item.
-             Pas de scrollbar visible : on cache le scrollbar webkit et firefox,
-             et on réduit légèrement l'espacement pour que tous les tabs tiennent
-             sans scroll dans la hauteur du viewport. */}
+        {/* Nav — 3 sections (Principal / Gestion / Avancé) avec scroll visible fin.
+             Le sidebar contient 17 onglets — on les regroupe pour faciliter
+             la navigation, et on autorise un scroll discret si nécessaire. */}
         <nav
-          className="flex-1 py-2 px-3 space-y-0.5 overflow-y-auto
-            [&::-webkit-scrollbar]:hidden [scrollbar-width:none] [-ms-overflow-style:none]"
+          className="flex-1 py-2 px-3 overflow-y-auto
+            [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:bg-white/20 [&::-webkit-scrollbar-thumb]:rounded-full
+            [scrollbar-width:thin] [scrollbar-color:rgba(255,255,255,0.2)_transparent]"
           role="tablist"
           aria-label="Navigation principale"
         >
           <p className="px-3 pt-1 pb-1 text-[10px] font-semibold text-white/50 uppercase tracking-wider">
-            Menu
+            Principal
           </p>
-          {tabs.map((tab) => {
+          {tabs.filter(t => ["home", "pos", "products", "categories", "stock", "customers", "caisse", "orders"].includes(t.id)).map((tab) => {
             const isActive = activeTab === tab.id;
             const Icon = tab.icon;
-
             return (
               <button
                 key={tab.id}
@@ -451,32 +450,102 @@ export function AppShell({ activeTab, onTabChange, children }: AppShellProps) {
                 aria-label={tab.label}
                 onClick={() => onTabChange(tab.id)}
                 className={`
-                  w-full flex items-center gap-3 px-3 py-2 rounded-xl
-                  transition-all duration-150 min-h-[40px] font-medium text-sm relative overflow-hidden
-                  ${
-                    isActive
-                      ? "bg-white text-slate-900 shadow-md"
-                      : "text-white/90 hover:bg-white/15 hover:text-white"
-                  }
+                  w-full flex items-center gap-2.5 px-3 py-1.5 rounded-lg
+                  transition-all duration-150 min-h-[36px] font-medium text-[13px] relative overflow-hidden mb-0.5
+                  ${isActive ? "bg-white text-slate-900 shadow-md" : "text-white/90 hover:bg-white/15 hover:text-white"}
                 `}
               >
-                {/* Vibrant gradient strip on the left for active items */}
                 {isActive && (
-                  <span
-                    className={`absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b ${tab.gradient}`}
-                  />
+                  <span className={`absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b ${tab.gradient}`} />
                 )}
-                {/* Icon — colored when active */}
                 <Icon
-                  className="w-5 h-5 relative z-10"
+                  className="w-4 h-4 relative z-10 shrink-0"
                   strokeWidth={isActive ? 2.4 : 1.8}
                   style={isActive ? { color: tab.color } : undefined}
                 />
-                <span className="relative z-10">{tab.label}</span>
+                <span className="relative z-10 truncate">{tab.label}</span>
                 {isActive && (
                   <motion.span
                     layoutId="sidebar-active-dot"
-                    className="ml-auto w-1.5 h-1.5 rounded-full"
+                    className="ml-auto w-1.5 h-1.5 rounded-full shrink-0"
+                    style={{ backgroundColor: tab.color }}
+                  />
+                )}
+              </button>
+            );
+          })}
+
+          <p className="px-3 pt-3 pb-1 text-[10px] font-semibold text-white/50 uppercase tracking-wider">
+            Gestion
+          </p>
+          {tabs.filter(t => ["history", "pipeline", "invoices", "debts", "purchases"].includes(t.id)).map((tab) => {
+            const isActive = activeTab === tab.id;
+            const Icon = tab.icon;
+            return (
+              <button
+                key={tab.id}
+                role="tab"
+                aria-selected={isActive}
+                aria-label={tab.label}
+                onClick={() => onTabChange(tab.id)}
+                className={`
+                  w-full flex items-center gap-2.5 px-3 py-1.5 rounded-lg
+                  transition-all duration-150 min-h-[36px] font-medium text-[13px] relative overflow-hidden mb-0.5
+                  ${isActive ? "bg-white text-slate-900 shadow-md" : "text-white/90 hover:bg-white/15 hover:text-white"}
+                `}
+              >
+                {isActive && (
+                  <span className={`absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b ${tab.gradient}`} />
+                )}
+                <Icon
+                  className="w-4 h-4 relative z-10 shrink-0"
+                  strokeWidth={isActive ? 2.4 : 1.8}
+                  style={isActive ? { color: tab.color } : undefined}
+                />
+                <span className="relative z-10 truncate">{tab.label}</span>
+                {isActive && (
+                  <motion.span
+                    layoutId="sidebar-active-dot"
+                    className="ml-auto w-1.5 h-1.5 rounded-full shrink-0"
+                    style={{ backgroundColor: tab.color }}
+                  />
+                )}
+              </button>
+            );
+          })}
+
+          <p className="px-3 pt-3 pb-1 text-[10px] font-semibold text-white/50 uppercase tracking-wider">
+            Avancé
+          </p>
+          {tabs.filter(t => ["team", "notifications", "analytics-ai", "accounting", "settings"].includes(t.id)).map((tab) => {
+            const isActive = activeTab === tab.id;
+            const Icon = tab.icon;
+            return (
+              <button
+                key={tab.id}
+                role="tab"
+                aria-selected={isActive}
+                aria-label={tab.label}
+                onClick={() => onTabChange(tab.id)}
+                className={`
+                  w-full flex items-center gap-2.5 px-3 py-1.5 rounded-lg
+                  transition-all duration-150 min-h-[36px] font-medium text-[13px] relative overflow-hidden mb-0.5
+                  ${isActive ? "bg-white text-slate-900 shadow-md" : "text-white/90 hover:bg-white/15 hover:text-white"}
+                `}
+              >
+                {isActive && (
+                  <span className={`absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b ${tab.gradient}`} />
+                )}
+                <Icon
+                  className="w-4 h-4 relative z-10 shrink-0"
+                  strokeWidth={isActive ? 2.4 : 1.8}
+                  style={isActive ? { color: tab.color } : undefined}
+                />
+                <span className="relative z-10 truncate">{tab.label}</span>
+                {isActive && (
+                  <motion.span
+                    layoutId="sidebar-active-dot"
+                    className="ml-auto w-1.5 h-1.5 rounded-full shrink-0"
                     style={{ backgroundColor: tab.color }}
                   />
                 )}
