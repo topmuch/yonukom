@@ -33,6 +33,7 @@ import {
   BarChart3,
   Calculator,
   Landmark,
+  Tag,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { Input } from "@/components/ui/input";
@@ -43,6 +44,7 @@ export type TabId =
   | "pos"
   | "stock"
   | "products"
+  | "categories"
   | "customers"
   | "orders"
   | "history"
@@ -103,6 +105,14 @@ const ALL_TABS: TabConfig[] = [
     gradient: "from-purple-500 to-indigo-500",
     accent: "bg-purple-500",
     color: "#A855F7",
+  },
+  {
+    id: "categories",
+    label: "Catégories",
+    icon: Tag,
+    gradient: "from-fuchsia-500 to-purple-500",
+    accent: "bg-fuchsia-500",
+    color: "#D946EF",
   },
   {
     id: "customers",

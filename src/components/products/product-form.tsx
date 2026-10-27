@@ -432,15 +432,15 @@ export function ProductForm({ product, open, onOpenChange, onSave }: ProductForm
               />
             </div>
             <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between gap-2">
                 <Label>Catégorie</Label>
                 <button
                   type="button"
                   onClick={() => setNewCatOpen(true)}
-                  className="text-[10px] text-primary hover:underline flex items-center gap-0.5"
+                  className="text-xs text-primary hover:text-primary/80 hover:underline flex items-center gap-1 font-medium px-2 py-1 rounded-md hover:bg-primary/5 transition-colors"
                 >
-                  <Plus className="w-3 h-3" />
-                  Nouvelle
+                  <Plus className="w-3.5 h-3.5" />
+                  Nouvelle catégorie
                 </button>
               </div>
               <Select

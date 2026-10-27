@@ -25,6 +25,11 @@ export async function GET(request: NextRequest) {
     const categories = await db.category.findMany({
       where: { businessId },
       orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+      include: {
+        _count: {
+          select: { products: true },
+        },
+      },
     });
 
     return NextResponse.json({ categories });

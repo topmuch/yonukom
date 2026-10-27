@@ -41,6 +41,7 @@ import { CreditDashboard } from "@/components/pipeline/credit-dashboard";
 import { QuoteForm } from "@/components/pipeline/quote-form";
 import { StockDashboard } from "@/components/stock/stock-dashboard";
 import { ProductsTab } from "@/components/products/products-tab";
+import { CategoriesTab } from "@/components/categories/categories-tab";
 import { CustomerList } from "@/components/customers/customer-list";
 import { CashSessionManager } from "@/components/cash/cash-session-manager";
 import { AuditLogViewer } from "@/components/audit/audit-log-viewer";
@@ -774,6 +775,7 @@ function DashboardMain({ onLogout }: { onLogout: () => void }) {
       {activeTab === "pos" && <PosScreen onNavigateToCash={() => setActiveTab("caisse")} />}
       {activeTab === "stock" && <StockTab />}
       {activeTab === "products" && <ProductsTab />}
+      {activeTab === "categories" && <CategoriesTab />}
       {activeTab === "customers" && <CustomersTab />}
       {activeTab === "orders" && <OrdersTab />}
       {activeTab === "history" && <HistoryTab />}
