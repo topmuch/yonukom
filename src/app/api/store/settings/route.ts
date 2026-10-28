@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
 
     const business = await db.business.findUnique({
       where: { id: businessId },
-      select: { tenantId: true },
+      select: { tenantId: true, logoUrl: true },
     });
     if (!business?.tenantId) return NextResponse.json({ error: "Aucun tenant" }, { status: 404 });
 
@@ -23,7 +23,13 @@ export async function GET(request: NextRequest) {
       },
     });
     if (!tenant) return NextResponse.json({ error: "Tenant introuvable" }, { status: 404 });
-    return NextResponse.json({ store: tenant });
+
+    // Si storeLogoUrl est null, utiliser le logo du Business
+    const storeWithFallback = {
+      ...tenant,
+      storeLogoUrl: tenant.storeLogoUrl || business.logoUrl || null,
+    };
+    return NextResponse.json({ store: storeWithFallback });
   } catch (error) {
     console.error("[GET /api/store/settings] error:", error);
     return NextResponse.json({ error: "Erreur serveur" }, { status: 500 });
@@ -34,7 +40,10 @@ export async function GET(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const body = await request.json();
-    const { businessId, storeSlug, isStoreActive, storePrimaryColor, allowPickup, allowDelivery, deliveryFee } = body;
+    const {
+      businessId, storeSlug, isStoreActive, storeLogoUrl, storeBannerUrl,
+      storePrimaryColor, allowPickup, allowDelivery, deliveryFee,
+    } = body;
     if (!businessId) return NextResponse.json({ error: "businessId requis" }, { status: 400 });
 
     const business = await db.business.findUnique({
@@ -58,6 +67,8 @@ export async function PUT(request: NextRequest) {
       }
     }
     if (typeof isStoreActive === "boolean") data.isStoreActive = isStoreActive;
+    if (typeof storeLogoUrl === "string") data.storeLogoUrl = storeLogoUrl || null;
+    if (typeof storeBannerUrl === "string") data.storeBannerUrl = storeBannerUrl || null;
     if (typeof storePrimaryColor === "string") data.storePrimaryColor = storePrimaryColor;
     if (typeof allowPickup === "boolean") data.allowPickup = allowPickup;
     if (typeof allowDelivery === "boolean") data.allowDelivery = allowDelivery;
@@ -68,7 +79,11 @@ export async function PUT(request: NextRequest) {
     const updated = await db.tenant.update({
       where: { id: business.tenantId },
       data,
-      select: { id: true, name: true, storeSlug: true, isStoreActive: true, storePrimaryColor: true, allowPickup: true, allowDelivery: true, deliveryFee: true },
+      select: {
+        id: true, name: true, storeSlug: true, isStoreActive: true,
+        storeLogoUrl: true, storeBannerUrl: true, storePrimaryColor: true,
+        allowPickup: true, allowDelivery: true, deliveryFee: true,
+      },
     });
     return NextResponse.json({ success: true, store: updated });
   } catch (error) {

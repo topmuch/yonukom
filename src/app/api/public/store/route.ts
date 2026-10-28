@@ -35,6 +35,7 @@ export async function GET(request: NextRequest) {
         allowDelivery: true,
         deliveryFee: true,
         ownerPhone: true,
+        businesses: { select: { logoUrl: true } },
       },
     });
 
@@ -45,11 +46,18 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Si storeLogoUrl est null, utiliser le logo du premier Business du tenant
+    const businessLogo = tenant.businesses?.[0]?.logoUrl || null;
+    const storeLogoUrl = tenant.storeLogoUrl || businessLogo;
+
+    // Retirer la relation businesses de la réponse
+    const { businesses, ...tenantClean } = tenant;
+
     if (!tenant.isStoreActive) {
       return NextResponse.json({
         store: {
-          ...tenant,
-          // Ne pas exposer le ownerPhone si boutique fermée
+          ...tenantClean,
+          storeLogoUrl,
           ownerPhone: undefined,
         },
         products: [],
@@ -83,7 +91,10 @@ export async function GET(request: NextRequest) {
     }));
 
     return NextResponse.json({
-      store: tenant,
+      store: {
+        ...tenantClean,
+        storeLogoUrl,
+      },
       products: productsWithAvailability,
       isClosed: false,
     });
