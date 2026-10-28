@@ -6,14 +6,13 @@ import { useParams } from "next/navigation";
 import {
   ShoppingBag, Plus, Minus, Trash2, X, CheckCircle2, Store,
   Phone, MapPin, Truck, Package, Loader2, ShoppingCart, Search,
-  ChevronRight, Star, Shield, Clock, Heart, Menu, Truck as TruckIcon,
-  RefreshCw, Headphones, Facebook, Instagram, Twitter, Mail,
+  ChevronRight, ChevronLeft, Star, Shield, Clock,
+  RefreshCw, Headphones, Facebook, Instagram, Mail, Heart,
 } from "lucide-react";
 
 // ============================================================
-// Page publique de la Boutique en Ligne Express
-// Design inspiré de Shofy Beauty (Clean Luxury / Modern Organic)
-// URL: /b/[slug] — pas d'auth requise
+// Boutique en Ligne — Design inspiré Shofy Beauty
+// URL: /b/[slug]
 // ============================================================
 
 interface StoreInfo {
@@ -29,6 +28,13 @@ interface StoreProduct {
 }
 interface CartItem { product: StoreProduct; quantity: number; }
 
+// Hero slides data
+const HERO_SLIDES = [
+  { title: "Nouveautés", subtitle: "Découvrez nos produits du jour", cta: "Commander maintenant" },
+  { title: "Livraison rapide", subtitle: "Partout à Dakar en moins d'1 heure", cta: "Voir les produits" },
+  { title: "Paiement sécurisé", subtitle: "Wave, Orange Money ou à la livraison", cta: "Découvrir" },
+];
+
 export default function PublicStorePage() {
   const params = useParams();
   const slug = params.slug as string;
@@ -41,12 +47,23 @@ export default function PublicStorePage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState<string>("all");
 
+  // Hero slider
+  const [currentSlide, setCurrentSlide] = useState(0);
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentSlide((prev) => (prev + 1) % HERO_SLIDES.length);
+    }, 4000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Cart
   const [cart, setCart] = useState<CartItem[]>([]);
   const [cartOpen, setCartOpen] = useState(false);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [orderSuccess, setOrderSuccess] = useState<{ totalAmount: number; waMeUrl: string } | null>(null);
 
+  // Form
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [deliveryAddress, setDeliveryAddress] = useState("");
@@ -57,7 +74,7 @@ export default function PublicStorePage() {
     setLoading(true);
     try {
       const res = await fetch(`/api/public/store?slug=${encodeURIComponent(slug)}`);
-      if (!res.ok) { if (res.status === 404) throw new Error("Boutique introuvable"); throw new Error("Erreur de chargement"); }
+      if (!res.ok) { if (res.status === 404) throw new Error("Boutique introuvable"); throw new Error("Erreur"); }
       const data = await res.json();
       setStore(data.store); setProducts(data.products || []); setIsClosed(data.isClosed || false);
     } catch (err: any) { setError(err.message); }
@@ -116,6 +133,7 @@ export default function PublicStorePage() {
   }, [products, activeCategory, searchQuery]);
 
   const primaryColor = store?.storePrimaryColor || "#1E40AF";
+  const pLight = primaryColor + "15";
 
   // --- Loading ---
   if (loading) {
@@ -123,7 +141,7 @@ export default function PublicStorePage() {
       <div className="min-h-screen flex items-center justify-center bg-white">
         <div className="text-center space-y-3">
           <div className="w-12 h-12 rounded-full border-4 border-slate-200 border-t-slate-800 animate-spin mx-auto" />
-          <p className="text-sm text-slate-500">Chargement de la boutique...</p>
+          <p className="text-sm text-slate-500">Chargement...</p>
         </div>
       </div>
     );
@@ -134,7 +152,7 @@ export default function PublicStorePage() {
         <div className="text-center space-y-3 max-w-sm">
           <div className="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center mx-auto"><Store className="w-8 h-8 text-slate-400" /></div>
           <p className="text-lg font-bold text-slate-900">{error}</p>
-          <p className="text-sm text-slate-500">Vérifiez le lien de la boutique.</p>
+          <p className="text-sm text-slate-500">Vérifiez le lien.</p>
         </div>
       </div>
     );
@@ -145,7 +163,7 @@ export default function PublicStorePage() {
         <div className="text-center space-y-3 max-w-sm">
           <div className="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center mx-auto"><Store className="w-8 h-8 text-slate-400" /></div>
           <p className="text-lg font-bold text-slate-900">{store?.name}</p>
-          <p className="text-sm text-slate-500">Cette boutique est temporairement fermée.</p>
+          <p className="text-sm text-slate-500">Boutique temporairement fermée.</p>
         </div>
       </div>
     );
@@ -159,8 +177,8 @@ export default function PublicStorePage() {
           </motion.div>
           <h1 className="text-xl font-bold text-slate-900">Commande envoyée !</h1>
           <p className="text-2xl font-bold" style={{ color: primaryColor }}>{orderSuccess.totalAmount.toLocaleString("fr-FR")} FCFA</p>
-          <p className="text-sm text-slate-500">Le vendeur va vous contacter pour confirmer votre commande.</p>
-          <a href={orderSuccess.waMeUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 px-6 py-3 rounded-xl text-white font-semibold text-sm shadow-lg transition-transform hover:scale-105" style={{ backgroundColor: "#25D366" }}>
+          <p className="text-sm text-slate-500">Le vendeur va vous contacter.</p>
+          <a href={orderSuccess.waMeUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 px-6 py-3 rounded-xl text-white font-semibold text-sm shadow-lg" style={{ backgroundColor: "#25D366" }}>
             <Phone className="w-4 h-4" /> Contacter le vendeur
           </a>
         </motion.div>
@@ -173,45 +191,38 @@ export default function PublicStorePage() {
       {/* ===== TOP BAR ===== */}
       <div className="bg-slate-900 text-white text-xs px-4 py-1.5 hidden sm:block">
         <div className="max-w-5xl mx-auto flex items-center justify-between">
-          <span className="text-slate-300">📞 Besoin d'aide ? Contactez-nous sur WhatsApp</span>
+          <span className="text-slate-300">📞 Commandez en ligne — Livraison & Retrait</span>
           <div className="flex items-center gap-3 text-slate-300">
-            {store?.allowDelivery && <span>🚚 Livraison disponible</span>}
-            {store?.allowPickup && <span>📦 Retrait en boutique</span>}
+            {store?.allowDelivery && <span>🚚 Livraison</span>}
+            {store?.allowPickup && <span>📦 Retrait</span>}
           </div>
         </div>
       </div>
 
-      {/* ===== HEADER ===== */}
+      {/* ===== HEADER (logo seul, pas de nom) ===== */}
       <header className="sticky top-0 z-30 bg-white shadow-sm border-b border-slate-100">
         <div className="max-w-5xl mx-auto px-4 py-3 flex items-center gap-4">
-          {/* Logo */}
-          <div className="flex items-center gap-2.5 shrink-0">
+          {/* Logo uniquement */}
+          <div className="shrink-0">
             {store?.storeLogoUrl ? (
-              <img src={store.storeLogoUrl} alt={store.name} className="w-10 h-10 rounded-xl object-cover ring-2 ring-slate-100" />
+              <img src={store.storeLogoUrl} alt={store.name} className="h-10 w-auto max-w-[120px] object-contain" />
             ) : (
               <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-md" style={{ backgroundColor: primaryColor }}>
                 <Store className="w-5 h-5" />
               </div>
             )}
-            <div>
-              <h1 className="text-base font-bold text-slate-900 leading-tight">{store?.name}</h1>
-              <div className="flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-                <span className="text-[10px] text-green-600 font-medium">Ouvert maintenant</span>
-              </div>
-            </div>
           </div>
 
-          {/* Search (desktop) */}
+          {/* Search */}
           <div className="hidden sm:flex flex-1 max-w-md relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Rechercher un produit..."
+              placeholder="Rechercher..."
               className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-50 border border-slate-100 text-sm focus:outline-none focus:border-slate-300 focus:bg-white transition-colors" />
           </div>
 
-          {/* Cart button */}
-          <button onClick={() => setCartOpen(true)} className="relative ml-auto sm:ml-0 shrink-0">
+          {/* Cart */}
+          <button onClick={() => setCartOpen(true)} className="relative ml-auto shrink-0">
             <div className="w-10 h-10 rounded-xl bg-slate-50 hover:bg-slate-100 flex items-center justify-center transition-colors">
               <ShoppingCart className="w-5 h-5 text-slate-700" />
             </div>
@@ -223,43 +234,61 @@ export default function PublicStorePage() {
           </button>
         </div>
 
-        {/* Search (mobile) */}
+        {/* Search mobile */}
         <div className="sm:hidden px-4 pb-2.5">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Rechercher un produit..."
+              placeholder="Rechercher..."
               className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-50 border border-slate-100 text-sm focus:outline-none focus:border-slate-300 focus:bg-white transition-colors" />
           </div>
         </div>
       </header>
 
-      {/* ===== HERO BANNER ===== */}
-      <section className="relative overflow-hidden" style={{ background: `linear-gradient(135deg, ${primaryColor} 0%, ${primaryColor}dd 100%)` }}>
-        <div className="max-w-5xl mx-auto px-4 py-8 sm:py-12 flex items-center gap-6">
-          <div className="flex-1 text-white">
-            <p className="text-xs sm:text-sm font-medium text-white/80 mb-1">Bienvenue chez</p>
-            <h2 className="text-2xl sm:text-4xl font-extrabold mb-2">{store?.name}</h2>
-            <p className="text-sm text-white/70 mb-4 max-w-md">Commandez en ligne et récupérez en boutique ou faites-vous livrer. Paiement à la livraison ou par Wave/Orange Money.</p>
-            <div className="flex items-center gap-3 flex-wrap">
-              {store?.allowPickup && (
-                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/15 backdrop-blur text-xs font-medium">
-                  <Package className="w-3.5 h-3.5" /> Retrait boutique
-                </span>
-              )}
-              {store?.allowDelivery && (
-                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/15 backdrop-blur text-xs font-medium">
-                  <Truck className="w-3.5 h-3.5" /> Livraison {store.deliveryFee > 0 ? `${store.deliveryFee.toLocaleString("fr-FR")} FCFA` : "gratuite"}
-                </span>
-              )}
+      {/* ===== HERO SLIDER ===== */}
+      <section className="relative overflow-hidden h-48 sm:h-64" style={{ background: `linear-gradient(135deg, ${primaryColor} 0%, ${primaryColor}cc 50%, ${primaryColor}99 100%)` }}>
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={currentSlide}
+            initial={{ opacity: 0, x: 50 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -50 }}
+            transition={{ duration: 0.5 }}
+            className="absolute inset-0 flex items-center px-6 sm:px-12"
+          >
+            <div className="text-white max-w-lg">
+              <p className="text-xs sm:text-sm font-medium text-white/70 mb-1">{store?.name}</p>
+              <h2 className="text-xl sm:text-3xl font-extrabold mb-2">{HERO_SLIDES[currentSlide].title}</h2>
+              <p className="text-sm text-white/80 mb-4">{HERO_SLIDES[currentSlide].subtitle}</p>
+              <button
+                onClick={() => document.getElementById('products')?.scrollIntoView({ behavior: 'smooth' })}
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white text-sm font-bold shadow-lg transition-transform hover:scale-105"
+                style={{ color: primaryColor }}
+              >
+                {HERO_SLIDES[currentSlide].cta}
+                <ChevronRight className="w-4 h-4" />
+              </button>
             </div>
-          </div>
-          {store?.storeLogoUrl && (
-            <div className="hidden sm:block shrink-0">
-              <img src={store.storeLogoUrl} alt={store.name} className="w-32 h-32 rounded-2xl object-cover shadow-2xl ring-4 ring-white/20" />
-            </div>
-          )}
+          </motion.div>
+        </AnimatePresence>
+
+        {/* Slider dots */}
+        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
+          {HERO_SLIDES.map((_, i) => (
+            <button key={i} onClick={() => setCurrentSlide(i)}
+              className={`h-1.5 rounded-full transition-all ${i === currentSlide ? 'w-6 bg-white' : 'w-1.5 bg-white/40'}`} />
+          ))}
         </div>
+
+        {/* Slide arrows */}
+        <button onClick={() => setCurrentSlide((prev) => (prev - 1 + HERO_SLIDES.length) % HERO_SLIDES.length)}
+          className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-white/20 backdrop-blur hover:bg-white/30 flex items-center justify-center text-white transition-colors">
+          <ChevronLeft className="w-5 h-5" />
+        </button>
+        <button onClick={() => setCurrentSlide((prev) => (prev + 1) % HERO_SLIDES.length)}
+          className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-white/20 backdrop-blur hover:bg-white/30 flex items-center justify-center text-white transition-colors">
+          <ChevronRight className="w-5 h-5" />
+        </button>
       </section>
 
       {/* ===== CATEGORY FILTERS ===== */}
@@ -283,12 +312,12 @@ export default function PublicStorePage() {
         </div>
       </div>
 
-      {/* ===== PRODUCTS GRID ===== */}
-      <main className="max-w-5xl mx-auto px-4 py-5">
+      {/* ===== PRODUCTS ===== */}
+      <main id="products" className="max-w-5xl mx-auto px-4 py-5">
         {filteredProducts.length === 0 ? (
           <div className="text-center py-16">
             <Package className="w-12 h-12 text-slate-300 mx-auto mb-2" />
-            <p className="text-sm text-slate-500">{searchQuery ? "Aucun produit trouvé." : "Aucun produit disponible."}</p>
+            <p className="text-sm text-slate-500">{searchQuery ? "Aucun produit trouvé." : "Aucun produit."}</p>
           </div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
@@ -298,14 +327,12 @@ export default function PublicStorePage() {
               const isLowStock = isAvailable && product.availableQuantity <= 5;
               return (
                 <div key={product.id} className={`group bg-white rounded-2xl overflow-hidden border border-slate-100 transition-all ${isAvailable ? "hover:shadow-lg hover:border-slate-200" : "opacity-60"}`}>
-                  {/* Image */}
                   <div className="relative aspect-square bg-slate-50 overflow-hidden">
                     {product.imageUrl ? (
                       <img src={product.imageUrl} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center"><Package className="w-10 h-10 text-slate-200" /></div>
                     )}
-                    {/* Badges */}
                     {!isAvailable && (
                       <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
                         <span className="px-3 py-1 rounded-lg bg-white text-xs font-bold text-slate-700">Rupture</span>
@@ -314,34 +341,27 @@ export default function PublicStorePage() {
                     {isLowStock && (
                       <div className="absolute top-2 left-2"><span className="px-2 py-0.5 rounded-md bg-amber-500 text-white text-[10px] font-bold">Plus que {product.availableQuantity}</span></div>
                     )}
-                    {/* Add button overlay on hover (desktop) */}
+                    {/* Add button — always visible */}
                     {isAvailable && !inCart && (
                       <button onClick={() => addToCart(product)}
-                        className="absolute bottom-2 right-2 w-9 h-9 rounded-xl text-white shadow-lg flex items-center justify-center transition-transform hover:scale-110 active:scale-95 sm:opacity-0 sm:group-hover:opacity-100"
+                        className="absolute bottom-2 right-2 w-9 h-9 rounded-xl text-white shadow-lg flex items-center justify-center transition-transform hover:scale-110 active:scale-95"
                         style={{ backgroundColor: primaryColor }}>
                         <Plus className="w-5 h-5" strokeWidth={2.5} />
                       </button>
                     )}
                     {isAvailable && inCart && (
-                      <div className="absolute bottom-2 right-2 inline-flex items-center gap-0.5 rounded-xl p-1 shadow-lg" style={{ backgroundColor: primaryColor + "20" }}>
+                      <div className="absolute bottom-2 right-2 inline-flex items-center gap-0.5 rounded-xl p-1 shadow-lg" style={{ backgroundColor: pLight }}>
                         <button onClick={() => updateQuantity(product.id, -1)} className="w-7 h-7 rounded-lg bg-white shadow-sm flex items-center justify-center" style={{ color: primaryColor }}><Minus className="w-3.5 h-3.5" strokeWidth={2.5} /></button>
                         <span className="min-w-[1.5rem] text-center font-bold text-sm" style={{ color: primaryColor }}>{inCart.quantity}</span>
                         <button onClick={() => updateQuantity(product.id, 1)} disabled={inCart.quantity >= product.availableQuantity} className="w-7 h-7 rounded-lg flex items-center justify-center text-white disabled:opacity-40" style={{ backgroundColor: primaryColor }}><Plus className="w-3.5 h-3.5" strokeWidth={2.5} /></button>
                       </div>
                     )}
                   </div>
-                  {/* Info */}
                   <div className="p-2.5">
                     {product.category && <p className="text-[10px] text-slate-400 uppercase tracking-wide mb-0.5">{product.category}</p>}
                     <p className="font-medium text-xs text-slate-900 line-clamp-2 min-h-[2rem]">{product.name}</p>
                     <div className="flex items-center justify-between mt-1.5">
                       <span className="font-bold text-sm" style={{ color: primaryColor }}>{product.salePrice.toLocaleString("fr-FR")}<span className="text-[10px] font-normal text-slate-400 ml-0.5"> FCFA</span></span>
-                      {/* Mobile add button */}
-                      {isAvailable && !inCart && (
-                        <button onClick={() => addToCart(product)} className="sm:hidden w-7 h-7 rounded-lg flex items-center justify-center text-white shadow-sm active:scale-90 transition-transform" style={{ backgroundColor: primaryColor }}>
-                          <Plus className="w-4 h-4" strokeWidth={2.5} />
-                        </button>
-                      )}
                     </div>
                   </div>
                 </div>
@@ -355,7 +375,7 @@ export default function PublicStorePage() {
       <section className="max-w-5xl mx-auto px-4 py-6">
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
-            { Icon: TruckIcon, title: "Livraison rapide", desc: "Partout à Dakar" },
+            { Icon: Truck, title: "Livraison rapide", desc: "Partout à Dakar" },
             { Icon: Shield, title: "Paiement sécurisé", desc: "Vos données protégées" },
             { Icon: RefreshCw, title: "Retour facile", desc: "Satisfait ou remboursé" },
             { Icon: Headphones, title: "Support 24/7", desc: "WhatsApp disponible" },
@@ -373,24 +393,19 @@ export default function PublicStorePage() {
       <footer className="bg-slate-900 text-slate-300 mt-6">
         <div className="max-w-5xl mx-auto px-4 py-8">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-6">
-            {/* Brand */}
             <div>
-              <div className="flex items-center gap-2.5 mb-3">
-                {store?.storeLogoUrl ? (
-                  <img src={store.storeLogoUrl} alt={store.name} className="w-8 h-8 rounded-lg object-cover" />
-                ) : (
-                  <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white" style={{ backgroundColor: primaryColor }}><Store className="w-4 h-4" /></div>
-                )}
-                <span className="font-bold text-white">{store?.name}</span>
-              </div>
-              <p className="text-xs text-slate-400 mb-3">Votre boutique en ligne de confiance. Commandez en quelques clics et recevez vos produits rapidement.</p>
+              {store?.storeLogoUrl ? (
+                <img src={store.storeLogoUrl} alt={store.name} className="h-10 w-auto max-w-[120px] object-contain mb-3" />
+              ) : (
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white mb-3" style={{ backgroundColor: primaryColor }}><Store className="w-5 h-5" /></div>
+              )}
+              <p className="text-xs text-slate-400 mb-3">Votre boutique en ligne. Commandez en quelques clics.</p>
               <div className="flex items-center gap-2">
-                {[Facebook, Instagram, Twitter].map((Icon, i) => (
+                {[Facebook, Instagram].map((Icon, i) => (
                   <a key={i} href="#" className="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 flex items-center justify-center transition-colors"><Icon className="w-4 h-4" /></a>
                 ))}
               </div>
             </div>
-            {/* Links */}
             <div>
               <h4 className="text-sm font-bold text-white mb-3">Informations</h4>
               <ul className="space-y-1.5 text-xs text-slate-400">
@@ -399,14 +414,11 @@ export default function PublicStorePage() {
                 <li><a href="#" className="hover:text-white transition-colors">Mentions légales</a></li>
               </ul>
             </div>
-            {/* Contact */}
             <div>
-              <h4 className="text-sm font-bold text-white mb-3">Contactez-nous</h4>
+              <h4 className="text-sm font-bold text-white mb-3">Contact</h4>
               <div className="space-y-2 text-xs text-slate-400">
                 {store?.ownerPhone && (
-                  <a href={`https://wa.me/${store.ownerPhone.replace(/\D/g, "")}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 hover:text-white transition-colors">
-                    <Phone className="w-3.5 h-3.5" /> {store.ownerPhone}
-                  </a>
+                  <a href={`https://wa.me/${store.ownerPhone.replace(/\D/g, "")}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 hover:text-white transition-colors"><Phone className="w-3.5 h-3.5" /> {store.ownerPhone}</a>
                 )}
                 <a href="mailto:contact@yonukom.sn" className="flex items-center gap-2 hover:text-white transition-colors"><Mail className="w-3.5 h-3.5" /> contact@yonukom.sn</a>
                 <p className="flex items-center gap-2"><MapPin className="w-3.5 h-3.5" /> Dakar, Sénégal</p>
@@ -452,7 +464,7 @@ export default function PublicStorePage() {
                       <p className="text-xs text-slate-500">{item.product.salePrice.toLocaleString("fr-FR")} FCFA × {item.quantity}</p>
                       <p className="text-sm font-bold mt-0.5" style={{ color: primaryColor }}>{(item.product.salePrice * item.quantity).toLocaleString("fr-FR")} FCFA</p>
                     </div>
-                    <div className="flex items-center gap-1 rounded-lg p-0.5" style={{ backgroundColor: primaryColor + "15" }}>
+                    <div className="flex items-center gap-1 rounded-lg p-0.5" style={{ backgroundColor: pLight }}>
                       <button onClick={() => updateQuantity(item.product.id, -1)} className="w-7 h-7 rounded-md bg-white shadow-sm flex items-center justify-center" style={{ color: primaryColor }}><Minus className="w-3.5 h-3.5" strokeWidth={2.5} /></button>
                       <span className="min-w-[1.5rem] text-center font-bold text-sm" style={{ color: primaryColor }}>{item.quantity}</span>
                       <button onClick={() => updateQuantity(item.product.id, 1)} disabled={item.quantity >= item.product.availableQuantity} className="w-7 h-7 rounded-md flex items-center justify-center text-white disabled:opacity-40" style={{ backgroundColor: primaryColor }}><Plus className="w-3.5 h-3.5" strokeWidth={2.5} /></button>
@@ -460,12 +472,12 @@ export default function PublicStorePage() {
                     <button onClick={() => removeFromCart(item.product.id)} className="text-slate-300 hover:text-rose-500 transition-colors p-1"><Trash2 className="w-4 h-4" /></button>
                   </div>
                 ))}
-                {cart.length === 0 && <div className="text-center py-8"><ShoppingCart className="w-10 h-10 text-slate-200 mx-auto mb-2" /><p className="text-sm text-slate-500">Votre panier est vide</p></div>}
+                {cart.length === 0 && <div className="text-center py-8"><ShoppingCart className="w-10 h-10 text-slate-200 mx-auto mb-2" /><p className="text-sm text-slate-500">Panier vide</p></div>}
               </div>
               {cart.length > 0 && (
                 <div className="border-t border-slate-100 p-4 space-y-3">
                   <div className="flex gap-2">
-                    {store?.allowPickup && <button onClick={() => setDeliveryMethod("PICKUP")} className={`flex-1 py-2.5 rounded-xl text-sm font-medium border transition-all flex items-center justify-center gap-1.5 ${deliveryMethod === "PICKUP" ? "text-white border-transparent shadow-sm" : "bg-white text-slate-600 border-slate-200"}`} style={deliveryMethod === "PICKUP" ? { backgroundColor: primaryColor } : {}}><Package className="w-4 h-4" /> Retrait boutique</button>}
+                    {store?.allowPickup && <button onClick={() => setDeliveryMethod("PICKUP")} className={`flex-1 py-2.5 rounded-xl text-sm font-medium border transition-all flex items-center justify-center gap-1.5 ${deliveryMethod === "PICKUP" ? "text-white border-transparent shadow-sm" : "bg-white text-slate-600 border-slate-200"}`} style={deliveryMethod === "PICKUP" ? { backgroundColor: primaryColor } : {}}><Package className="w-4 h-4" /> Retrait</button>}
                     {store?.allowDelivery && <button onClick={() => setDeliveryMethod("DELIVERY")} className={`flex-1 py-2.5 rounded-xl text-sm font-medium border transition-all flex items-center justify-center gap-1.5 ${deliveryMethod === "DELIVERY" ? "text-white border-transparent shadow-sm" : "bg-white text-slate-600 border-slate-200"}`} style={deliveryMethod === "DELIVERY" ? { backgroundColor: primaryColor } : {}}><Truck className="w-4 h-4" /> Livraison</button>}
                   </div>
                   <div className="space-y-1">
@@ -481,7 +493,7 @@ export default function PublicStorePage() {
         )}
       </AnimatePresence>
 
-      {/* ===== CHECKOUT DIALOG ===== */}
+      {/* ===== CHECKOUT ===== */}
       <AnimatePresence>
         {checkoutOpen && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onClick={() => setCheckoutOpen(false)}>
@@ -490,15 +502,15 @@ export default function PublicStorePage() {
               <div className="space-y-3">
                 <div><label className="text-xs font-semibold text-slate-600 mb-1 block">Nom complet *</label><input type="text" value={customerName} onChange={(e) => setCustomerName(e.target.value)} placeholder="Ex: Awa Diallo" className="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100 transition-all" /></div>
                 <div><label className="text-xs font-semibold text-slate-600 mb-1 block flex items-center gap-1"><Phone className="w-3 h-3" /> Téléphone (WhatsApp) *</label><input type="tel" value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} placeholder="78 382 18 22" className="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100 transition-all" /></div>
-                {deliveryMethod === "DELIVERY" && <div><label className="text-xs font-semibold text-slate-600 mb-1 block flex items-center gap-1"><MapPin className="w-3 h-3" /> Adresse de livraison *</label><textarea value={deliveryAddress} onChange={(e) => setDeliveryAddress(e.target.value)} placeholder="Ex: 2m Sicap Foire, Dakar — près de la pharmacie" rows={2} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100 transition-all resize-none" /></div>}
+                {deliveryMethod === "DELIVERY" && <div><label className="text-xs font-semibold text-slate-600 mb-1 block flex items-center gap-1"><MapPin className="w-3 h-3" /> Adresse de livraison *</label><textarea value={deliveryAddress} onChange={(e) => setDeliveryAddress(e.target.value)} placeholder="Ex: 2m Sicap Foire, Dakar" rows={2} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100 transition-all resize-none" /></div>}
                 <div><label className="text-xs font-semibold text-slate-600 mb-1 block">Mode de paiement</label><div className="grid grid-cols-2 gap-2">
                   <button onClick={() => setPaymentMethod("CASH_ON_DELIVERY")} className={`py-3 rounded-xl text-xs font-medium border transition-all ${paymentMethod === "CASH_ON_DELIVERY" ? "text-white border-transparent shadow-sm" : "bg-white text-slate-600 border-slate-200"}`} style={paymentMethod === "CASH_ON_DELIVERY" ? { backgroundColor: primaryColor } : {}}>💵 À la livraison</button>
                   <button onClick={() => setPaymentMethod("WAVE_OM_LINK")} className={`py-3 rounded-xl text-xs font-medium border transition-all ${paymentMethod === "WAVE_OM_LINK" ? "text-white border-transparent shadow-sm" : "bg-white text-slate-600 border-slate-200"}`} style={paymentMethod === "WAVE_OM_LINK" ? { backgroundColor: primaryColor } : {}}>📱 Wave / OM</button>
                 </div></div>
               </div>
-              <div className="bg-slate-50 rounded-xl p-3 flex items-center justify-between"><span className="text-sm text-slate-500">{cartCount} article{cartCount > 1 ? "s" : ""} {deliveryMethod === "DELIVERY" ? `+ livraison` : ""}</span><span className="text-2xl font-bold" style={{ color: primaryColor }}>{grandTotal.toLocaleString("fr-FR")} FCFA</span></div>
-              <button onClick={handleSubmitOrder} disabled={submitting || !customerName.trim() || !customerPhone.trim() || (deliveryMethod === "DELIVERY" && !deliveryAddress.trim())} className="w-full py-4 rounded-xl text-white font-bold text-sm disabled:opacity-40 shadow-lg transition-transform active:scale-98" style={{ backgroundColor: primaryColor }}>{submitting ? <span className="flex items-center justify-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Envoi en cours...</span> : `Confirmer — ${grandTotal.toLocaleString("fr-FR")} FCFA`}</button>
-              <p className="text-[10px] text-center text-slate-400">En confirmant, vous acceptez d'être contacté par le vendeur pour finaliser votre commande.</p>
+              <div className="bg-slate-50 rounded-xl p-3 flex items-center justify-between"><span className="text-sm text-slate-500">{cartCount} article{cartCount > 1 ? "s" : ""}</span><span className="text-2xl font-bold" style={{ color: primaryColor }}>{grandTotal.toLocaleString("fr-FR")} FCFA</span></div>
+              <button onClick={handleSubmitOrder} disabled={submitting || !customerName.trim() || !customerPhone.trim() || (deliveryMethod === "DELIVERY" && !deliveryAddress.trim())} className="w-full py-4 rounded-xl text-white font-bold text-sm disabled:opacity-40 shadow-lg transition-transform active:scale-98" style={{ backgroundColor: primaryColor }}>{submitting ? <span className="flex items-center justify-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Envoi...</span> : `Confirmer — ${grandTotal.toLocaleString("fr-FR")} FCFA`}</button>
+              <p className="text-[10px] text-center text-slate-400">En confirmant, vous acceptez d'être contacté par le vendeur.</p>
             </motion.div>
           </motion.div>
         )}
