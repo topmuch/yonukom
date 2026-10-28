@@ -49,11 +49,13 @@ export function CustomerList() {
     }
     try {
       const res = await fetch(
-        `/api/ecom-customers?businessId=${encodeURIComponent(businessId)}`
+        `/api/customers?businessId=${encodeURIComponent(businessId)}`
       );
       if (!res.ok) throw new Error("Failed to fetch");
       const data = await res.json();
-      setCustomers(data.customers || []);
+      // /api/customers retourne un array directement, pas { customers: [] }
+      const list = Array.isArray(data) ? data : (data.customers || []);
+      setCustomers(list);
     } catch {
       setCustomers([]);
     } finally {
