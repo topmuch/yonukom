@@ -73,6 +73,7 @@ export default function PublicStorePage() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [cartOpen, setCartOpen] = useState(false);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState<StoreProduct | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [orderSuccess, setOrderSuccess] = useState<{ totalAmount: number; waMeUrl: string } | null>(null);
 
@@ -218,9 +219,9 @@ export default function PublicStorePage() {
           {/* Logo uniquement */}
           <div className="shrink-0">
             {store?.storeLogoUrl ? (
-              <img src={store.storeLogoUrl} alt={store.name} className="h-10 w-auto max-w-[120px] object-contain" />
+              <img src={store.storeLogoUrl} alt={store.name} className="h-14 sm:h-16 w-auto max-w-[180px] object-contain" />
             ) : (
-              <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-md" style={{ backgroundColor: primaryColor }}>
+              <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-xl flex items-center justify-center text-white shadow-md" style={{ backgroundColor: primaryColor }}>
                 <Store className="w-5 h-5" />
               </div>
             )}
@@ -381,7 +382,7 @@ export default function PublicStorePage() {
               const isLowStock = isAvailable && product.availableQuantity <= 5;
               return (
                 <div key={product.id} className={`group bg-white rounded-2xl overflow-hidden border border-slate-100 transition-all ${isAvailable ? "hover:shadow-lg hover:border-slate-200" : "opacity-60"}`}>
-                  <div className="relative bg-slate-50 overflow-hidden" style={{ aspectRatio: "314 / 306" }}>
+                  <div className="relative bg-slate-50 overflow-hidden cursor-pointer" style={{ aspectRatio: "314 / 306" }} onClick={() => isAvailable && setSelectedProduct(product)}>
                     {product.imageUrl ? (
                       <img src={product.imageUrl} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
                     ) : (
@@ -449,9 +450,9 @@ export default function PublicStorePage() {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-6">
             <div>
               {store?.storeLogoUrl ? (
-                <img src={store.storeLogoUrl} alt={store.name} className="h-10 w-auto max-w-[120px] object-contain mb-3" />
+                <img src={store.storeLogoUrl} alt={store.name} className="h-14 w-auto max-w-[180px] object-contain mb-3" />
               ) : (
-                <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white mb-3" style={{ backgroundColor: primaryColor }}><Store className="w-5 h-5" /></div>
+                <div className="w-14 h-14 rounded-xl flex items-center justify-center text-white mb-3" style={{ backgroundColor: primaryColor }}><Store className="w-7 h-7" /></div>
               )}
               <p className="text-xs text-slate-400 mb-3">Votre boutique en ligne. Commandez en quelques clics.</p>
               <div className="flex items-center gap-2">
@@ -565,6 +566,141 @@ export default function PublicStorePage() {
               <div className="bg-slate-50 rounded-xl p-3 flex items-center justify-between"><span className="text-sm text-slate-500">{cartCount} article{cartCount > 1 ? "s" : ""}</span><span className="text-2xl font-bold" style={{ color: primaryColor }}>{grandTotal.toLocaleString("fr-FR")} FCFA</span></div>
               <button onClick={handleSubmitOrder} disabled={submitting || !customerName.trim() || !customerPhone.trim() || (deliveryMethod === "DELIVERY" && !deliveryAddress.trim())} className="w-full py-4 rounded-xl text-white font-bold text-sm disabled:opacity-40 shadow-lg transition-transform active:scale-98" style={{ backgroundColor: primaryColor }}>{submitting ? <span className="flex items-center justify-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Envoi...</span> : `Confirmer — ${grandTotal.toLocaleString("fr-FR")} FCFA`}</button>
               <p className="text-[10px] text-center text-slate-400">En confirmant, vous acceptez d'être contacté par le vendeur.</p>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ===== PRODUCT DETAIL MODAL ===== */}
+      <AnimatePresence>
+        {selectedProduct && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4"
+            onClick={() => setSelectedProduct(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.92, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.92, opacity: 0, y: 20 }}
+              className="bg-white rounded-3xl w-full max-w-2xl max-h-[90vh] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Close button */}
+              <button
+                onClick={() => setSelectedProduct(null)}
+                className="absolute top-3 right-3 z-10 w-9 h-9 rounded-full bg-white/90 backdrop-blur shadow-lg flex items-center justify-center hover:bg-white transition-colors"
+              >
+                <X className="w-5 h-5 text-slate-700" />
+              </button>
+
+              {/* Image principale */}
+              <div className="relative w-full aspect-square sm:aspect-[16/10] bg-slate-50 overflow-hidden">
+                {selectedProduct.imageUrl ? (
+                  <img src={selectedProduct.imageUrl} alt={selectedProduct.name} className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center"><Package className="w-16 h-16 text-slate-200" /></div>
+                )}
+                {selectedProduct.availableQuantity <= 5 && selectedProduct.availableQuantity > 0 && (
+                  <div className="absolute top-3 left-3"><span className="px-3 py-1 rounded-lg bg-amber-500 text-white text-xs font-bold">Plus que {selectedProduct.availableQuantity} disponibles</span></div>
+                )}
+                {selectedProduct.availableQuantity === 0 && (
+                  <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                    <span className="px-4 py-2 rounded-xl bg-white text-sm font-bold text-slate-700">Rupture de stock</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Infos produit */}
+              <div className="p-5 sm:p-6 space-y-4">
+                {selectedProduct.category && (
+                  <span className="inline-block px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide" style={{ backgroundColor: primaryColor + "15", color: primaryColor }}>
+                    {selectedProduct.category}
+                  </span>
+                )}
+                <h2 className="text-xl sm:text-2xl font-bold text-slate-900">{selectedProduct.name}</h2>
+                <p className="text-2xl font-bold" style={{ color: primaryColor }}>
+                  {selectedProduct.salePrice.toLocaleString("fr-FR")} FCFA
+                </p>
+
+                {/* Description */}
+                {selectedProduct.description && (
+                  <div className="border-t border-slate-100 pt-4">
+                    <h3 className="text-sm font-bold text-slate-700 mb-1.5">Description</h3>
+                    <p className="text-sm text-slate-500 leading-relaxed">{selectedProduct.description}</p>
+                  </div>
+                )}
+
+                {/* Stock info */}
+                <div className="flex items-center gap-2 text-xs">
+                  {selectedProduct.availableQuantity > 0 ? (
+                    <>
+                      <span className="w-2 h-2 rounded-full bg-green-500" />
+                      <span className="text-green-600 font-medium">{selectedProduct.availableQuantity} en stock</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="w-2 h-2 rounded-full bg-rose-500" />
+                      <span className="text-rose-600 font-medium">Rupture de stock</span>
+                    </>
+                  )}
+                </div>
+
+                {/* Quantité + Acheter */}
+                {selectedProduct.availableQuantity > 0 && (
+                  <div className="flex items-center gap-3 pt-2">
+                    {/* Quantité selector */}
+                    <div className="inline-flex items-center gap-1 rounded-xl p-1 border border-slate-200">
+                      <button
+                        onClick={() => {
+                          const inCart = cart.find((i) => i.product.id === selectedProduct.id);
+                          if (inCart && inCart.quantity > 1) {
+                            updateQuantity(selectedProduct.id, -1);
+                          }
+                        }}
+                        className="w-9 h-9 rounded-lg bg-slate-50 hover:bg-slate-100 flex items-center justify-center transition-colors"
+                      >
+                        <Minus className="w-4 h-4 text-slate-600" strokeWidth={2.5} />
+                      </button>
+                      <span className="min-w-[2rem] text-center font-bold text-base text-slate-900">
+                        {cart.find((i) => i.product.id === selectedProduct.id)?.quantity || 0}
+                      </span>
+                      <button
+                        onClick={() => {
+                          const inCart = cart.find((i) => i.product.id === selectedProduct.id);
+                          if (!inCart || inCart.quantity < selectedProduct.availableQuantity) {
+                            addToCart(selectedProduct);
+                          }
+                        }}
+                        disabled={(cart.find((i) => i.product.id === selectedProduct.id)?.quantity || 0) >= selectedProduct.availableQuantity}
+                        className="w-9 h-9 rounded-lg flex items-center justify-center text-white disabled:opacity-40 transition-opacity"
+                        style={{ backgroundColor: primaryColor }}
+                      >
+                        <Plus className="w-4 h-4" strokeWidth={2.5} />
+                      </button>
+                    </div>
+
+                    {/* Bouton Acheter */}
+                    <button
+                      onClick={() => {
+                        const inCart = cart.find((i) => i.product.id === selectedProduct.id);
+                        if (!inCart || inCart.quantity < selectedProduct.availableQuantity) {
+                          addToCart(selectedProduct);
+                        }
+                        setSelectedProduct(null);
+                        setCartOpen(true);
+                      }}
+                      className="flex-1 py-3.5 rounded-xl text-white font-bold text-sm shadow-lg transition-transform active:scale-98 flex items-center justify-center gap-2"
+                      style={{ backgroundColor: primaryColor }}
+                    >
+                      <ShoppingBag className="w-4 h-4" />
+                      Acheter
+                    </button>
+                  </div>
+                )}
+              </div>
             </motion.div>
           </motion.div>
         )}
