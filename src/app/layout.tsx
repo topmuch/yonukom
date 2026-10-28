@@ -4,6 +4,13 @@ import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 import { PwaRegister } from "@/components/shared/pwa-register";
 import { FloatingWhatsApp } from "@/components/shared/floating-whatsapp";
+import { patchGlobalFetch } from "@/lib/api-client";
+
+// Patch global fetch to always send JWT cookie + Authorization header
+// This ensures ALL fetch() calls in the app are authenticated
+if (typeof window !== "undefined") {
+  patchGlobalFetch();
+}
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
