@@ -210,7 +210,8 @@ export type FCFA = number; // Alias sémantique — toujours un entier
 export type SuperadminPage = "overview" | "tenants" | "tenant-detail" | "subscriptions" | "analytics" | "settings" | "logs" | "users" | "messages";
 
 export type SubscriptionPlan = "starter" | "pro" | "enterprise";
-export type SubscriptionStatus = "active" | "expired" | "past_due" | "cancelled";
+export type SubscriptionStatus = "active" | "suspended" | "expired" | "past_due" | "cancelled";
+export type SubscriptionBillingPeriod = "monthly" | "annual";
 export type TenantBusinessType = "retail_shop" | "restaurant" | "wholesaler" | "tiktok_seller" | "ecommerce_social" | "mixte";
 
 export const SUBSCRIPTION_PLAN_LABELS: Record<SubscriptionPlan, string> = {
@@ -222,11 +223,24 @@ export const SUBSCRIPTION_PLAN_LABELS: Record<SubscriptionPlan, string> = {
 export const SUBSCRIPTION_PLAN_PRICES: Record<SubscriptionPlan, number> = {
   starter: 5000,     // 5 000 FCFA/mois
   pro: 15000,        // 15 000 FCFA/mois
-  enterprise: 50000, // 50 000 FCFA/mois
+  enterprise: 35000, // 35 000 FCFA/mois (aligné Business)
+};
+
+export const SUBSCRIPTION_PLAN_ANNUAL_PRICES: Record<SubscriptionPlan, number> = {
+  // Annual = 10 months (2 months free)
+  starter: 50000,
+  pro: 150000,
+  enterprise: 350000,
+};
+
+export const SUBSCRIPTION_BILLING_PERIOD_LABELS: Record<SubscriptionBillingPeriod, string> = {
+  monthly: "Mensuel",
+  annual: "Annuel",
 };
 
 export const SUBSCRIPTION_STATUS_LABELS: Record<SubscriptionStatus, string> = {
   active: "Active",
+  suspended: "Suspendu",
   expired: "Expiré",
   past_due: "En retard",
   cancelled: "Annulé",
@@ -250,13 +264,49 @@ export interface TenantInfo {
   businessType: TenantBusinessType;
   config?: string;
   createdAt: string;
+  businesses?: Array<{
+    id: string;
+    name: string;
+    type: string;
+    phone: string | null;
+    email: string | null;
+    address: string | null;
+    city: string | null;
+  }>;
+  users?: Array<{
+    id: string;
+    name: string;
+    email: string;
+    role: string;
+    isActive: boolean;
+  }>;
   subscription?: {
     id: string;
     plan: SubscriptionPlan;
     status: SubscriptionStatus;
     amount: number;
+    billingPeriod?: SubscriptionBillingPeriod;
     currentPeriodEnd: string;
+    nextBillingDate?: string | null;
+    paymentMethod?: string | null;
   };
+}
+
+export interface PlatformSettingData {
+  id: string;
+  seoTitle: string | null;
+  seoDescription: string | null;
+  seoKeywords: string | null;
+  ogImageUrl: string | null;
+  smtpHost: string | null;
+  smtpPort: number | null;
+  smtpUser: string | null;
+  smtpPassword: string | null;
+  smtpFromEmail: string | null;
+  smtpFromName: string | null;
+  googleAnalyticsId: string | null;
+  facebookPixelId: string | null;
+  updatedAt: string;
 }
 
 export interface PlatformMetrics {

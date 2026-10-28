@@ -16,6 +16,11 @@ const STATUS_CONFIG: Record<
     dot: "🟢",
     className: "bg-emerald-100 text-emerald-800 border-emerald-200 hover:bg-emerald-100",
   },
+  suspended: {
+    label: "Suspendu",
+    dot: "🟣",
+    className: "bg-purple-100 text-purple-800 border-purple-200 hover:bg-purple-100",
+  },
   past_due: {
     label: "En retard",
     dot: "🟠",
@@ -34,7 +39,11 @@ const STATUS_CONFIG: Record<
 };
 
 export function SubscriptionStatusBadge({ status }: SubscriptionStatusBadgeProps) {
-  const config = STATUS_CONFIG[status];
+  const config = STATUS_CONFIG[status] ?? {
+    label: status,
+    dot: "⚪",
+    className: "bg-gray-100 text-gray-800 border-gray-200",
+  };
 
   return (
     <Badge variant="outline" className={config.className}>

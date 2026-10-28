@@ -1,13 +1,14 @@
 // ============================================================
-// YonuKom — Superadmin Dashboard (Premium Blue — matches uploaded design)
-// 6 pages: Overview / Tenants / Subscriptions / Analytics / Logs / Settings
-// Blue sidebar + blue top bar with search + SVG charts (rings, gauge, area, donut, bars)
-// Keeps: tab switching, tenant list, logout, theme toggle, impersonation, Nouveau tenant dialog
+// YonuKom — Superadmin Dashboard (V2)
+// Pages: Overview / Tenants / Users / Subscriptions / Analytics / Messages / Logs / Settings
+// Theme-aware (dark mode fixed), notifications badge, settings SEO/Email sections,
+// subscription actions (suspend/deactivate/activate/delete), bulk user delete,
+// tenant detail dialog with quick actions.
 // ============================================================
 
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   BarChart3,
@@ -37,7 +38,19 @@ import {
   EyeOff,
   UserPlus,
   Phone,
+  Trash2,
+  Pause,
+  Play,
+  Ban,
+  CheckSquare,
+  Square,
+  Save,
+  Globe,
+  Server,
+  CheckCircle2,
+  PauseCircle,
 } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -52,7 +65,20 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
 import { useSuperadminStore } from "@/stores/use-superadmin-store";
 import { useAuthStore } from "@/stores/use-auth-store";
 import { TenantTable } from "@/components/superadmin/tenant-table";
@@ -61,10 +87,18 @@ import { TenantDetailPanel } from "@/components/superadmin/tenant-detail-panel";
 import { ImpersonationBanner } from "@/components/superadmin/impersonation-banner";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
 import { formatFCFA, formatFCFAShort } from "@/lib/fcfa";
-import type { SuperadminPage, SubscriptionPlan, SubscriptionStatus } from "@/types";
+import type {
+  SuperadminPage,
+  SubscriptionPlan,
+  SubscriptionStatus,
+  SubscriptionBillingPeriod,
+  PlatformSettingData,
+} from "@/types";
 import {
   SUBSCRIPTION_PLAN_LABELS,
   SUBSCRIPTION_PLAN_PRICES,
+  SUBSCRIPTION_PLAN_ANNUAL_PRICES,
+  SUBSCRIPTION_BILLING_PERIOD_LABELS,
   TENANT_TYPE_LABELS,
 } from "@/types";
 
@@ -80,7 +114,7 @@ const NAV_ITEMS: { page: SuperadminPage; icon: typeof BarChart3; label: string }
   { page: "settings", icon: SettingsIcon, label: "Paramètres" },
 ];
 
-// Blue accent color used in all SVG charts
+// Blue accent color used in SVG charts (kept for charts; UI uses theme tokens)
 const BLUE = "#338BE2";
 const BLUE_DARK = "#2074C6";
 const BLUE_LIGHT = "#5BA5EA";
@@ -103,6 +137,7 @@ export function SuperadminDashboard() {
   const setTenantSearch = useSuperadminStore((s) => s.setTenantSearch);
   const logout = useAuthStore((s) => s.logout);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [notifCount, setNotifCount] = useState(0);
 
   // Fetch initial data
   const fetchMetrics = useCallback(async () => {
@@ -135,10 +170,47 @@ export function SuperadminDashboard() {
     }
   }, []);
 
+  // Fetch notification count (new tenants in last 24h + new messages + new users in last 24h)
+  const fetchNotifCount = useCallback(async () => {
+    try {
+      const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      const [tenantsRes, messagesRes, usersRes] = await Promise.all([
+        fetch(`/api/superadmin/tenants?sortBy=createdAt&since=${encodeURIComponent(since)}`),
+        fetch("/api/superadmin/messages?status=new"),
+        fetch("/api/superadmin/users"),
+      ]);
+      let count = 0;
+      if (tenantsRes.ok) {
+        const tenants = await tenantsRes.json();
+        count += Array.isArray(tenants)
+          ? tenants.filter((t: { createdAt?: string }) =>
+              t.createdAt ? new Date(t.createdAt) > new Date(since) : false
+            ).length
+          : 0;
+      }
+      if (messagesRes.ok) {
+        const data = await messagesRes.json();
+        count += data?.counts?.new ?? 0;
+      }
+      if (usersRes.ok) {
+        const users = await usersRes.json();
+        count += Array.isArray(users)
+          ? users.filter((u: { createdAt?: string }) =>
+              u.createdAt ? new Date(u.createdAt) > new Date(since) : false
+            ).length
+          : 0;
+      }
+      setNotifCount(count);
+    } catch (err) {
+      console.error("Failed to fetch notification count:", err);
+    }
+  }, []);
+
   useEffect(() => {
     fetchMetrics();
     fetchTenants();
-  }, [fetchMetrics, fetchTenants]);
+    fetchNotifCount();
+  }, [fetchMetrics, fetchTenants, fetchNotifCount]);
 
   const handleViewTenant = useCallback((id: string) => {
     useSuperadminStore.getState().setSelectedTenantId(id);
@@ -167,7 +239,7 @@ export function SuperadminDashboard() {
   const selectedTenant = tenants.find((t) => t.id === selectedTenantId) ?? null;
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#F6F9FE]">
+    <div className="min-h-screen flex flex-col bg-[#F6F9FE] dark:bg-background">
       {/* Impersonation Banner */}
       {impersonation.isImpersonating && impersonation.tenantName && (
         <ImpersonationBanner
@@ -186,6 +258,7 @@ export function SuperadminDashboard() {
               setSidebarOpen(false);
             }}
             onLogout={logout}
+            notifCount={notifCount}
           />
         </aside>
 
@@ -214,6 +287,7 @@ export function SuperadminDashboard() {
                     setSidebarOpen(false);
                   }}
                   onLogout={logout}
+                  notifCount={notifCount}
                 />
               </motion.aside>
             </>
@@ -270,9 +344,14 @@ export function SuperadminDashboard() {
               <button
                 className="w-9 h-9 rounded-lg bg-white/15 backdrop-blur hover:bg-white/25 flex items-center justify-center relative transition-colors"
                 aria-label="Notifications"
+                onClick={() => setActivePage("overview")}
               >
                 <Bell className="w-4 h-4 text-white" />
-                <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-amber-300 ring-2 ring-[#338BE2]" />
+                {notifCount > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-amber-300 text-[#2074C6] text-[10px] font-bold flex items-center justify-center ring-2 ring-[#338BE2]">
+                    {notifCount > 99 ? "99+" : notifCount}
+                  </span>
+                )}
               </button>
               <Badge className="bg-white/15 text-white border border-white/20 backdrop-blur">
                 <Shield className="w-3 h-3 mr-1" />
@@ -354,23 +433,26 @@ export function SuperadminDashboard() {
           if (!open) useSuperadminStore.getState().setSelectedTenantId(null);
         }}
         onImpersonate={handleImpersonate}
+        onRefresh={fetchTenants}
       />
     </div>
   );
 }
 
 // ============================================================
-// SIDEBAR — matches uploaded dashboard (blue gradient, white text/icons)
+// SIDEBAR — blue gradient, white text/icons, notif badge on Messages
 // ============================================================
 
 function SidebarContent({
   activePage,
   onNavigate,
   onLogout,
+  notifCount,
 }: {
   activePage: SuperadminPage;
   onNavigate: (page: SuperadminPage) => void;
   onLogout: () => void;
+  notifCount?: number;
 }) {
   return (
     <div className="flex flex-col h-full">
@@ -399,6 +481,7 @@ function SidebarContent({
         </p>
         {NAV_ITEMS.map(({ page, icon: Icon, label }) => {
           const isActive = activePage === page;
+          const showBadge = (page === "messages" || page === "overview") && notifCount && notifCount > 0;
           return (
             <button
               key={page}
@@ -414,7 +497,12 @@ function SidebarContent({
                 strokeWidth={isActive ? 2.4 : 1.8}
               />
               <span className="flex-1 text-left">{label}</span>
-              {isActive && (
+              {showBadge && (
+                <span className="min-w-[20px] h-5 px-1.5 rounded-full bg-amber-300 text-[#2074C6] text-[10px] font-bold flex items-center justify-center">
+                  {notifCount! > 99 ? "99+" : notifCount}
+                </span>
+              )}
+              {isActive && !showBadge && (
                 <motion.span
                   layoutId="sa-sidebar-dot"
                   className="w-1.5 h-1.5 rounded-full bg-[#338BE2]"
@@ -454,7 +542,6 @@ function SidebarContent({
 // SVG CHARTS — all self-contained (no external deps)
 // ============================================================
 
-/** Circular progress ring (used in stat cards) */
 function CircularProgressRing({
   value,
   size = 70,
@@ -464,7 +551,7 @@ function CircularProgressRing({
   label,
   sublabel,
 }: {
-  value: number; // 0-100
+  value: number;
   size?: number;
   stroke?: number;
   color?: string;
@@ -511,7 +598,7 @@ function CircularProgressRing({
             {label}
           </span>
           {sublabel && (
-            <span className="text-[9px] text-slate-400 mt-0.5">{sublabel}</span>
+            <span className="text-[9px] text-muted-foreground mt-0.5">{sublabel}</span>
           )}
         </div>
       )}
@@ -519,7 +606,6 @@ function CircularProgressRing({
   );
 }
 
-/** Gauge meter (semicircle) — used in 5th stat card */
 function GaugeMeter({
   value,
   size = 120,
@@ -528,7 +614,7 @@ function GaugeMeter({
   label,
   sublabel,
 }: {
-  value: number; // 0-100
+  value: number;
   size?: number;
   stroke?: number;
   color?: string;
@@ -538,7 +624,7 @@ function GaugeMeter({
   const radius = (size - stroke) / 2;
   const cx = size / 2;
   const cy = size / 2;
-  const circumference = Math.PI * radius; // half circle
+  const circumference = Math.PI * radius;
   const clamped = Math.max(0, Math.min(100, value));
   const offset = circumference - (clamped / 100) * circumference;
 
@@ -570,7 +656,7 @@ function GaugeMeter({
             {label}
           </span>
           {sublabel && (
-            <span className="text-[10px] text-slate-400">{sublabel}</span>
+            <span className="text-[10px] text-muted-foreground">{sublabel}</span>
           )}
         </div>
       )}
@@ -578,9 +664,7 @@ function GaugeMeter({
   );
 }
 
-/** Area chart with smooth curve + gradient fill */
 function AreaChart({ height = 220 }: { height?: number }) {
-  // Static demo data — 12 monthly points
   const data = [40, 55, 45, 70, 65, 85, 75, 95, 88, 110, 105, 125];
   const months = ["J", "F", "M", "A", "M", "J", "J", "A", "S", "O", "N", "D"];
   const max = Math.max(...data) * 1.1;
@@ -594,7 +678,6 @@ function AreaChart({ height = 220 }: { height?: number }) {
     return [x, y];
   });
 
-  // Smooth curve via Catmull-Rom → Bezier conversion (simplified)
   const pathD = (() => {
     if (points.length === 0) return "";
     let d = `M ${points[0][0]} ${points[0][1]}`;
@@ -628,7 +711,6 @@ function AreaChart({ height = 220 }: { height?: number }) {
         </linearGradient>
       </defs>
 
-      {/* Grid lines */}
       {[0.25, 0.5, 0.75, 1].map((p) => (
         <line
           key={p}
@@ -636,13 +718,14 @@ function AreaChart({ height = 220 }: { height?: number }) {
           x2={w - pad}
           y1={h - pad - p * (h - pad * 2)}
           y2={h - pad - p * (h - pad * 2)}
-          stroke="#E2E8F0"
+          stroke="currentColor"
+          strokeOpacity="0.15"
           strokeWidth="1"
           strokeDasharray="4 4"
+          className="text-muted-foreground"
         />
       ))}
 
-      {/* Area fill */}
       <motion.path
         d={areaD}
         fill="url(#areaGrad)"
@@ -651,7 +734,6 @@ function AreaChart({ height = 220 }: { height?: number }) {
         transition={{ duration: 0.8, delay: 0.3 }}
       />
 
-      {/* Line */}
       <motion.path
         d={pathD}
         fill="none"
@@ -663,7 +745,6 @@ function AreaChart({ height = 220 }: { height?: number }) {
         transition={{ duration: 1.2, ease: "easeOut" }}
       />
 
-      {/* Points */}
       {points.map(([x, y], i) => (
         <motion.circle
           key={i}
@@ -679,14 +760,13 @@ function AreaChart({ height = 220 }: { height?: number }) {
         />
       ))}
 
-      {/* X-axis labels */}
       {months.map((m, i) => (
         <text
           key={i}
           x={pad + i * stepX}
           y={h - 5}
           textAnchor="middle"
-          className="fill-slate-400"
+          className="fill-muted-foreground"
           style={{ fontSize: "10px" }}
         >
           {m}
@@ -696,7 +776,6 @@ function AreaChart({ height = 220 }: { height?: number }) {
   );
 }
 
-/** Donut chart with multiple segments + center text */
 function DonutChart({
   segments,
   size = 180,
@@ -718,19 +797,25 @@ function DonutChart({
   const total = segments.reduce((sum, s) => sum + s.value, 0) || 1;
   const circumference = 2 * Math.PI * radius;
 
-  let cumulative = 0;
+  // Compute cumulative offsets in a pure way (no outer mutation, lint-friendly).
+  // First pass: build cumulative fractions array. Second pass: derive arc data.
+  const fractions = segments.map((s) => s.value / total);
+  const cumulativeFractions: number[] = [];
+  for (let k = 0; k < fractions.length; k++) {
+    const prev = k > 0 ? cumulativeFractions[k - 1] : 0;
+    cumulativeFractions.push(prev + fractions[k]);
+  }
   const arcs = segments.map((seg, i) => {
-    const fraction = seg.value / total;
+    const fraction = fractions[i];
     const dashLen = fraction * circumference;
-    const dashOffset = -cumulative * circumference;
-    cumulative += fraction;
+    const prevCumulative = i > 0 ? cumulativeFractions[i - 1] : 0;
+    const dashOffset = -prevCumulative * circumference;
     return { ...seg, dashLen, dashOffset, i };
   });
 
   return (
     <div className="relative" style={{ width: size, height: size }}>
       <svg width={size} height={size} className="-rotate-90">
-        {/* Track */}
         <circle
           cx={cx}
           cy={cy}
@@ -739,7 +824,6 @@ function DonutChart({
           stroke="rgba(51,139,226,0.06)"
           strokeWidth={stroke}
         />
-        {/* Segments */}
         {arcs.map((arc) => (
           <motion.circle
             key={arc.i}
@@ -758,9 +842,9 @@ function DonutChart({
       </svg>
       {centerLabel && (
         <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-2xl font-bold text-slate-900">{centerLabel}</span>
+          <span className="text-2xl font-bold text-foreground">{centerLabel}</span>
           {centerSub && (
-            <span className="text-xs text-slate-500 mt-0.5">{centerSub}</span>
+            <span className="text-xs text-muted-foreground mt-0.5">{centerSub}</span>
           )}
           {centerDelta && (
             <span className="text-xs font-semibold text-emerald-600 mt-0.5 flex items-center gap-0.5">
@@ -774,7 +858,6 @@ function DonutChart({
   );
 }
 
-/** Bar chart (bottom, with 2014-2020 timeline) */
 function BarChart({ height = 200 }: { height?: number }) {
   const data = [
     { year: "2014", value: 45 },
@@ -801,7 +884,6 @@ function BarChart({ height = 200 }: { height?: number }) {
         </linearGradient>
       </defs>
 
-      {/* Grid */}
       {[0.25, 0.5, 0.75, 1].map((p) => (
         <line
           key={p}
@@ -809,13 +891,14 @@ function BarChart({ height = 200 }: { height?: number }) {
           x2={w - pad}
           y1={h - pad - p * (h - pad * 2)}
           y2={h - pad - p * (h - pad * 2)}
-          stroke="#E2E8F0"
+          stroke="currentColor"
+          strokeOpacity="0.15"
           strokeWidth="1"
           strokeDasharray="4 4"
+          className="text-muted-foreground"
         />
       ))}
 
-      {/* Bars */}
       {data.map((d, i) => {
         const barH = (d.value / max) * (h - pad * 2);
         const x = pad + i * stepX + (stepX - barWidth) / 2;
@@ -833,12 +916,11 @@ function BarChart({ height = 200 }: { height?: number }) {
               animate={{ height: barH, y }}
               transition={{ duration: 0.8, delay: i * 0.08, ease: "easeOut" }}
             />
-            {/* Value label on top */}
             <motion.text
               x={x + barWidth / 2}
               y={y - 8}
               textAnchor="middle"
-              className="fill-slate-600"
+              className="fill-muted-foreground"
               style={{ fontSize: "10px", fontWeight: 600 }}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -846,12 +928,11 @@ function BarChart({ height = 200 }: { height?: number }) {
             >
               {d.value}
             </motion.text>
-            {/* Year label */}
             <text
               x={x + barWidth / 2}
               y={h - 10}
               textAnchor="middle"
-              className="fill-slate-400"
+              className="fill-muted-foreground"
               style={{ fontSize: "11px" }}
             >
               {d.year}
@@ -864,7 +945,7 @@ function BarChart({ height = 200 }: { height?: number }) {
 }
 
 // ============================================================
-// PAGE: OVERVIEW — matches uploaded dashboard image
+// PAGE: OVERVIEW
 // ============================================================
 
 function OverviewPage({
@@ -880,13 +961,66 @@ function OverviewPage({
   const metricsLoading = useSuperadminStore((s) => s.metricsLoading);
   const tenants = useSuperadminStore((s) => s.tenants);
 
+  // Notifications récentes
+  const [recentTenants, setRecentTenants] = useState<Array<{ id: string; name: string; ownerName: string; createdAt: string }>>([]);
+  const [recentMessages, setRecentMessages] = useState<Array<{ id: string; name: string; email: string; createdAt: string }>>([]);
+  const [recentUsers, setRecentUsers] = useState<Array<{ id: string; name: string; email: string; createdAt: string }>>([]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const [tenantsRes, messagesRes, usersRes] = await Promise.all([
+          fetch("/api/superadmin/tenants"),
+          fetch("/api/superadmin/messages?status=new"),
+          fetch("/api/superadmin/users"),
+        ]);
+        if (tenantsRes.ok) {
+          const data = await tenantsRes.json();
+          const sorted = (data as any[])
+            .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+            .slice(0, 5)
+            .map((t) => ({ id: t.id, name: t.name, ownerName: t.ownerName, createdAt: t.createdAt }));
+          setRecentTenants(sorted);
+        }
+        if (messagesRes.ok) {
+          const data = await messagesRes.json();
+          const msgs = (data.messages as any[]).slice(0, 5).map((m) => ({
+            id: m.id,
+            name: m.name,
+            email: m.email,
+            createdAt: m.createdAt,
+          }));
+          setRecentMessages(msgs);
+        }
+        if (usersRes.ok) {
+          const data = await usersRes.json();
+          const sorted = (data as any[])
+            .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+            .slice(0, 5)
+            .map((u) => ({ id: u.id, name: u.name, email: u.email, createdAt: u.createdAt }));
+          setRecentUsers(sorted);
+        }
+      } catch (err) {
+        console.error("Failed to fetch notifications:", err);
+      }
+    })();
+  }, []);
+
+  const fmtDate = (iso: string) =>
+    new Date(iso).toLocaleString("fr-FR", {
+      day: "2-digit",
+      month: "short",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Vue d&apos;ensemble</h1>
-          <p className="text-slate-500 text-sm">
+          <h1 className="text-2xl font-bold text-foreground">Vue d&apos;ensemble</h1>
+          <p className="text-muted-foreground text-sm">
             Pilotage de la plateforme YonuKom
           </p>
         </div>
@@ -895,7 +1029,7 @@ function OverviewPage({
           size="sm"
           onClick={onRefresh}
           disabled={metricsLoading}
-          className="bg-white border-slate-200 hover:bg-[#338BE2]/5 hover:border-[#338BE2]/30 hover:text-[#338BE2]"
+          className="bg-background border-border hover:bg-[#338BE2]/5 hover:border-[#338BE2]/30 hover:text-[#338BE2]"
         >
           <RefreshCw
             className={`w-4 h-4 mr-1.5 ${metricsLoading ? "animate-spin" : ""}`}
@@ -942,14 +1076,13 @@ function OverviewPage({
           delta="-2"
           deltaUp={false}
         />
-        {/* 5th card — gauge meter */}
-        <Card className="bg-white border border-slate-200/60 hover:shadow-[0_8px_24px_-12px_rgba(51,139,226,0.15)] transition-shadow">
+        <Card className="bg-background border border-border hover:shadow-[0_8px_24px_-12px_rgba(51,139,226,0.15)] transition-shadow">
           <CardContent className="p-5 flex flex-col items-center">
             <div className="flex items-center gap-2 self-start mb-2">
               <div className="w-7 h-7 rounded-lg bg-[#338BE2]/10 flex items-center justify-center">
                 <TrendingUp className="w-4 h-4 text-[#338BE2]" />
               </div>
-              <p className="text-xs font-medium text-slate-500">Santé plateforme</p>
+              <p className="text-xs font-medium text-muted-foreground">Santé plateforme</p>
             </div>
             <GaugeMeter
               value={metrics ? Math.min(100, 100 - metrics.churnRate * 2) : 75}
@@ -961,25 +1094,23 @@ function OverviewPage({
         </Card>
       </div>
 
-      {/* MIDDLE: area chart + 4 small data cards (left), donut + table (right) */}
+      {/* MIDDLE: area chart + donut + table */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Left (2/3): area chart + 4 small cards */}
         <div className="lg:col-span-2 space-y-4">
-          {/* Area chart card */}
-          <Card className="bg-white border border-slate-200/60">
+          <Card className="bg-background border border-border">
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <div>
-                  <CardTitle className="text-base font-bold text-slate-900">
+                  <CardTitle className="text-base font-bold text-foreground">
                     Statistic Graph
                   </CardTitle>
-                  <p className="text-xs text-slate-500 mt-0.5">
+                  <p className="text-xs text-muted-foreground mt-0.5">
                     Évolution mensuelle du revenu
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
                   <Select defaultValue="all-categories">
-                    <SelectTrigger className="w-[140px] h-8 text-xs bg-[#F6F9FE] border-slate-200">
+                    <SelectTrigger className="w-[140px] h-8 text-xs bg-muted/50 border-border">
                       <SelectValue placeholder="Toutes catégories" />
                     </SelectTrigger>
                     <SelectContent>
@@ -989,7 +1120,7 @@ function OverviewPage({
                     </SelectContent>
                   </Select>
                   <Select defaultValue="all-stats">
-                    <SelectTrigger className="w-[120px] h-8 text-xs bg-[#F6F9FE] border-slate-200">
+                    <SelectTrigger className="w-[120px] h-8 text-xs bg-muted/50 border-border">
                       <SelectValue placeholder="Toutes stats" />
                     </SelectTrigger>
                     <SelectContent>
@@ -1006,44 +1137,21 @@ function OverviewPage({
             </CardContent>
           </Card>
 
-          {/* 4 small colored data cards */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <MiniDataCard
-              value="1.650"
-              label="Total Distance"
-              color={BLUE}
-              icon={TrendingUp}
-            />
-            <MiniDataCard
-              value="650"
-              label="Total Distance"
-              color={EMERALD}
-              icon={Activity}
-            />
-            <MiniDataCard
-              value="1.100"
-              label="Total Distance"
-              color={AMBER}
-              icon={CircleDollarSign}
-            />
-            <MiniDataCard
-              value="490"
-              label="Total Distance"
-              color={LAVENDER}
-              icon={Users}
-            />
+            <MiniDataCard value="1.650" label="Total Distance" color={BLUE} icon={TrendingUp} />
+            <MiniDataCard value="650" label="Total Distance" color={EMERALD} icon={Activity} />
+            <MiniDataCard value="1.100" label="Total Distance" color={AMBER} icon={CircleDollarSign} />
+            <MiniDataCard value="490" label="Total Distance" color={LAVENDER} icon={Users} />
           </div>
         </div>
 
-        {/* Right (1/3): donut chart + product table */}
         <div className="space-y-4">
-          {/* Donut chart card */}
-          <Card className="bg-white border border-slate-200/60">
+          <Card className="bg-background border border-border">
             <CardHeader className="pb-2">
-              <CardTitle className="text-base font-bold text-slate-900">
+              <CardTitle className="text-base font-bold text-foreground">
                 Répartition
               </CardTitle>
-              <p className="text-xs text-slate-500">Plans d&apos;abonnement</p>
+              <p className="text-xs text-muted-foreground">Plans d&apos;abonnement</p>
             </CardHeader>
             <CardContent className="flex flex-col items-center pb-4">
               <DonutChart
@@ -1056,8 +1164,7 @@ function OverviewPage({
                 centerSub="Total"
                 centerDelta="+1.100%"
               />
-              {/* Legend */}
-              <div className="grid grid-cols-3 gap-2 w-full mt-4 pt-3 border-t border-slate-100">
+              <div className="grid grid-cols-3 gap-2 w-full mt-4 pt-3 border-t border-border">
                 {[
                   { color: BLUE, label: "Starter", value: "60%" },
                   { color: EMERALD, label: "Pro", value: "25%" },
@@ -1069,21 +1176,20 @@ function OverviewPage({
                         className="w-2.5 h-2.5 rounded-sm"
                         style={{ background: item.color }}
                       />
-                      <span className="text-[10px] font-medium text-slate-600">
+                      <span className="text-[10px] font-medium text-muted-foreground">
                         {item.label}
                       </span>
                     </div>
-                    <p className="text-xs font-bold text-slate-900">{item.value}</p>
+                    <p className="text-xs font-bold text-foreground">{item.value}</p>
                   </div>
                 ))}
               </div>
             </CardContent>
           </Card>
 
-          {/* Product table */}
-          <Card className="bg-white border border-slate-200/60">
+          <Card className="bg-background border border-border">
             <CardHeader className="pb-2">
-              <CardTitle className="text-base font-bold text-slate-900">
+              <CardTitle className="text-base font-bold text-foreground">
                 Top produits
               </CardTitle>
             </CardHeader>
@@ -1091,17 +1197,17 @@ function OverviewPage({
               <div className="overflow-x-auto">
                 <table className="w-full text-xs">
                   <thead>
-                    <tr className="border-b border-slate-100 bg-[#F6F9FE]">
-                      <th className="text-left font-semibold text-slate-500 px-4 py-2.5 uppercase tracking-wider text-[10px]">
+                    <tr className="border-b border-border bg-muted/50">
+                      <th className="text-left font-semibold text-muted-foreground px-4 py-2.5 uppercase tracking-wider text-[10px]">
                         Produit
                       </th>
-                      <th className="text-right font-semibold text-slate-500 px-2 py-2.5 uppercase tracking-wider text-[10px]">
+                      <th className="text-right font-semibold text-muted-foreground px-2 py-2.5 uppercase tracking-wider text-[10px]">
                         Qté
                       </th>
-                      <th className="text-right font-semibold text-slate-500 px-2 py-2.5 uppercase tracking-wider text-[10px]">
+                      <th className="text-right font-semibold text-muted-foreground px-2 py-2.5 uppercase tracking-wider text-[10px]">
                         Prix
                       </th>
-                      <th className="text-right font-semibold text-slate-500 px-4 py-2.5 uppercase tracking-wider text-[10px]">
+                      <th className="text-right font-semibold text-muted-foreground px-4 py-2.5 uppercase tracking-wider text-[10px]">
                         Total
                       </th>
                     </tr>
@@ -1115,7 +1221,7 @@ function OverviewPage({
                     ].map((item, i) => (
                       <tr
                         key={i}
-                        className="border-b border-slate-50 last:border-0 hover:bg-[#F6F9FE]/60 transition-colors"
+                        className="border-b border-border last:border-0 hover:bg-muted/40 transition-colors"
                       >
                         <td className="px-4 py-2.5">
                           <div className="flex items-center gap-2">
@@ -1127,18 +1233,18 @@ function OverviewPage({
                             >
                               {i + 1}
                             </div>
-                            <span className="font-medium text-slate-700">
+                            <span className="font-medium text-foreground">
                               {item.name}
                             </span>
                           </div>
                         </td>
-                        <td className="px-2 py-2.5 text-right text-slate-600">
+                        <td className="px-2 py-2.5 text-right text-muted-foreground">
                           {item.qty}
                         </td>
-                        <td className="px-2 py-2.5 text-right text-slate-600">
+                        <td className="px-2 py-2.5 text-right text-muted-foreground">
                           {item.price.toLocaleString("fr-FR")}
                         </td>
-                        <td className="px-4 py-2.5 text-right font-bold text-slate-900">
+                        <td className="px-4 py-2.5 text-right font-bold text-foreground">
                           {item.total.toLocaleString("fr-FR")}
                         </td>
                       </tr>
@@ -1151,15 +1257,15 @@ function OverviewPage({
         </div>
       </div>
 
-      {/* BOTTOM: bar chart with 2014-2020 timeline */}
-      <Card className="bg-white border border-slate-200/60">
+      {/* BOTTOM: bar chart */}
+      <Card className="bg-background border border-border">
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between flex-wrap gap-2">
             <div>
-              <CardTitle className="text-base font-bold text-slate-900">
+              <CardTitle className="text-base font-bold text-foreground">
                 Croissance annuelle
               </CardTitle>
-              <p className="text-xs text-slate-500 mt-0.5">
+              <p className="text-xs text-muted-foreground mt-0.5">
                 Évolution 2014 — 2020
               </p>
             </div>
@@ -1169,7 +1275,7 @@ function OverviewPage({
                   className="w-2.5 h-2.5 rounded-sm"
                   style={{ background: BLUE }}
                 />
-                <span className="text-slate-500">Revenus (M CFA)</span>
+                <span className="text-muted-foreground">Revenus (M CFA)</span>
               </span>
             </div>
           </div>
@@ -1179,11 +1285,105 @@ function OverviewPage({
         </CardContent>
       </Card>
 
-      {/* Recent Tenants */}
-      <Card className="bg-white border border-slate-200/60">
+      {/* Notifications récentes */}
+      <Card className="bg-background border border-border">
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between">
-            <CardTitle className="text-base font-bold text-slate-900 flex items-center gap-2">
+            <CardTitle className="text-base font-bold text-foreground flex items-center gap-2">
+              <Bell className="w-4 h-4 text-[#338BE2]" />
+              Notifications récentes
+            </CardTitle>
+          </div>
+        </CardHeader>
+        <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* New tenants */}
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+              <Building2 className="w-3.5 h-3.5" />
+              Nouveaux Tenants (5)
+            </div>
+            <div className="space-y-1.5 max-h-64 overflow-y-auto pr-1">
+              {recentTenants.length === 0 ? (
+                <p className="text-xs text-muted-foreground italic">Aucun</p>
+              ) : (
+                recentTenants.map((t) => (
+                  <button
+                    key={t.id}
+                    onClick={() => onViewTenant(t.id)}
+                    className="w-full text-left p-2 rounded-lg hover:bg-muted/60 transition-colors"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-foreground truncate">{t.name}</p>
+                        <p className="text-[10px] text-muted-foreground truncate">{t.ownerName}</p>
+                      </div>
+                      <span className="text-[10px] text-muted-foreground shrink-0">
+                        {fmtDate(t.createdAt)}
+                      </span>
+                    </div>
+                  </button>
+                ))
+              )}
+            </div>
+          </div>
+
+          {/* New contact messages */}
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+              <Mail className="w-3.5 h-3.5" />
+              Messages non lus
+            </div>
+            <div className="space-y-1.5 max-h-64 overflow-y-auto pr-1">
+              {recentMessages.length === 0 ? (
+                <p className="text-xs text-muted-foreground italic">Aucun</p>
+              ) : (
+                recentMessages.map((m) => (
+                  <div key={m.id} className="p-2 rounded-lg bg-muted/40">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-sm font-medium text-foreground truncate">{m.name}</p>
+                      <span className="text-[10px] text-muted-foreground shrink-0">
+                        {fmtDate(m.createdAt)}
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground truncate">{m.email}</p>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+
+          {/* New users */}
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+              <UserPlus className="w-3.5 h-3.5" />
+              Nouveaux Utilisateurs (5)
+            </div>
+            <div className="space-y-1.5 max-h-64 overflow-y-auto pr-1">
+              {recentUsers.length === 0 ? (
+                <p className="text-xs text-muted-foreground italic">Aucun</p>
+              ) : (
+                recentUsers.map((u) => (
+                  <div key={u.id} className="p-2 rounded-lg bg-muted/40">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-sm font-medium text-foreground truncate">{u.name}</p>
+                      <span className="text-[10px] text-muted-foreground shrink-0">
+                        {fmtDate(u.createdAt)}
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground truncate">{u.email}</p>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Recent Tenants */}
+      <Card className="bg-background border border-border">
+        <CardHeader className="pb-2">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base font-bold text-foreground flex items-center gap-2">
               <Building2 className="w-4 h-4 text-[#338BE2]" />
               Derniers commerces inscrits
             </CardTitle>
@@ -1210,10 +1410,6 @@ function OverviewPage({
   );
 }
 
-// ============================================================
-// HELPER: Stat Card with circular progress ring
-// ============================================================
-
 function StatCardRing({
   title,
   value,
@@ -1232,12 +1428,12 @@ function StatCardRing({
   deltaUp?: boolean;
 }) {
   return (
-    <Card className="bg-white border border-slate-200/60 hover:shadow-[0_8px_24px_-12px_rgba(51,139,226,0.15)] transition-shadow">
+    <Card className="bg-background border border-border hover:shadow-[0_8px_24px_-12px_rgba(51,139,226,0.15)] transition-shadow">
       <CardContent className="p-5">
         <div className="flex items-start justify-between mb-3">
           <div className="space-y-1 min-w-0">
-            <p className="text-xs text-slate-500 font-medium truncate">{title}</p>
-            <p className="text-xl font-bold text-slate-900 tracking-tight">
+            <p className="text-xs text-muted-foreground font-medium truncate">{title}</p>
+            <p className="text-xl font-bold text-foreground tracking-tight">
               {value}
             </p>
             {delta && (
@@ -1275,10 +1471,6 @@ function StatCardRing({
   );
 }
 
-// ============================================================
-// HELPER: Mini data card (small colored stat)
-// ============================================================
-
 function MiniDataCard({
   value,
   label,
@@ -1292,7 +1484,7 @@ function MiniDataCard({
 }) {
   return (
     <Card
-      className="bg-white border border-slate-200/60 hover:shadow-md transition-shadow overflow-hidden relative"
+      className="bg-background border border-border hover:shadow-md transition-shadow overflow-hidden relative"
     >
       <div
         className="absolute top-0 left-0 right-0 h-1"
@@ -1307,15 +1499,15 @@ function MiniDataCard({
             <Icon className="w-4 h-4" style={{ color }} />
           </div>
         </div>
-        <p className="text-xl font-bold text-slate-900">{value}</p>
-        <p className="text-[11px] text-slate-500">{label}</p>
+        <p className="text-xl font-bold text-foreground">{value}</p>
+        <p className="text-[11px] text-muted-foreground">{label}</p>
       </CardContent>
     </Card>
   );
 }
 
 // ============================================================
-// PAGE: TENANTS — with Nouveau tenant dialog
+// PAGE: TENANTS
 // ============================================================
 
 function TenantsPage({
@@ -1332,7 +1524,6 @@ function TenantsPage({
   const tenantSearch = useSuperadminStore((s) => s.tenantSearch);
   const setTenantSearch = useSuperadminStore((s) => s.setTenantSearch);
 
-  // --- État du dialog "Nouveau tenant" ---
   const [createOpen, setCreateOpen] = useState(false);
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
@@ -1379,6 +1570,7 @@ function TenantsPage({
       setCreateOpen(false);
       resetForm();
       onRefresh();
+      toast.success("Tenant créé avec succès");
     } catch (err) {
       setCreateError(err instanceof Error ? err.message : "Erreur inconnue");
     } finally {
@@ -1398,11 +1590,10 @@ function TenantsPage({
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Tenants</h1>
-          <p className="text-slate-500 text-sm">
+          <h1 className="text-2xl font-bold text-foreground">Tenants</h1>
+          <p className="text-muted-foreground text-sm">
             {tenants.length} commerces inscrits
           </p>
         </div>
@@ -1412,7 +1603,7 @@ function TenantsPage({
             size="sm"
             onClick={onRefresh}
             disabled={tenantsLoading}
-            className="bg-white border-slate-200 hover:bg-[#338BE2]/5 hover:border-[#338BE2]/30 hover:text-[#338BE2]"
+            className="bg-background border-border hover:bg-[#338BE2]/5 hover:border-[#338BE2]/30 hover:text-[#338BE2]"
           >
             <RefreshCw
               className={`w-4 h-4 mr-1.5 ${tenantsLoading ? "animate-spin" : ""}`}
@@ -1433,19 +1624,17 @@ function TenantsPage({
         </div>
       </div>
 
-      {/* Search (mobile-friendly — desktop uses top bar search) */}
       <div className="relative max-w-md lg:hidden">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
         <Input
           placeholder="Rechercher par nom, propriétaire ou email..."
           value={tenantSearch}
           onChange={(e) => setTenantSearch(e.target.value)}
-          className="pl-9 bg-white border-slate-200"
+          className="pl-9 bg-background border-border"
         />
       </div>
 
-      {/* Table card */}
-      <Card className="bg-white border border-slate-200/60">
+      <Card className="bg-background border border-border">
         <CardContent className="p-4 sm:p-6">
           <TenantTable
             tenants={filteredTenants}
@@ -1455,7 +1644,6 @@ function TenantsPage({
         </CardContent>
       </Card>
 
-      {/* --- Dialog : Nouveau tenant --- */}
       <Dialog
         open={createOpen}
         onOpenChange={(open) => {
@@ -1465,7 +1653,7 @@ function TenantsPage({
       >
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle className="text-slate-900">
+            <DialogTitle className="text-foreground">
               Créer un nouveau tenant
             </DialogTitle>
             <DialogDescription>
@@ -1590,132 +1778,436 @@ function TenantsPage({
 }
 
 // ============================================================
-// PAGE: SUBSCRIPTIONS
+// PAGE: SUBSCRIPTIONS — with actions + plan pricing
 // ============================================================
 
+interface AdminSubscriptionRow {
+  id: string;
+  plan: string;
+  status: string;
+  amount: number;
+  billingPeriod?: string;
+  paymentMethod?: string | null;
+  nextBillingDate?: string | null;
+  currentPeriodEnd?: string;
+  tenant: { id: string; name: string; ownerName: string; ownerEmail: string };
+}
+
+const PLAN_PRICING_INFO: Array<{
+  plan: SubscriptionPlan;
+  monthly: number;
+  annual: number;
+  features: string[];
+}> = [
+  {
+    plan: "starter",
+    monthly: SUBSCRIPTION_PLAN_PRICES.starter,
+    annual: SUBSCRIPTION_PLAN_ANNUAL_PRICES.starter,
+    features: ["1 commerce", "Jusqu'à 2 utilisateurs", "POS de base", "Support email"],
+  },
+  {
+    plan: "pro",
+    monthly: SUBSCRIPTION_PLAN_PRICES.pro,
+    annual: SUBSCRIPTION_PLAN_ANNUAL_PRICES.pro,
+    features: ["3 commerces", "Jusqu'à 10 utilisateurs", "Stats avancées", "Support prioritaire"],
+  },
+  {
+    plan: "enterprise",
+    monthly: SUBSCRIPTION_PLAN_PRICES.enterprise,
+    annual: SUBSCRIPTION_PLAN_ANNUAL_PRICES.enterprise,
+    features: ["Commerces illimités", "Utilisateurs illimités", "API + Webhooks", "Support dédié"],
+  },
+];
+
 function SubscriptionsPage() {
-  const [subs, setSubs] = useState<
-    Array<{
-      id: string;
-      plan: string;
-      status: string;
-      amount: number;
-      paymentMethod?: string;
-      nextBillingDate?: string;
-      tenant: { id: string; name: string; ownerName: string; ownerEmail: string };
-    }>
-  >([]);
+  const [subs, setSubs] = useState<AdminSubscriptionRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("all");
+  const [billingPeriod, setBillingPeriod] = useState<"monthly" | "annual">("monthly");
+  const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
+  const [editAmountId, setEditAmountId] = useState<string | null>(null);
+  const [editAmountValue, setEditAmountValue] = useState("");
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+
+  const fetchSubs = useCallback(async () => {
+    setLoading(true);
+    try {
+      const url =
+        statusFilter !== "all"
+          ? `/api/superadmin/subscriptions?status=${statusFilter}`
+          : "/api/superadmin/subscriptions";
+      const res = await fetch(url);
+      if (res.ok) setSubs(await res.json());
+    } catch (err) {
+      console.error("Failed to fetch subscriptions:", err);
+    } finally {
+      setLoading(false);
+    }
+  }, [statusFilter]);
 
   useEffect(() => {
-    (async () => {
-      setLoading(true);
-      try {
-        const url =
-          statusFilter !== "all"
-            ? `/api/superadmin/subscriptions?status=${statusFilter}`
-            : "/api/superadmin/subscriptions";
-        const res = await fetch(url);
-        if (res.ok) setSubs(await res.json());
-      } catch (err) {
-        console.error("Failed to fetch subscriptions:", err);
-      } finally {
-        setLoading(false);
+    fetchSubs();
+  }, [fetchSubs]);
+
+  const updateSubStatus = async (id: string, status: string, label: string) => {
+    setActionLoadingId(id);
+    try {
+      const res = await fetch(`/api/superadmin/subscriptions/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error ?? "Échec");
       }
-    })();
-  }, [statusFilter]);
+      toast.success(`Abonnement ${label} avec succès`);
+      await fetchSubs();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erreur");
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
+
+  const handleSaveAmount = async (id: string) => {
+    const amount = parseInt(editAmountValue.replace(/\D/g, ""), 10);
+    if (Number.isNaN(amount) || amount < 0) {
+      toast.error("Montant invalide");
+      return;
+    }
+    setActionLoadingId(id);
+    try {
+      const res = await fetch(`/api/superadmin/subscriptions/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amount }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error ?? "Échec");
+      }
+      toast.success("Montant mis à jour");
+      setEditAmountId(null);
+      await fetchSubs();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erreur");
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!deleteId) return;
+    setActionLoadingId(deleteId);
+    try {
+      const res = await fetch(`/api/superadmin/subscriptions/${deleteId}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error ?? "Échec");
+      }
+      toast.success("Tenant + abonnement supprimés");
+      setDeleteId(null);
+      await fetchSubs();
+      // Also refresh tenants list
+      useSuperadminStore.getState().setTenantsLoading(true);
+      try {
+        const tRes = await fetch("/api/superadmin/tenants");
+        if (tRes.ok) useSuperadminStore.getState().setTenants(await tRes.json());
+      } finally {
+        useSuperadminStore.getState().setTenantsLoading(false);
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erreur");
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Abonnements</h1>
-          <p className="text-slate-500 text-sm">
+          <h1 className="text-2xl font-bold text-foreground">Abonnements</h1>
+          <p className="text-muted-foreground text-sm">
             Gestion des abonnements tenants
           </p>
         </div>
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-[180px] bg-white border-slate-200">
-            <SelectValue placeholder="Filtrer par statut" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Tous</SelectItem>
-            <SelectItem value="active">Actifs</SelectItem>
-            <SelectItem value="past_due">En retard</SelectItem>
-            <SelectItem value="expired">Expirés</SelectItem>
-            <SelectItem value="cancelled">Annulés</SelectItem>
-          </SelectContent>
-        </Select>
+        <div className="flex items-center gap-2">
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-[180px] bg-background border-border">
+              <SelectValue placeholder="Filtrer par statut" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Tous</SelectItem>
+              <SelectItem value="active">Actifs</SelectItem>
+              <SelectItem value="suspended">Suspendus</SelectItem>
+              <SelectItem value="past_due">En retard</SelectItem>
+              <SelectItem value="expired">Expirés</SelectItem>
+              <SelectItem value="cancelled">Annulés</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      {/* Plan pricing cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {PLAN_PRICING_INFO.map((info) => {
+          const price = billingPeriod === "monthly" ? info.monthly : info.annual;
+          const isHighlight = info.plan === "pro";
+          return (
+            <Card
+              key={info.plan}
+              className={`bg-background border ${
+                isHighlight ? "border-[#338BE2] shadow-md" : "border-border"
+              } relative overflow-hidden`}
+            >
+              {isHighlight && (
+                <div className="absolute top-0 right-0 bg-[#338BE2] text-white text-[10px] font-bold px-2 py-0.5 rounded-bl-lg">
+                  POPULAIRE
+                </div>
+              )}
+              <CardContent className="p-5 space-y-3">
+                <div className="flex items-center justify-between">
+                  <Badge variant="secondary" className="text-xs">
+                    {SUBSCRIPTION_PLAN_LABELS[info.plan]}
+                  </Badge>
+                  <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                    {billingPeriod === "annual" && (
+                      <Badge className="bg-emerald-100 text-emerald-700 border border-emerald-200 text-[9px]">
+                        -2 mois
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-foreground">
+                    {formatFCFA(price)}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {billingPeriod === "monthly" ? "par mois" : "par an (10 mois)"}
+                  </p>
+                </div>
+                <ul className="space-y-1 pt-1">
+                  {info.features.map((f) => (
+                    <li key={f} className="text-xs text-muted-foreground flex items-center gap-1.5">
+                      <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0" />
+                      {f}
+                    </li>
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
+
+      {/* Billing period toggle */}
+      <div className="flex items-center justify-center gap-3">
+        <span className={`text-sm ${billingPeriod === "monthly" ? "font-bold text-foreground" : "text-muted-foreground"}`}>
+          Mensuel
+        </span>
+        <Switch
+          checked={billingPeriod === "annual"}
+          onCheckedChange={(v) => setBillingPeriod(v ? "annual" : "monthly")}
+        />
+        <span className={`text-sm ${billingPeriod === "annual" ? "font-bold text-foreground" : "text-muted-foreground"}`}>
+          Annuel
+        </span>
+        <Badge className="bg-emerald-100 text-emerald-700 border border-emerald-200 text-[10px]">
+          2 mois offerts
+        </Badge>
       </div>
 
       {/* Subscription Cards Grid */}
       {loading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {Array.from({ length: 6 }).map((_, i) => (
-            <Card key={i} className="animate-pulse bg-white border border-slate-200">
+            <Card key={i} className="animate-pulse bg-background border border-border">
               <CardContent className="p-6 space-y-3">
-                <div className="h-4 bg-slate-200 rounded w-1/2" />
-                <div className="h-3 bg-slate-200 rounded w-3/4" />
-                <div className="h-3 bg-slate-200 rounded w-1/3" />
+                <div className="h-4 bg-muted rounded w-1/2" />
+                <div className="h-3 bg-muted rounded w-3/4" />
+                <div className="h-3 bg-muted rounded w-1/3" />
               </CardContent>
             </Card>
           ))}
         </div>
       ) : subs.length === 0 ? (
-        <Card className="bg-white border border-slate-200/60">
+        <Card className="bg-background border border-border">
           <CardContent className="py-12 text-center">
-            <CreditCard className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-            <p className="text-slate-500">Aucun abonnement trouvé</p>
+            <CreditCard className="w-12 h-12 text-muted-foreground/40 mx-auto mb-3" />
+            <p className="text-muted-foreground">Aucun abonnement trouvé</p>
           </CardContent>
         </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {subs.map((sub, i) => (
-            <motion.div
-              key={sub.id}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.05 }}
-            >
-              <Card className="bg-white border border-slate-200/60 hover:shadow-[0_8px_24px_-12px_rgba(51,139,226,0.15)] transition-shadow h-full">
-                <CardContent className="p-5 space-y-3">
-                  <div className="flex items-start justify-between">
-                    <div className="min-w-0">
-                      <p className="font-semibold text-sm text-slate-900 truncate">
-                        {sub.tenant.name}
-                      </p>
-                      <p className="text-xs text-slate-500 truncate">
-                        {sub.tenant.ownerEmail}
-                      </p>
+          {subs.map((sub, i) => {
+            const isLoadingThis = actionLoadingId === sub.id;
+            const isEditingAmount = editAmountId === sub.id;
+            return (
+              <motion.div
+                key={sub.id}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.05 }}
+              >
+                <Card className="bg-background border border-border hover:shadow-[0_8px_24px_-12px_rgba(51,139,226,0.15)] transition-shadow h-full">
+                  <CardContent className="p-5 space-y-3">
+                    <div className="flex items-start justify-between">
+                      <div className="min-w-0">
+                        <p className="font-semibold text-sm text-foreground truncate">
+                          {sub.tenant.name}
+                        </p>
+                        <p className="text-xs text-muted-foreground truncate">
+                          {sub.tenant.ownerEmail}
+                        </p>
+                      </div>
+                      <SubscriptionStatusBadge
+                        status={sub.status as SubscriptionStatus}
+                      />
                     </div>
-                    <SubscriptionStatusBadge
-                      status={sub.status as SubscriptionStatus}
-                    />
-                  </div>
-                  <Separator />
-                  <div className="flex items-center justify-between">
-                    <Badge variant="secondary" className="text-xs">
-                      {SUBSCRIPTION_PLAN_LABELS[sub.plan as SubscriptionPlan] ??
-                        sub.plan}
-                    </Badge>
-                    <span className="font-bold text-sm text-slate-900">
-                      {formatFCFAShort(sub.amount)}
-                    </span>
-                  </div>
-                  {sub.nextBillingDate && (
-                    <p className="text-xs text-slate-500">
-                      Prochaine facturation :{" "}
-                      {new Date(sub.nextBillingDate).toLocaleDateString("fr-FR")}
-                    </p>
-                  )}
-                </CardContent>
-              </Card>
-            </motion.div>
-          ))}
+                    <Separator />
+                    <div className="flex items-center justify-between">
+                      <Badge variant="secondary" className="text-xs">
+                        {SUBSCRIPTION_PLAN_LABELS[sub.plan as SubscriptionPlan] ?? sub.plan}
+                      </Badge>
+                      {isEditingAmount ? (
+                        <div className="flex items-center gap-1">
+                          <Input
+                            value={editAmountValue}
+                            onChange={(e) => setEditAmountValue(e.target.value)}
+                            className="h-7 w-28 text-xs"
+                            type="text"
+                            inputMode="numeric"
+                          />
+                          <Button
+                            size="sm"
+                            className="h-7 px-2 bg-emerald-600 hover:bg-emerald-700 text-white"
+                            onClick={() => handleSaveAmount(sub.id)}
+                            disabled={isLoadingThis}
+                          >
+                            <Save className="w-3 h-3" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-7 px-2"
+                            onClick={() => setEditAmountId(null)}
+                            disabled={isLoadingThis}
+                          >
+                            <X className="w-3 h-3" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => {
+                            setEditAmountId(sub.id);
+                            setEditAmountValue(String(sub.amount));
+                          }}
+                          className="font-bold text-sm text-foreground hover:bg-muted px-2 py-0.5 rounded transition-colors"
+                          title="Modifier le montant"
+                        >
+                          {formatFCFAShort(sub.amount)}
+                        </button>
+                      )}
+                    </div>
+                    {sub.billingPeriod && (
+                      <Badge variant="outline" className="text-[10px]">
+                        {SUBSCRIPTION_BILLING_PERIOD_LABELS[sub.billingPeriod as SubscriptionBillingPeriod] ?? sub.billingPeriod}
+                      </Badge>
+                    )}
+                    {sub.nextBillingDate && (
+                      <p className="text-xs text-muted-foreground">
+                        Prochaine facturation :{" "}
+                        {new Date(sub.nextBillingDate).toLocaleDateString("fr-FR")}
+                      </p>
+                    )}
+
+                    {/* Actions */}
+                    <div className="flex flex-wrap gap-1.5 pt-1">
+                      {sub.status !== "active" && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 text-[11px] gap-1 border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+                          onClick={() => updateSubStatus(sub.id, "active", "activé")}
+                          disabled={isLoadingThis}
+                        >
+                          <Play className="w-3 h-3" />
+                          Activer
+                        </Button>
+                      )}
+                      {sub.status !== "suspended" && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 text-[11px] gap-1 border-amber-200 text-amber-700 hover:bg-amber-50"
+                          onClick={() => updateSubStatus(sub.id, "suspended", "suspendu")}
+                          disabled={isLoadingThis}
+                        >
+                          <Pause className="w-3 h-3" />
+                          Suspendre
+                        </Button>
+                      )}
+                      {sub.status !== "cancelled" && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 text-[11px] gap-1 border-rose-200 text-rose-700 hover:bg-rose-50"
+                          onClick={() => updateSubStatus(sub.id, "cancelled", "désactivé")}
+                          disabled={isLoadingThis}
+                        >
+                          <Ban className="w-3 h-3" />
+                          Désactiver
+                        </Button>
+                      )}
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 text-[11px] gap-1 text-rose-600 hover:bg-rose-50 ml-auto"
+                        onClick={() => setDeleteId(sub.id)}
+                        disabled={isLoadingThis}
+                      >
+                        {isLoadingThis ? (
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                        ) : (
+                          <Trash2 className="w-3 h-3" />
+                        )}
+                        Supprimer
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            );
+          })}
         </div>
       )}
+
+      {/* Delete confirmation */}
+      <AlertDialog open={!!deleteId} onOpenChange={(o) => !o && setDeleteId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Supprimer cet abonnement ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Cette action supprimera l&apos;abonnement, le tenant, ses utilisateurs et ses commerces.
+              Cette action est irréversible.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              className="bg-rose-600 hover:bg-rose-700 text-white"
+            >
+              Supprimer définitivement
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
@@ -1730,11 +2222,10 @@ function AnalyticsPage({ onRefresh }: { onRefresh: () => void }) {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Analytics</h1>
-          <p className="text-slate-500 text-sm">
+          <h1 className="text-2xl font-bold text-foreground">Analytics</h1>
+          <p className="text-muted-foreground text-sm">
             Métriques globales de la plateforme
           </p>
         </div>
@@ -1743,7 +2234,7 @@ function AnalyticsPage({ onRefresh }: { onRefresh: () => void }) {
           size="sm"
           onClick={onRefresh}
           disabled={metricsLoading}
-          className="bg-white border-slate-200 hover:bg-[#338BE2]/5 hover:border-[#338BE2]/30 hover:text-[#338BE2]"
+          className="bg-background border-border hover:bg-[#338BE2]/5 hover:border-[#338BE2]/30 hover:text-[#338BE2]"
         >
           <RefreshCw
             className={`w-4 h-4 mr-1.5 ${metricsLoading ? "animate-spin" : ""}`}
@@ -1752,7 +2243,6 @@ function AnalyticsPage({ onRefresh }: { onRefresh: () => void }) {
         </Button>
       </div>
 
-      {/* Key Metrics — 4 SVG rings */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <StatCardRing
           icon={CircleDollarSign}
@@ -1796,10 +2286,9 @@ function AnalyticsPage({ onRefresh }: { onRefresh: () => void }) {
         />
       </div>
 
-      {/* Revenue chart — Area */}
-      <Card className="bg-white border border-slate-200/60">
+      <Card className="bg-background border border-border">
         <CardHeader className="pb-2">
-          <CardTitle className="text-base font-bold text-slate-900 flex items-center gap-2">
+          <CardTitle className="text-base font-bold text-foreground flex items-center gap-2">
             <TrendingUp className="w-4 h-4 text-[#338BE2]" />
             MRR — 12 derniers mois
           </CardTitle>
@@ -1810,11 +2299,10 @@ function AnalyticsPage({ onRefresh }: { onRefresh: () => void }) {
         </CardContent>
       </Card>
 
-      {/* Subscription Breakdown */}
       {metrics?.subscriptionBreakdown && (
-        <Card className="bg-white border border-slate-200/60">
+        <Card className="bg-background border border-border">
           <CardHeader className="pb-2">
-            <CardTitle className="text-base font-bold text-slate-900">
+            <CardTitle className="text-base font-bold text-foreground">
               Répartition des abonnements
             </CardTitle>
           </CardHeader>
@@ -1823,7 +2311,7 @@ function AnalyticsPage({ onRefresh }: { onRefresh: () => void }) {
               {(["starter", "pro", "enterprise"] as SubscriptionPlan[]).map((plan, i) => (
                 <div
                   key={plan}
-                  className="text-center space-y-2 p-4 rounded-xl border border-slate-100"
+                  className="text-center space-y-2 p-4 rounded-xl border border-border"
                 >
                   <div
                     className="w-10 h-10 rounded-xl mx-auto flex items-center justify-center"
@@ -1836,13 +2324,13 @@ function AnalyticsPage({ onRefresh }: { onRefresh: () => void }) {
                       style={{ color: [BLUE, EMERALD, LAVENDER][i] }}
                     />
                   </div>
-                  <p className="text-3xl font-bold text-slate-900">
+                  <p className="text-3xl font-bold text-foreground">
                     {metrics.subscriptionBreakdown[plan]}
                   </p>
                   <Badge variant="secondary" className="text-xs">
                     {SUBSCRIPTION_PLAN_LABELS[plan]}
                   </Badge>
-                  <p className="text-xs text-slate-500">
+                  <p className="text-xs text-muted-foreground">
                     {formatFCFA(SUBSCRIPTION_PLAN_PRICES[plan])}/mois
                   </p>
                 </div>
@@ -1892,23 +2380,22 @@ function LogsPage() {
 
   const levelBg: Record<string, string> = {
     info: "bg-[#338BE2]/5",
-    warning: "bg-amber-50",
-    error: "bg-rose-50",
-    critical: "bg-rose-100",
+    warning: "bg-amber-50 dark:bg-amber-950/30",
+    error: "bg-rose-50 dark:bg-rose-950/30",
+    critical: "bg-rose-100 dark:bg-rose-950/50",
   };
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Logs plateforme</h1>
-          <p className="text-slate-500 text-sm">
+          <h1 className="text-2xl font-bold text-foreground">Logs plateforme</h1>
+          <p className="text-muted-foreground text-sm">
             Journal des événements globaux
           </p>
         </div>
         <Select value={levelFilter} onValueChange={setLevelFilter}>
-          <SelectTrigger className="w-[180px] bg-white border-slate-200">
+          <SelectTrigger className="w-[180px] bg-background border-border">
             <SelectValue placeholder="Niveau" />
           </SelectTrigger>
           <SelectContent>
@@ -1921,22 +2408,21 @@ function LogsPage() {
         </Select>
       </div>
 
-      {/* Logs list */}
       {loading ? (
         <div className="space-y-2">
           {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="h-12 bg-slate-200 rounded animate-pulse" />
+            <div key={i} className="h-12 bg-muted rounded animate-pulse" />
           ))}
         </div>
       ) : platformLogs.length === 0 ? (
-        <Card className="bg-white border border-slate-200/60">
+        <Card className="bg-background border border-border">
           <CardContent className="py-12 text-center">
-            <ScrollText className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-            <p className="text-slate-500">Aucun log trouvé</p>
+            <ScrollText className="w-12 h-12 text-muted-foreground/40 mx-auto mb-3" />
+            <p className="text-muted-foreground">Aucun log trouvé</p>
           </CardContent>
         </Card>
       ) : (
-        <Card className="bg-white border border-slate-200/60">
+        <Card className="bg-background border border-border">
           <CardContent className="p-0">
             <div className="space-y-2 max-h-[600px] overflow-y-auto custom-scrollbar p-4">
               {platformLogs.map((log, i) => (
@@ -1945,8 +2431,8 @@ function LogsPage() {
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   transition={{ delay: i * 0.02 }}
-                  className={`flex items-start gap-3 p-3 rounded-lg border border-slate-100 ${
-                    levelBg[log.level] ?? "bg-white"
+                  className={`flex items-start gap-3 p-3 rounded-lg border border-border ${
+                    levelBg[log.level] ?? "bg-background"
                   }`}
                 >
                   <Badge
@@ -1960,11 +2446,11 @@ function LogsPage() {
                       <Badge variant="secondary" className="text-[9px]">
                         {log.category}
                       </Badge>
-                      <span className="text-xs text-slate-500">
+                      <span className="text-xs text-muted-foreground">
                         {new Date(log.createdAt).toLocaleString("fr-FR")}
                       </span>
                     </div>
-                    <p className="text-sm text-slate-700 truncate">
+                    <p className="text-sm text-foreground truncate">
                       {log.message}
                     </p>
                   </div>
@@ -1979,7 +2465,7 @@ function LogsPage() {
 }
 
 // ============================================================
-// PAGE: USERS — list all platform users + create new
+// PAGE: USERS — with suspend / delete + select all + bulk delete
 // ============================================================
 
 interface AdminUserRow {
@@ -1989,6 +2475,7 @@ interface AdminUserRow {
   phone?: string | null;
   role: string;
   status: string;
+  isActive?: boolean;
   businessId?: string | null;
   tenantId?: string | null;
   createdAt?: string;
@@ -1998,7 +2485,7 @@ const ROLE_BADGE_COLORS: Record<string, string> = {
   superadmin: "bg-[#338BE2]/10 text-[#338BE2] border-[#338BE2]/20",
   patron: "bg-emerald-100 text-emerald-700 border-emerald-200",
   gerant: "bg-amber-100 text-amber-700 border-amber-200",
-  vendeur: "bg-slate-100 text-slate-700 border-slate-200",
+  vendeur: "bg-slate-100 text-slate-700 border-slate-200 dark:bg-muted dark:text-muted-foreground",
 };
 
 const ROLE_LABELS_FR: Record<string, string> = {
@@ -2015,7 +2502,6 @@ function UsersPage() {
   const [roleFilter, setRoleFilter] = useState("all");
   const [search, setSearch] = useState("");
 
-  // New user dialog state
   const [createOpen, setCreateOpen] = useState(false);
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
@@ -2028,18 +2514,18 @@ function UsersPage() {
     password: "",
   });
 
+  // Selection
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
+
   const setField = <K extends keyof typeof form>(key: K, value: (typeof form)[K]) => {
     setForm((prev) => ({ ...prev, [key]: value }));
   };
 
   const resetForm = () => {
-    setForm({
-      name: "",
-      email: "",
-      phone: "",
-      role: "patron",
-      password: "",
-    });
+    setForm({ name: "", email: "", phone: "", role: "patron", password: "" });
     setCreateError(null);
     setShowPassword(false);
   };
@@ -2091,13 +2577,83 @@ function UsersPage() {
       setCreateOpen(false);
       resetForm();
       await fetchUsers();
+      toast.success("Utilisateur créé avec succès");
     } catch (err) {
-      setCreateError(
-        err instanceof Error ? err.message : "Erreur inconnue"
-      );
+      setCreateError(err instanceof Error ? err.message : "Erreur inconnue");
     } finally {
       setCreating(false);
     }
+  };
+
+  const toggleSuspend = async (u: AdminUserRow) => {
+    setActionLoadingId(u.id);
+    const newActive = !u.isActive;
+    try {
+      const res = await fetch(`/api/superadmin/users/${u.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isActive: newActive }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error ?? "Échec");
+      }
+      toast.success(newActive ? "Utilisateur activé" : "Utilisateur suspendu");
+      await fetchUsers();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erreur");
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!deleteId) return;
+    setActionLoadingId(deleteId);
+    try {
+      const res = await fetch(`/api/superadmin/users/${deleteId}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error ?? "Échec");
+      }
+      toast.success("Utilisateur supprimé");
+      setDeleteId(null);
+      setSelectedIds((prev) => {
+        const n = new Set(prev);
+        n.delete(deleteId);
+        return n;
+      });
+      await fetchUsers();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erreur");
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
+    setActionLoadingId("bulk");
+    let okCount = 0;
+    let failCount = 0;
+    for (const id of ids) {
+      try {
+        const res = await fetch(`/api/superadmin/users/${id}`, { method: "DELETE" });
+        if (res.ok) okCount++;
+        else failCount++;
+      } catch {
+        failCount++;
+      }
+    }
+    setBulkDeleteOpen(false);
+    setSelectedIds(new Set());
+    await fetchUsers();
+    if (okCount > 0) toast.success(`${okCount} utilisateur(s) supprimé(s)`);
+    if (failCount > 0) toast.error(`${failCount} suppression(s) échouée(s)`);
+    setActionLoadingId(null);
   };
 
   const filteredUsers = users.filter((u) => {
@@ -2110,13 +2666,41 @@ function UsersPage() {
     );
   });
 
+  const visibleIds = useMemo(() => filteredUsers.map((u) => u.id), [filteredUsers]);
+  const allSelected = visibleIds.length > 0 && visibleIds.every((id) => selectedIds.has(id));
+  const someSelected = visibleIds.some((id) => selectedIds.has(id)) && !allSelected;
+
+  const toggleSelectAll = () => {
+    if (allSelected) {
+      setSelectedIds((prev) => {
+        const n = new Set(prev);
+        for (const id of visibleIds) n.delete(id);
+        return n;
+      });
+    } else {
+      setSelectedIds((prev) => {
+        const n = new Set(prev);
+        for (const id of visibleIds) n.add(id);
+        return n;
+      });
+    }
+  };
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const n = new Set(prev);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
+      return n;
+    });
+  };
+
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Utilisateurs</h1>
-          <p className="text-slate-500 text-sm">
+          <h1 className="text-2xl font-bold text-foreground">Utilisateurs</h1>
+          <p className="text-muted-foreground text-sm">
             {users.length} utilisateurs enregistrés
           </p>
         </div>
@@ -2126,11 +2710,9 @@ function UsersPage() {
             size="sm"
             onClick={fetchUsers}
             disabled={loading}
-            className="bg-white border-slate-200 hover:bg-[#338BE2]/5 hover:border-[#338BE2]/30 hover:text-[#338BE2]"
+            className="bg-background border-border hover:bg-[#338BE2]/5 hover:border-[#338BE2]/30 hover:text-[#338BE2]"
           >
-            <RefreshCw
-              className={`w-4 h-4 mr-1.5 ${loading ? "animate-spin" : ""}`}
-            />
+            <RefreshCw className={`w-4 h-4 mr-1.5 ${loading ? "animate-spin" : ""}`} />
             Actualiser
           </Button>
           <Button
@@ -2147,19 +2729,18 @@ function UsersPage() {
         </div>
       </div>
 
-      {/* Filters row */}
       <div className="flex flex-wrap items-center gap-3">
         <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
             placeholder="Rechercher par nom, email ou téléphone..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="pl-9 bg-white border-slate-200"
+            className="pl-9 bg-background border-border"
           />
         </div>
         <Select value={roleFilter} onValueChange={setRoleFilter}>
-          <SelectTrigger className="w-[180px] bg-white border-slate-200">
+          <SelectTrigger className="w-[180px] bg-background border-border">
             <SelectValue placeholder="Rôle" />
           </SelectTrigger>
           <SelectContent>
@@ -2173,109 +2754,180 @@ function UsersPage() {
         </Select>
       </div>
 
-      {/* Users table */}
-      <Card className="bg-white border border-slate-200/60">
+      {/* Selected count + bulk actions */}
+      {selectedIds.size > 0 && (
+        <div className="flex items-center justify-between gap-3 p-3 rounded-lg border border-border bg-muted/40">
+          <div className="flex items-center gap-2 text-sm">
+            <CheckSquare className="w-4 h-4 text-[#338BE2]" />
+            <span className="font-medium text-foreground">
+              {selectedIds.size} utilisateur(s) sélectionné(s)
+            </span>
+          </div>
+          <Button
+            size="sm"
+            variant="destructive"
+            onClick={() => setBulkDeleteOpen(true)}
+            disabled={actionLoadingId === "bulk"}
+            className="gap-1.5"
+          >
+            {actionLoadingId === "bulk" ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Trash2 className="w-4 h-4" />
+            )}
+            Supprimer la sélection
+          </Button>
+        </div>
+      )}
+
+      <Card className="bg-background border border-border">
         <CardContent className="p-0">
           {loading ? (
             <div className="p-6 space-y-2">
               {Array.from({ length: 6 }).map((_, i) => (
-                <div key={i} className="h-12 bg-slate-200 rounded animate-pulse" />
+                <div key={i} className="h-12 bg-muted rounded animate-pulse" />
               ))}
             </div>
           ) : filteredUsers.length === 0 ? (
             <div className="py-12 text-center">
-              <Users className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-              <p className="text-slate-500">Aucun utilisateur trouvé</p>
+              <Users className="w-12 h-12 text-muted-foreground/40 mx-auto mb-3" />
+              <p className="text-muted-foreground">Aucun utilisateur trouvé</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-slate-100 bg-[#F6F9FE]">
-                    <th className="text-left font-semibold text-slate-500 px-4 py-3 uppercase tracking-wider text-[10px]">
+                  <tr className="border-b border-border bg-muted/50">
+                    <th className="text-left px-4 py-3 w-10">
+                      <Checkbox
+                        checked={allSelected ? true : someSelected ? "indeterminate" : false}
+                        onCheckedChange={toggleSelectAll}
+                        aria-label="Sélectionner tout"
+                      />
+                    </th>
+                    <th className="text-left font-semibold text-muted-foreground px-2 py-3 uppercase tracking-wider text-[10px]">
                       Nom
                     </th>
-                    <th className="text-left font-semibold text-slate-500 px-2 py-3 uppercase tracking-wider text-[10px]">
+                    <th className="text-left font-semibold text-muted-foreground px-2 py-3 uppercase tracking-wider text-[10px]">
                       Email
                     </th>
-                    <th className="text-left font-semibold text-slate-500 px-2 py-3 uppercase tracking-wider text-[10px]">
+                    <th className="text-left font-semibold text-muted-foreground px-2 py-3 uppercase tracking-wider text-[10px]">
                       Rôle
                     </th>
-                    <th className="text-left font-semibold text-slate-500 px-2 py-3 uppercase tracking-wider text-[10px]">
+                    <th className="text-left font-semibold text-muted-foreground px-2 py-3 uppercase tracking-wider text-[10px]">
                       Statut
                     </th>
-                    <th className="text-right font-semibold text-slate-500 px-4 py-3 uppercase tracking-wider text-[10px]">
+                    <th className="text-right font-semibold text-muted-foreground px-4 py-3 uppercase tracking-wider text-[10px]">
                       Actions
                     </th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredUsers.map((u, i) => (
-                    <motion.tr
-                      key={u.id}
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      transition={{ delay: i * 0.02 }}
-                      className="border-b border-slate-50 last:border-0 hover:bg-[#F6F9FE]/60 transition-colors"
-                    >
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2.5">
-                          <div className="w-8 h-8 rounded-full bg-[#338BE2]/10 flex items-center justify-center text-[#338BE2] font-bold text-xs">
-                            {u.name.charAt(0).toUpperCase()}
-                          </div>
-                          <div className="min-w-0">
-                            <p className="font-medium text-slate-900 truncate">
-                              {u.name}
-                            </p>
-                            {u.phone && (
-                              <p className="text-[10px] text-slate-500 flex items-center gap-1 truncate">
-                                <Phone className="w-2.5 h-2.5" />
-                                {u.phone}
+                  {filteredUsers.map((u, i) => {
+                    const isActive = u.isActive ?? u.status === "active";
+                    const isChecked = selectedIds.has(u.id);
+                    const isLoadingThis = actionLoadingId === u.id;
+                    return (
+                      <motion.tr
+                        key={u.id}
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ delay: i * 0.02 }}
+                        className={`border-b border-border last:border-0 hover:bg-muted/40 transition-colors ${
+                          isChecked ? "bg-[#338BE2]/5" : ""
+                        }`}
+                      >
+                        <td className="px-4 py-3">
+                          <Checkbox
+                            checked={isChecked}
+                            onCheckedChange={() => toggleSelect(u.id)}
+                            aria-label={`Sélectionner ${u.name}`}
+                          />
+                        </td>
+                        <td className="px-2 py-3">
+                          <div className="flex items-center gap-2.5">
+                            <div className="w-8 h-8 rounded-full bg-[#338BE2]/10 flex items-center justify-center text-[#338BE2] font-bold text-xs">
+                              {u.name.charAt(0).toUpperCase()}
+                            </div>
+                            <div className="min-w-0">
+                              <p className="font-medium text-foreground truncate">
+                                {u.name}
                               </p>
-                            )}
+                              {u.phone && (
+                                <p className="text-[10px] text-muted-foreground flex items-center gap-1 truncate">
+                                  <Phone className="w-2.5 h-2.5" />
+                                  {u.phone}
+                                </p>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      </td>
-                      <td className="px-2 py-3">
-                        <span className="text-slate-600 flex items-center gap-1.5">
-                          <Mail className="w-3 h-3 text-slate-400" />
-                          {u.email}
-                        </span>
-                      </td>
-                      <td className="px-2 py-3">
-                        <Badge
-                          variant="outline"
-                          className={`text-[10px] ${ROLE_BADGE_COLORS[u.role] ?? ""}`}
-                        >
-                          {ROLE_LABELS_FR[u.role] ?? u.role}
-                        </Badge>
-                      </td>
-                      <td className="px-2 py-3">
-                        {u.status === "active" ? (
-                          <Badge className="bg-emerald-100 text-emerald-700 border border-emerald-200 text-[10px]">
-                            Actif
+                        </td>
+                        <td className="px-2 py-3">
+                          <span className="text-muted-foreground flex items-center gap-1.5">
+                            <Mail className="w-3 h-3 text-muted-foreground/60" />
+                            {u.email}
+                          </span>
+                        </td>
+                        <td className="px-2 py-3">
+                          <Badge
+                            variant="outline"
+                            className={`text-[10px] ${ROLE_BADGE_COLORS[u.role] ?? ""}`}
+                          >
+                            {ROLE_LABELS_FR[u.role] ?? u.role}
                           </Badge>
-                        ) : (
-                          <Badge className="bg-rose-100 text-rose-700 border border-rose-200 text-[10px]">
-                            Inactif
-                          </Badge>
-                        )}
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-xs hover:bg-[#338BE2]/5 hover:text-[#338BE2] gap-1"
-                          onClick={() => {
-                            // For now, just visual — full edit dialog can come later
-                          }}
-                        >
-                          <Shield className="w-3.5 h-3.5" />
-                          Détails
-                        </Button>
-                      </td>
-                    </motion.tr>
-                  ))}
+                        </td>
+                        <td className="px-2 py-3">
+                          {isActive ? (
+                            <Badge className="bg-emerald-100 text-emerald-700 border border-emerald-200 text-[10px] dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-900">
+                              <CheckCircle2 className="w-3 h-3 mr-1" />
+                              Actif
+                            </Badge>
+                          ) : (
+                            <Badge className="bg-rose-100 text-rose-700 border border-rose-200 text-[10px] dark:bg-rose-950/40 dark:text-rose-400 dark:border-rose-900">
+                              <PauseCircle className="w-3 h-3 mr-1" />
+                              Suspendu
+                            </Badge>
+                          )}
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center justify-end gap-1">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 text-[11px] gap-1 hover:bg-amber-50 hover:text-amber-700 dark:hover:bg-amber-950/30"
+                              onClick={() => toggleSuspend(u)}
+                              disabled={isLoadingThis || u.role === "superadmin"}
+                              title={isActive ? "Suspendre" : "Activer"}
+                            >
+                              {isLoadingThis ? (
+                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                              ) : isActive ? (
+                                <>
+                                  <Pause className="w-3.5 h-3.5" />
+                                  Suspendre
+                                </>
+                              ) : (
+                                <>
+                                  <Play className="w-3.5 h-3.5" />
+                                  Activer
+                                </>
+                              )}
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 text-[11px] gap-1 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30"
+                              onClick={() => setDeleteId(u.id)}
+                              disabled={isLoadingThis || u.role === "superadmin"}
+                              title="Supprimer"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </Button>
+                          </div>
+                        </td>
+                      </motion.tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -2293,7 +2945,7 @@ function UsersPage() {
       >
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle className="text-slate-900">
+            <DialogTitle className="text-foreground">
               Créer un nouvel utilisateur
             </DialogTitle>
             <DialogDescription>
@@ -2375,17 +3027,13 @@ function UsersPage() {
                 <button
                   type="button"
                   onClick={() => setShowPassword((s) => !s)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                   aria-label={showPassword ? "Masquer" : "Afficher"}
                 >
-                  {showPassword ? (
-                    <EyeOff className="w-4 h-4" />
-                  ) : (
-                    <Eye className="w-4 h-4" />
-                  )}
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
-              <p className="text-[10px] text-slate-500">
+              <p className="text-[10px] text-muted-foreground">
                 Minimum 6 caractères.
               </p>
             </div>
@@ -2408,13 +3056,7 @@ function UsersPage() {
             </Button>
             <Button
               onClick={handleCreate}
-              disabled={
-                creating ||
-                !form.name ||
-                !form.email ||
-                !form.password ||
-                !form.role
-              }
+              disabled={creating || !form.name || !form.email || !form.password || !form.role}
               className="bg-[#338BE2] hover:bg-[#2074C6] text-white"
             >
               {creating ? (
@@ -2425,108 +3067,462 @@ function UsersPage() {
               ) : (
                 <>
                   <UserPlus className="w-4 h-4 mr-1.5" />
-                  Créer l'utilisateur
+                  Créer l&apos;utilisateur
                 </>
               )}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Delete single user */}
+      <AlertDialog open={!!deleteId} onOpenChange={(o) => !o && setDeleteId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Supprimer cet utilisateur ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Cette action est irréversible. L&apos;utilisateur perdra l&apos;accès à la plateforme.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              className="bg-rose-600 hover:bg-rose-700 text-white"
+            >
+              Supprimer
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Bulk delete confirmation */}
+      <AlertDialog open={bulkDeleteOpen} onOpenChange={setBulkDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Supprimer {selectedIds.size} utilisateur(s) ?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Cette action supprimera définitivement tous les utilisateurs sélectionnés.
+              Les superadmins et les derniers patrons d&apos;un tenant seront ignorés.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleBulkDelete}
+              className="bg-rose-600 hover:bg-rose-700 text-white"
+            >
+              Supprimer la sélection
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
 
 // ============================================================
-// PAGE: SETTINGS
+// PAGE: SETTINGS — SEO + Email + Compte + Plateforme
 // ============================================================
 
 function SettingsPage() {
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
 
+  const [settings, setSettings] = useState<PlatformSettingData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  // Form state (local)
+  const [seoTitle, setSeoTitle] = useState("");
+  const [seoDescription, setSeoDescription] = useState("");
+  const [seoKeywords, setSeoKeywords] = useState("");
+  const [ogImageUrl, setOgImageUrl] = useState("");
+
+  const [smtpHost, setSmtpHost] = useState("");
+  const [smtpPort, setSmtpPort] = useState("");
+  const [smtpUser, setSmtpUser] = useState("");
+  const [smtpPassword, setSmtpPassword] = useState("");
+  const [smtpFromEmail, setSmtpFromEmail] = useState("");
+  const [smtpFromName, setSmtpFromName] = useState("");
+
+  const [googleAnalyticsId, setGoogleAnalyticsId] = useState("");
+  const [facebookPixelId, setFacebookPixelId] = useState("");
+
+  useEffect(() => {
+    (async () => {
+      setLoading(true);
+      try {
+        const res = await fetch("/api/superadmin/settings");
+        if (res.ok) {
+          const data = (await res.json()) as PlatformSettingData;
+          setSettings(data);
+          setSeoTitle(data.seoTitle ?? "");
+          setSeoDescription(data.seoDescription ?? "");
+          setSeoKeywords(data.seoKeywords ?? "");
+          setOgImageUrl(data.ogImageUrl ?? "");
+          setSmtpHost(data.smtpHost ?? "");
+          setSmtpPort(data.smtpPort ? String(data.smtpPort) : "");
+          setSmtpUser(data.smtpUser ?? "");
+          setSmtpPassword(data.smtpPassword ?? "");
+          setSmtpFromEmail(data.smtpFromEmail ?? "");
+          setSmtpFromName(data.smtpFromName ?? "");
+          setGoogleAnalyticsId(data.googleAnalyticsId ?? "");
+          setFacebookPixelId(data.facebookPixelId ?? "");
+        }
+      } catch (err) {
+        console.error("Failed to load settings:", err);
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const payload = {
+        seoTitle,
+        seoDescription,
+        seoKeywords,
+        ogImageUrl,
+        smtpHost,
+        smtpPort: smtpPort ? parseInt(smtpPort, 10) : null,
+        smtpUser,
+        smtpPassword,
+        smtpFromEmail,
+        smtpFromName,
+        googleAnalyticsId,
+        facebookPixelId,
+      };
+      const res = await fetch("/api/superadmin/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error ?? "Échec de la sauvegarde");
+      }
+      const updated = (await res.json()) as PlatformSettingData;
+      setSettings(updated);
+      toast.success("Paramètres enregistrés avec succès");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erreur");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-slate-900">Paramètres</h1>
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Paramètres</h1>
+          <p className="text-muted-foreground text-sm">
+            Configuration de la plateforme YonuKom
+          </p>
+        </div>
+        <Button
+          size="sm"
+          onClick={handleSave}
+          disabled={saving || loading}
+          className="bg-[#338BE2] hover:bg-[#2074C6] text-white gap-1.5"
+        >
+          {saving ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <Save className="w-4 h-4" />
+          )}
+          Enregistrer
+        </Button>
+      </div>
 
-      <Card className="bg-white border border-slate-200/60">
-        <CardHeader>
-          <CardTitle className="text-base font-bold text-slate-900">
-            Compte Superadmin
-          </CardTitle>
-          <CardDescription>
-            Informations du compte administrateur
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-full bg-[#338BE2]/10 flex items-center justify-center">
-              <Shield className="w-6 h-6 text-[#338BE2]" />
-            </div>
-            <div>
-              <p className="font-semibold text-slate-900">
-                {user?.name ?? "Superadmin"}
-              </p>
-              <p className="text-sm text-slate-500">
-                {user?.email ?? "admin@yonukom.sn"}
-              </p>
-            </div>
-          </div>
-          <Separator />
-          <div className="flex items-center gap-2">
-            <Badge className="bg-[#338BE2]/10 text-[#338BE2] border border-[#338BE2]/20">
-              <Shield className="w-3 h-3 mr-1" />
-              Superadmin
-            </Badge>
-            <span className="text-xs text-slate-500">
-              Accès complet à la plateforme
-            </span>
-          </div>
-          <Button
-            variant="destructive"
-            size="sm"
-            onClick={logout}
-            className="gap-1.5"
-          >
-            <LogOut className="w-4 h-4" />
-            Déconnexion
-          </Button>
-        </CardContent>
-      </Card>
+      {loading ? (
+        <Card className="bg-background border border-border">
+          <CardContent className="p-12 text-center">
+            <Loader2 className="w-8 h-8 mx-auto animate-spin text-[#338BE2]" />
+            <p className="text-sm text-muted-foreground mt-3">Chargement des paramètres...</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <>
+          {/* SEO Section */}
+          <Card className="bg-background border border-border">
+            <CardHeader>
+              <CardTitle className="text-base font-bold text-foreground flex items-center gap-2">
+                <Globe className="w-4 h-4 text-[#338BE2]" />
+                SEO — Référencement
+              </CardTitle>
+              <CardDescription>
+                Métadonnées SEO partagées sur tout le site
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="seo-title">Titre SEO</Label>
+                <Input
+                  id="seo-title"
+                  placeholder="YonuKom — Gestion commerciale pour l'Afrique"
+                  value={seoTitle}
+                  onChange={(e) => setSeoTitle(e.target.value)}
+                />
+                <p className="text-[10px] text-muted-foreground">
+                  Recommandé : 50-60 caractères. Actuel : {seoTitle.length}
+                </p>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="seo-desc">Description SEO</Label>
+                <Textarea
+                  id="seo-desc"
+                  placeholder="Gérez votre commerce au Sénégal : POS, stock, factures, paiements Wave..."
+                  value={seoDescription}
+                  onChange={(e) => setSeoDescription(e.target.value)}
+                  rows={3}
+                />
+                <p className="text-[10px] text-muted-foreground">
+                  Recommandé : 150-160 caractères. Actuel : {seoDescription.length}
+                </p>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="seo-keywords">Mots-clés SEO</Label>
+                <Input
+                  id="seo-keywords"
+                  placeholder="POS Sénégal, gestion commerce, factures FCFA..."
+                  value={seoKeywords}
+                  onChange={(e) => setSeoKeywords(e.target.value)}
+                />
+                <p className="text-[10px] text-muted-foreground">
+                  Séparés par des virgules
+                </p>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="og-image">Image OpenGraph (URL)</Label>
+                <Input
+                  id="og-image"
+                  placeholder="https://yonukom.sn/og-image.png"
+                  value={ogImageUrl}
+                  onChange={(e) => setOgImageUrl(e.target.value)}
+                />
+                {ogImageUrl && (
+                  <div className="mt-2 rounded-lg overflow-hidden border border-border bg-muted/40 max-w-xs">
+                    <img
+                      src={ogImageUrl}
+                      alt="Aperçu OpenGraph"
+                      className="w-full h-32 object-cover"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).style.display = "none";
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
 
-      <Card className="bg-white border border-slate-200/60">
-        <CardHeader>
-          <CardTitle className="text-base font-bold text-slate-900">
-            Configuration plateforme
-          </CardTitle>
-          <CardDescription>Paramètres globaux de YonuKom</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-slate-700">Devise par défaut</span>
-            <Badge variant="outline" className="border-slate-200">
-              FCFA (XOF)
-            </Badge>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-slate-700">Région</span>
-            <Badge variant="outline" className="border-slate-200">
-              Sénégal (SN)
-            </Badge>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-slate-700">Mode</span>
-            <Badge className="bg-emerald-100 text-emerald-700 border border-emerald-200">
-              Production
-            </Badge>
-          </div>
-        </CardContent>
-      </Card>
+          {/* Email SMTP Section */}
+          <Card className="bg-background border border-border">
+            <CardHeader>
+              <CardTitle className="text-base font-bold text-foreground flex items-center gap-2">
+                <Server className="w-4 h-4 text-[#338BE2]" />
+                Email — Configuration SMTP
+              </CardTitle>
+              <CardDescription>
+                Serveur d&apos;envoi d&apos;emails transactionnels (factures, rappels, notifications)
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="smtp-host">Hôte SMTP</Label>
+                  <Input
+                    id="smtp-host"
+                    placeholder="smtp.gmail.com"
+                    value={smtpHost}
+                    onChange={(e) => setSmtpHost(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="smtp-port">Port</Label>
+                  <Input
+                    id="smtp-port"
+                    type="number"
+                    placeholder="587"
+                    value={smtpPort}
+                    onChange={(e) => setSmtpPort(e.target.value)}
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="smtp-user">Utilisateur</Label>
+                  <Input
+                    id="smtp-user"
+                    placeholder="user@gmail.com"
+                    value={smtpUser}
+                    onChange={(e) => setSmtpUser(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="smtp-pass">Mot de passe</Label>
+                  <Input
+                    id="smtp-pass"
+                    type="password"
+                    placeholder="••••••••"
+                    value={smtpPassword}
+                    onChange={(e) => setSmtpPassword(e.target.value)}
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="smtp-from-email">Email expéditeur</Label>
+                  <Input
+                    id="smtp-from-email"
+                    type="email"
+                    placeholder="noreply@yonukom.sn"
+                    value={smtpFromEmail}
+                    onChange={(e) => setSmtpFromEmail(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="smtp-from-name">Nom expéditeur</Label>
+                  <Input
+                    id="smtp-from-name"
+                    placeholder="YonuKom"
+                    value={smtpFromName}
+                    onChange={(e) => setSmtpFromName(e.target.value)}
+                  />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Analytics IDs */}
+          <Card className="bg-background border border-border">
+            <CardHeader>
+              <CardTitle className="text-base font-bold text-foreground flex items-center gap-2">
+                <BarChart3 className="w-4 h-4 text-[#338BE2]" />
+                Analytics & Tracking
+              </CardTitle>
+              <CardDescription>
+                Identifiants de suivi marketing
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="ga-id">Google Analytics ID</Label>
+                  <Input
+                    id="ga-id"
+                    placeholder="G-XXXXXXXXXX"
+                    value={googleAnalyticsId}
+                    onChange={(e) => setGoogleAnalyticsId(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="fb-pixel">Facebook Pixel ID</Label>
+                  <Input
+                    id="fb-pixel"
+                    placeholder="123456789012345"
+                    value={facebookPixelId}
+                    onChange={(e) => setFacebookPixelId(e.target.value)}
+                  />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Compte Superadmin */}
+          <Card className="bg-background border border-border">
+            <CardHeader>
+              <CardTitle className="text-base font-bold text-foreground">
+                Compte Superadmin
+              </CardTitle>
+              <CardDescription>
+                Informations du compte administrateur
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-full bg-[#338BE2]/10 flex items-center justify-center">
+                  <Shield className="w-6 h-6 text-[#338BE2]" />
+                </div>
+                <div>
+                  <p className="font-semibold text-foreground">
+                    {user?.name ?? "Superadmin"}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    {user?.email ?? "admin@yonukom.sn"}
+                  </p>
+                </div>
+              </div>
+              <Separator />
+              <div className="flex items-center gap-2">
+                <Badge className="bg-[#338BE2]/10 text-[#338BE2] border border-[#338BE2]/20">
+                  <Shield className="w-3 h-3 mr-1" />
+                  Superadmin
+                </Badge>
+                <span className="text-xs text-muted-foreground">
+                  Accès complet à la plateforme
+                </span>
+              </div>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={logout}
+                className="gap-1.5"
+              >
+                <LogOut className="w-4 h-4" />
+                Déconnexion
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Configuration plateforme */}
+          <Card className="bg-background border border-border">
+            <CardHeader>
+              <CardTitle className="text-base font-bold text-foreground">
+                Configuration plateforme
+              </CardTitle>
+              <CardDescription>Paramètres globaux de YonuKom</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-foreground">Devise par défaut</span>
+                <Badge variant="outline" className="border-border">
+                  FCFA (XOF)
+                </Badge>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-foreground">Région</span>
+                <Badge variant="outline" className="border-border">
+                  Sénégal (SN)
+                </Badge>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-foreground">Mode</span>
+                <Badge className="bg-emerald-100 text-emerald-700 border border-emerald-200">
+                  Production
+                </Badge>
+              </div>
+              {settings && (
+                <p className="text-[10px] text-muted-foreground pt-2 border-t border-border">
+                  Dernière mise à jour : {new Date(settings.updatedAt).toLocaleString("fr-FR")}
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        </>
+      )}
     </div>
   );
 }
 
 // ============================================================
-// MESSAGES PAGE — messages reçus du formulaire de contact
+// MESSAGES PAGE
 // ============================================================
 
 interface ContactMessageItem {
@@ -2607,39 +3603,37 @@ function MessagesPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header + stats */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
+          <h2 className="text-2xl font-bold text-foreground flex items-center gap-2">
             <Mail className="w-6 h-6 text-[#338BE2]" />
             Messages de contact
           </h2>
-          <p className="text-sm text-slate-500 mt-1">
+          <p className="text-sm text-muted-foreground mt-1">
             Messages reçus depuis le formulaire de la page /contact
           </p>
         </div>
         <button
           onClick={fetchMessages}
           disabled={loading}
-          className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 text-sm font-medium disabled:opacity-50"
+          className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-border text-foreground hover:bg-muted text-sm font-medium disabled:opacity-50"
         >
           <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
           Rafraîchir
         </button>
       </div>
 
-      {/* Stats cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <button
           onClick={() => setFilter("all")}
           className={`text-left p-4 rounded-xl border transition-all ${
             filter === "all"
               ? "bg-[#338BE2]/5 border-[#338BE2]/30"
-              : "bg-white border-slate-200 hover:border-slate-300"
+              : "bg-background border-border hover:border-[#338BE2]/30"
           }`}
         >
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Total</p>
-          <p className="text-2xl font-bold text-slate-900 mt-1">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Total</p>
+          <p className="text-2xl font-bold text-foreground mt-1">
             {(counts.new || 0) + (counts.read || 0) + (counts.archived || 0)}
           </p>
         </button>
@@ -2648,7 +3642,7 @@ function MessagesPage() {
           className={`text-left p-4 rounded-xl border transition-all ${
             filter === "new"
               ? "bg-[#338BE2]/5 border-[#338BE2]/30"
-              : "bg-white border-slate-200 hover:border-slate-300"
+              : "bg-background border-border hover:border-[#338BE2]/30"
           }`}
         >
           <p className="text-xs font-semibold uppercase tracking-wide text-[#338BE2]">Non lus</p>
@@ -2658,80 +3652,78 @@ function MessagesPage() {
           onClick={() => setFilter("read")}
           className={`text-left p-4 rounded-xl border transition-all ${
             filter === "read"
-              ? "bg-emerald-50 border-emerald-200"
-              : "bg-white border-slate-200 hover:border-slate-300"
+              ? "bg-emerald-50 border-emerald-200 dark:bg-emerald-950/30 dark:border-emerald-900"
+              : "bg-background border-border hover:border-emerald-300"
           }`}
         >
           <p className="text-xs font-semibold uppercase tracking-wide text-emerald-600">Lus</p>
-          <p className="text-2xl font-bold text-emerald-700 mt-1">{counts.read || 0}</p>
+          <p className="text-2xl font-bold text-emerald-700 dark:text-emerald-400 mt-1">{counts.read || 0}</p>
         </button>
         <button
           onClick={() => setFilter("archived")}
           className={`text-left p-4 rounded-xl border transition-all ${
             filter === "archived"
-              ? "bg-slate-100 border-slate-300"
-              : "bg-white border-slate-200 hover:border-slate-300"
+              ? "bg-muted border-border"
+              : "bg-background border-border hover:border-[#338BE2]/30"
           }`}
         >
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Archivés</p>
-          <p className="text-2xl font-bold text-slate-700 mt-1">{counts.archived || 0}</p>
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Archivés</p>
+          <p className="text-2xl font-bold text-foreground mt-1">{counts.archived || 0}</p>
         </button>
       </div>
 
       {error && (
-        <div className="p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-sm">
+        <div className="p-4 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900 text-rose-700 dark:text-rose-400 text-sm">
           {error}
         </div>
       )}
 
-      {/* Messages list + detail panel */}
       <div className="grid lg:grid-cols-2 gap-4">
-        {/* List */}
-        <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
-          <div className="p-4 border-b border-slate-100 flex items-center justify-between">
-            <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wide">
+        <div className="bg-background rounded-2xl border border-border overflow-hidden">
+          <div className="p-4 border-b border-border flex items-center justify-between">
+            <h3 className="text-sm font-bold text-foreground uppercase tracking-wide">
               {filter === "all" ? "Tous les messages" : filter === "new" ? "Non lus" : filter === "read" ? "Lus" : "Archivés"}
             </h3>
-            <span className="text-xs text-slate-500">{messages.length}</span>
+            <span className="text-xs text-muted-foreground">{messages.length}</span>
           </div>
           <div className="max-h-[600px] overflow-y-auto">
             {loading ? (
               <div className="p-8 text-center">
-                <Loader2 className="w-6 h-6 text-slate-400 mx-auto animate-spin" />
-                <p className="text-sm text-slate-500 mt-2">Chargement...</p>
+                <Loader2 className="w-6 h-6 text-muted-foreground mx-auto animate-spin" />
+                <p className="text-sm text-muted-foreground mt-2">Chargement...</p>
               </div>
             ) : messages.length === 0 ? (
               <div className="p-12 text-center">
-                <Mail className="w-10 h-10 text-slate-300 mx-auto" />
-                <p className="text-sm text-slate-500 mt-3">Aucun message pour ce filtre</p>
+                <Mail className="w-10 h-10 text-muted-foreground/40 mx-auto" />
+                <p className="text-sm text-muted-foreground mt-3">Aucun message pour ce filtre</p>
               </div>
             ) : (
-              <ul className="divide-y divide-slate-100">
+              <ul className="divide-y divide-border">
                 {messages.map((m) => (
                   <li key={m.id}>
                     <button
                       onClick={() => openMessage(m)}
-                      className={`w-full text-left p-4 hover:bg-slate-50 transition-colors ${
+                      className={`w-full text-left p-4 hover:bg-muted/60 transition-colors ${
                         selected?.id === m.id ? "bg-[#338BE2]/5" : ""
                       }`}
                     >
                       <div className="flex items-start gap-3">
                         <div className={`w-2 h-2 rounded-full mt-2 shrink-0 ${
-                          m.status === "new" ? "bg-[#338BE2] animate-pulse" : "bg-slate-300"
+                          m.status === "new" ? "bg-[#338BE2] animate-pulse" : "bg-muted-foreground/40"
                         }`} />
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between gap-2">
                             <p className={`text-sm truncate ${
-                              m.status === "new" ? "font-bold text-slate-900" : "font-medium text-slate-700"
+                              m.status === "new" ? "font-bold text-foreground" : "font-medium text-foreground"
                             }`}>
                               {m.name}
                             </p>
-                            <span className="text-[10px] text-slate-400 shrink-0">
+                            <span className="text-[10px] text-muted-foreground shrink-0">
                               {formatDate(m.createdAt)}
                             </span>
                           </div>
-                          <p className="text-xs text-slate-500 truncate mt-0.5">{m.email}</p>
-                          <p className="text-xs text-slate-600 mt-1 line-clamp-2">{m.message}</p>
+                          <p className="text-xs text-muted-foreground truncate mt-0.5">{m.email}</p>
+                          <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{m.message}</p>
                         </div>
                       </div>
                     </button>
@@ -2742,8 +3734,7 @@ function MessagesPage() {
           </div>
         </div>
 
-        {/* Detail panel */}
-        <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden lg:sticky lg:top-4 h-fit">
+        <div className="bg-background rounded-2xl border border-border overflow-hidden lg:sticky lg:top-4 h-fit">
           {selected ? (
             <div className="p-6 space-y-4">
               <div className="flex items-start justify-between">
@@ -2752,7 +3743,7 @@ function MessagesPage() {
                     {selected.name.charAt(0).toUpperCase()}
                   </div>
                   <div>
-                    <p className="font-bold text-slate-900">{selected.name}</p>
+                    <p className="font-bold text-foreground">{selected.name}</p>
                     <a href={`mailto:${selected.email}`} className="text-sm text-[#338BE2] hover:underline">
                       {selected.email}
                     </a>
@@ -2760,25 +3751,24 @@ function MessagesPage() {
                 </div>
                 <span className={`text-[10px] font-semibold uppercase px-2 py-1 rounded-full ${
                   selected.status === "new" ? "bg-[#338BE2]/10 text-[#338BE2]" :
-                  selected.status === "read" ? "bg-emerald-100 text-emerald-700" :
-                  "bg-slate-100 text-slate-600"
+                  selected.status === "read" ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400" :
+                  "bg-muted text-muted-foreground"
                 }`}>
                   {selected.status === "new" ? "Non lu" : selected.status === "read" ? "Lu" : "Archivé"}
                 </span>
               </div>
 
-              <div className="text-xs text-slate-400">
+              <div className="text-xs text-muted-foreground">
                 Reçu le {formatDate(selected.createdAt)}
               </div>
 
-              <div className="bg-slate-50 rounded-xl p-4">
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-2">Message</p>
-                <p className="text-sm text-slate-800 whitespace-pre-wrap leading-relaxed">
+              <div className="bg-muted/60 rounded-xl p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Message</p>
+                <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">
                   {selected.message}
                 </p>
               </div>
 
-              {/* Actions */}
               <div className="flex flex-wrap items-center gap-2 pt-2">
                 <a
                   href={`mailto:${selected.email}?subject=Re: Votre message à YonuKom&body=Bonjour ${encodeURIComponent(selected.name)},%0D%0A%0D%0AMerci pour votre message.%0D%0A%0D%0A`}
@@ -2789,13 +3779,13 @@ function MessagesPage() {
                 </a>
                 <button
                   onClick={() => updateStatus(selected.id, selected.status === "archived" ? "read" : "archived")}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 text-xs font-semibold"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-foreground hover:bg-muted text-xs font-semibold"
                 >
                   {selected.status === "archived" ? "Désarchiver" : "Archiver"}
                 </button>
                 <button
                   onClick={() => deleteMessage(selected.id)}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-rose-200 text-rose-600 hover:bg-rose-50 text-xs font-semibold ml-auto"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-rose-200 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 text-xs font-semibold ml-auto"
                 >
                   Supprimer
                 </button>
@@ -2803,8 +3793,8 @@ function MessagesPage() {
             </div>
           ) : (
             <div className="p-12 text-center">
-              <Mail className="w-10 h-10 text-slate-300 mx-auto" />
-              <p className="text-sm text-slate-500 mt-3">
+              <Mail className="w-10 h-10 text-muted-foreground/40 mx-auto" />
+              <p className="text-sm text-muted-foreground mt-3">
                 Sélectionnez un message pour voir le détail
               </p>
             </div>

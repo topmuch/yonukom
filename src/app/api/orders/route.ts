@@ -71,7 +71,7 @@ type OrderItemInput = {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { customerId, businessId, items, createdBy, status, deliveryAddress, paymentMethod, deliveryFee, orderType, promoId } = body as {
+    const { customerId, businessId, items, createdBy, status, deliveryAddress, paymentMethod, deliveryFee, orderType, promoId, paid = true } = body as {
       customerId?: string
       businessId?: string
       items?: OrderItemInput[]
@@ -82,7 +82,14 @@ export async function POST(request: NextRequest) {
       deliveryFee?: number
       orderType?: string
       promoId?: string | null
+      paid?: boolean
     }
+
+    // `paid` contrôle si un Payment est créé et si paidAmount = totalAmount.
+    // Par défaut true (vente comptoir encaissée — comportement historique du POS).
+    // Le dashboard manuel peut passer paid=false pour créer une commande "Non payée"
+    // ou "En cours" sans encaisser immédiatement.
+    const shouldCreatePayment = paid === true
 
     // --- Validation de base ---
     if (!businessId) {
@@ -130,15 +137,20 @@ export async function POST(request: NextRequest) {
     // --- Safety net : refuser l'encaissement si aucune session de caisse ouverte ---
     // Le frontend bloque déjà l'action, mais l'API doit aussi l'imposer
     // (anti-fraude / appels directs hors UI).
-    const activeCashSession = await db.cashSession.findFirst({
-      where: { businessId, isActive: true, closedAt: null },
-      select: { id: true },
-    })
-    if (!activeCashSession) {
-      return NextResponse.json(
-        { error: 'Caisse fermée. Ouvrez une session de caisse avant d\'encaisser.' },
-        { status: 403 }
-      )
+    // ⚠️ Uniquement requis quand on encaisse (paid=true). Pour une commande
+    // "Non payée" / "En cours" / "Livré" (paid=false), aucune session de caisse
+    // n'est nécessaire puisque aucun flux financier n'est enregistré.
+    if (shouldCreatePayment) {
+      const activeCashSession = await db.cashSession.findFirst({
+        where: { businessId, isActive: true, closedAt: null },
+        select: { id: true },
+      })
+      if (!activeCashSession) {
+        return NextResponse.json(
+          { error: 'Caisse fermée. Ouvrez une session de caisse avant d\'encaisser.' },
+          { status: 403 }
+        )
+      }
     }
 
     // --- Résoudre le customer : walk-in par défaut ---
@@ -299,10 +311,10 @@ export async function POST(request: NextRequest) {
           deliveryFee: resolvedDeliveryFee,
           orderType: resolvedOrderType,
           promoId: resolvedPromoId,
-          // Marquer comme payée (vente comptoir — encaissement immédiat)
-          paidAmount: finalTotalAmount,
-          remainingAmount: 0,
-          status: status || 'completed',
+          // Marquer comme payée si encaissement immédiat (vente comptoir)
+          paidAmount: shouldCreatePayment ? finalTotalAmount : 0,
+          remainingAmount: shouldCreatePayment ? 0 : finalTotalAmount,
+          status: status || (shouldCreatePayment ? 'completed' : 'to_pay'),
           createdBy: createdBy || null,
           deliveryAddress: deliveryAddress || null,
           orderItems: {
@@ -347,15 +359,20 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // Créer un Payment immédiat (vente comptoir encaissée sur place)
-      await tx.payment.create({
-        data: {
-          amount: finalTotalAmount,
-          method: resolvedPaymentMethod,
-          orderId: newOrder.id,
-          receivedBy: createdBy || null,
-        },
-      })
+      // Créer un Payment immédiat UNIQUEMENT si encaissement (paid=true).
+      // Pour les commandes "Non payée" / "En cours" / "Livré" sans encaissement,
+      // aucun Payment n'est créé — le merchant pourra encaisser plus tard via
+      // le bouton "Marquer comme payée" dans l'historique.
+      if (shouldCreatePayment) {
+        await tx.payment.create({
+          data: {
+            amount: finalTotalAmount,
+            method: resolvedPaymentMethod,
+            orderId: newOrder.id,
+            receivedBy: createdBy || null,
+          },
+        })
+      }
 
       return newOrder
     })

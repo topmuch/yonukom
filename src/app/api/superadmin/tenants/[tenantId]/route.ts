@@ -116,9 +116,57 @@ export async function PUT(
   }
 }
 
-export async function DELETE() {
-  return NextResponse.json(
-    { error: 'DELETE method is not supported for tenants' },
-    { status: 405 }
-  );
+export async function DELETE(
+  _request: Request,
+  { params }: { params: Promise<{ tenantId: string }> }
+) {
+  try {
+    const { tenantId } = await params;
+
+    const existing = await db.tenant.findUnique({
+      where: { id: tenantId },
+      select: { id: true, name: true },
+    });
+
+    if (!existing) {
+      return NextResponse.json(
+        { error: "Tenant not found" },
+        { status: 404 }
+      );
+    }
+
+    // Cascade delete: subscription payments → subscription → users → businesses → tenant
+    await db.$transaction([
+      db.subscriptionPayment.deleteMany({
+        where: { subscription: { tenantId } },
+      }),
+      db.subscription.deleteMany({
+        where: { tenantId },
+      }),
+      db.user.deleteMany({
+        where: { tenantId },
+      }),
+      db.business.deleteMany({
+        where: { tenantId },
+      }),
+      db.tenant.delete({ where: { id: tenantId } }),
+    ]);
+
+    await db.platformLog.create({
+      data: {
+        level: "warning",
+        category: "tenant_change",
+        message: `Tenant deleted: ${existing.name} (${tenantId})`,
+        metadata: JSON.stringify({ tenantId, tenantName: existing.name }),
+      },
+    });
+
+    return NextResponse.json({ success: true, id: tenantId });
+  } catch (error) {
+    console.error("[Superadmin] Failed to delete tenant:", error);
+    return NextResponse.json(
+      { error: "Failed to delete tenant" },
+      { status: 500 }
+    );
+  }
 }

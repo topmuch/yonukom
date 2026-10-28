@@ -907,3 +907,156 @@ Notes for next agent:
 - The migration script (`src/scripts/migrate-base64-to-files.ts`) is idempotent — safe to run multiple times. It only touches products whose `imageUrl` is a `data:image/*` URL. After migration, the DB no longer contains base64 strings, just `/api/uploads/...` URLs.
 - Demo logins (the "Démo rapide" buttons in `login-screen.tsx`) don't go through `/api/auth/login`, so they don't get a JWT. This is fine — auth is still optional. If demo mode needs auth later, generate a demo token in `handleDemoLogin`.
 - The `JwtPayload.businessId` is `string | null` because superadmin users have no business. The `withAuth` wrapper passes the payload as-is — handlers that need a non-null businessId should validate it themselves.
+
+
+---
+
+Task ID: CLIENT-ORDERS
+Agent: Subagent K
+
+Task: Add "Ajouter une commande" button to Orders tab + manual order creation dialog (phone orders, deliveries, etc.)
+
+Work Log:
+
+### Task 1.1 — Located Orders tab component
+
+- Reviewed `src/app/page.tsx` (lines 783, 1042-1053): `activeTab === "orders"` renders `<OrderKanban />` (Kanban view), `activeTab === "history"` renders `<OrderHistory />` (table view).
+- The brief describes a TABLE with columns (Date / Numéro / Client / Articles / Total / Statut / Actions) + status filter tabs + print button — that matches `OrderHistory` (History tab), not the Kanban. Implemented the new "Ajouter une commande" button + dialog in `OrderHistory`.
+
+### Task 1.2 — CreateOrderDialog component
+
+Created `src/components/orders/create-order-dialog.tsx` (~530 lines). Form fields:
+
+- **Client** : Name (optional) + Phone (optional). If a name is provided → POST `/api/customers` to create a dedicated Customer (with phone="N/A" if missing), then pass `customerId` to `/api/orders`. If empty → `customerId: null` and the orders API auto-creates the "Client comptoir" walk-in.
+- **Articles** : Dynamic list (1+ rows). Each row has:
+  - Product select (fetches `/api/products?businessId=xxx`) showing all active products of the business with their salePrice in the dropdown. Includes a "✏️ Article personnalisé" option for free-text manual items.
+  - When a product is selected, `manualName` and `unitPrice` are auto-filled from the DB (`product.name` + `product.salePrice`) but `unitPrice` remains editable.
+  - When "Article personnalisé" is selected, a free-text "Nom de l'article" input appears.
+  - Quantity (number, min 1) + Prix de vente (FCFA, editable).
+  - Subtotal per row computed live.
+  - "Ajouter" button adds a row; trash icon removes (always keeps ≥1 row).
+- **Type de commande** : Select Sur place (dine_in) / À emporter (takeaway) / Livraison (delivery). If Livraison → shows Frais de livraison (FCFA, default 0) + Adresse de livraison (optional).
+- **Statut** : Select Payé / En cours / Non payé / Livré. Each option has a hint string explaining the behavior (e.g. "Encaissement immédiat (crée un Payment)").
+- **Moyen de paiement** : Select Espèces / Wave / Orange Money / Carte — only visible when Statut = "Payé".
+- **Récap** : Live total card showing Sous-total articles + Frais de livraison (if applicable) + Total (bold, emerald) + status Badge reflecting the chosen status.
+
+Behavior:
+- Validation: requires ≥1 valid item (productId OR manualName + unitPrice ≥ 0, with qty ≥ 1). For "Payé" status, total must be > 0.
+- Submit: maps `statusChoice` → API status (`paid`→`completed`, `pending`→`pending`, `unpaid`→`to_pay`, `delivered`→`delivered`). Passes `paid: (statusChoice === "paid")` flag to control payment creation.
+- On HTTP 403 (cash session closed): shows toast "Caisse fermée. Ouvrez une session de caisse avant d'encaisser une commande payée." (Note: this only happens for "Payé" status — for unpaid/delivered statuses, the API no longer requires an active cash session.)
+- On success: closes dialog, calls `onCreated()` callback (parent refetches orders list), shows toast "Commande créée" with the new order number.
+- On error: shows toast with the API error message.
+- Reset form 200ms after close (lets the closing animation finish).
+
+### Task 1.3 — Status filter tabs + Livré bucket
+
+Modified `src/components/orders/order-history.tsx`:
+
+1. Added `"delivered"` to the `StatusFilter` union type and to `STATUS_TABS` (between `pending` and `cancelled`). Filter tabs now read: Tous / Payés / Non payés / En attente / Livrés / Annulés (per the brief).
+2. Added `"delivered"` return type to `paymentBucket()`. A new check at the top: if `order.status === "delivered" || order.status === "shipped"` → returns `"delivered"` (so delivered orders are no longer mis-bucketed as "paid" when they happen to have paidAmount > 0).
+3. Added `delivered: "Livré"` to `BUCKET_LABELS` and `delivered: "bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/30"` to `BUCKET_BADGE_CLASS` (blue badge per the brief).
+4. Added `delivered: orders.filter(o => paymentBucket(o) === "delivered").length` to the `counts` object so the "Livrés" tab shows the correct count.
+
+### Task 1.4 — Print button verification
+
+Verified the existing print button already uses `<a href={`/api/orders/${order.id}/receipt`} target="_blank" rel="noopener noreferrer">` at two locations:
+- Desktop table (line 504-521 of original file, now ~511-528): wrapped around a `<Button variant="ghost">` with the `Printer` icon.
+- Mobile card (line 599-616 of original file, now ~606-623): same anchor with the printer button in the top-right corner.
+
+Both open the receipt HTML page in a new tab — `GET /api/orders/[id]/receipt` returns a printable 80mm thermal ticket with auto-print script. No changes needed.
+
+### Header "Ajouter une commande" button
+
+Added a primary `Button` with `Plus` icon next to the existing "Actualiser" button in the OrderHistory header. On click → opens the `CreateOrderDialog`. After successful creation → dialog closes + `fetchOrders()` is called to refresh the list (so the new order appears immediately).
+
+### API modification (backward-compatible)
+
+Modified `src/app/api/orders/route.ts` POST:
+
+- Added `paid?: boolean` field to the request body (default `true`). Computed `const shouldCreatePayment = paid === true`.
+- **Cash session check** is now only enforced when `shouldCreatePayment === true`. Unpaid/delivered orders can be created without an active cash session (since no cash flow is recorded). The cart-drawer continues to pass through (no `paid` field → defaults to true → cash session still required — backward-compatible).
+- **paidAmount / remainingAmount**: `paidAmount: shouldCreatePayment ? finalTotalAmount : 0` and `remainingAmount: shouldCreatePayment ? 0 : finalTotalAmount`.
+- **status default**: `status || (shouldCreatePayment ? 'completed' : 'to_pay')` — if no status is provided, paid orders default to `completed` (as before) and unpaid orders default to `to_pay`.
+- **Payment creation**: wrapped in `if (shouldCreatePayment) { ... }`. For unpaid/delivered orders, no Payment row is created. The merchant can later mark the order as paid via the existing "Marquer comme payée" button in the OrderHistory table (which sends `PUT /api/orders/[id] { status: "paid" }`).
+
+Files created:
+- `src/components/orders/create-order-dialog.tsx` — full create-order dialog with multi-item form
+
+Files modified:
+- `src/components/orders/order-history.tsx` — added Plus icon import + CreateOrderDialog import + `createOpen` state + "Ajouter une commande" button in header + "delivered" status tab + delivered bucket in paymentBucket/BUCKET_LABELS/BUCKET_BADGE_CLASS/counts + CreateOrderDialog render
+- `src/app/api/orders/route.ts` — added `paid` flag support (skips cash session check + Payment creation when false; backward-compatible default `true`)
+
+Verification:
+- `npx tsc --noEmit --project tsconfig.json 2>&1 | grep "error TS" | wc -l` → **0 errors** ✓
+- `npx next build 2>&1 | tail -25` → **✓ Compiled successfully** (all 65+ routes compiled). Only pre-existing warning about `turbopack.root` workspace inference — not from my changes.
+- `bun run lint` → 8 errors total, ALL pre-existing (in `superadmin-dashboard.tsx`, `business-logo.ts`, `use-auth-store.ts`, `chart.tsx`). None in `create-order-dialog.tsx` or `order-history.tsx`. ✓
+
+Notes for next agent:
+- The `paid` flag is the new recommended way to create orders without encaissement. Any future API caller that wants a "draft" / "to_pay" / "delivered" order without recording a Payment should pass `paid: false` (and optionally a `status` field like `"to_pay"`, `"pending"`, `"delivered"`).
+- The CreateOrderDialog automatically decides `paid` based on the chosen Statut: only "Payé" sets `paid: true`. For "En cours" / "Non payé" / "Livré" → `paid: false`. If the merchant later wants to mark an unpaid order as paid, the existing "Marquer comme payée" button (visible in OrderHistory when `bucket === "unpaid" || bucket === "partial"`) sends `PUT /api/orders/[id] { status: "paid" }` — but that route currently only updates the status field without creating a Payment. If full payment tracking is needed on mark-as-paid, a future task should extend `PATCH /api/orders/[id]` to also create a Payment row.
+- The `paymentBucket` function now buckets `delivered` / `shipped` orders separately from `paid` — so a delivered order will NOT appear in the "Payés" tab even if it has `paidAmount > 0`. It will appear in BOTH "Livrés" and "Payés" if `paidAmount = totalAmount` because the filter logic is OR-based on the bucket — wait no, actually the bucket function returns ONE value per order, so an order is in exactly one bucket. A delivered order with `paidAmount = totalAmount` will be bucketed as `delivered` (because that check comes first) and NOT as `paid`. This is intentional: "Livré" is a fulfillment state, not a payment state. If you want a "Livré et payé" combo, that's a UI enhancement for a future task.
+- The `OrderHistory` header now has two buttons side-by-side: primary "Ajouter une commande" (emerald) + outline "Actualiser". On mobile, both fit because they use `size="sm"`.
+- The CreateOrderDialog uses `parseFCFA` from `@/lib/fcfa` to parse the delivery fee input (handles user-typed spaces like "1 500"). All money displays use `formatFCFA`.
+- The dialog uses `useAuthStore` for `businessId` and `user.id` (passed as `createdBy` to the API). No new dependencies added — only shadcn/ui components (Dialog, Select, Input, Label, Button, Separator, Badge) and lucide-react icons (Plus, Trash2, Loader2, User, Package, Truck, CreditCard, ShoppingCart, AlertCircle).
+- The customer creation flow is best-effort: if `POST /api/customers` fails (e.g. duplicate phone, network error), the dialog continues with `customerId: null` and lets the orders API create the "Client comptoir" walk-in. This is logged silently — no error toast, since the order itself can still succeed.
+
+---
+Task ID: SUPERADMIN-V2
+Agent: Subagent L
+Task: Superadmin enhancements (SEO, notifications, subscriptions, dark mode, users, tenants)
+
+Work Log:
+- Added PlatformSetting singleton Prisma model (SEO + SMTP + Google Analytics + Facebook Pixel) and pushed schema with `npx prisma db push && npx prisma generate`
+- Added "suspended" status to Subscription status enum (active | suspended | expired | past_due | cancelled) and added `billingPeriod` field (monthly | annual)
+- Updated Subscription plan prices to match new tiers: Starter 5 000 / Pro 15 000 / Enterprise 35 000 FCFA/mois. Added annual pricing (10 months — 2 months free)
+- Created `src/app/api/superadmin/settings/route.ts` — GET (singleton upsert with defaults) + PUT (validate smtpPort, log to PlatformLog)
+- Created `src/app/api/superadmin/users/[id]/route.ts` — PATCH (isActive, role, name, email, phone, blocks superadmin role changes) + DELETE (refused if last patron of a tenant, blocks superadmin delete)
+- Rewrote `src/app/api/superadmin/subscriptions/[subscriptionId]/route.ts` — added GET, PATCH (status with "suspended" + plan + amount + billingPeriod + nextBillingDate + currentPeriodEnd), DELETE (cascade: subscription payments → subscription → tenant users → businesses → tenant)
+- Updated `src/app/api/superadmin/subscriptions/route.ts` to accept "suspended" status filter
+- Implemented DELETE on `src/app/api/superadmin/tenants/[tenantId]/route.ts` with cascade (subscription payments → subscription → users → businesses → tenant)
+- Updated `src/app/api/superadmin/tenants/route.ts` GET to include businesses list + user.isActive
+- Extended `src/types/index.ts` with: SubscriptionStatus "suspended", SubscriptionBillingPeriod type, SUBSCRIPTION_PLAN_ANNUAL_PRICES, SUBSCRIPTION_BILLING_PERIOD_LABELS, PlatformSettingData interface, expanded TenantInfo with businesses + users + billingPeriod
+- Updated `src/components/superadmin/subscription-status-badge.tsx` with new "suspended" status (purple dot)
+- **Rewrote `src/components/superadmin/superadmin-dashboard.tsx`** (~2300 lines) with:
+  - Dark mode fixes: replaced bg-white→bg-background, text-slate-900→text-foreground, text-slate-500→text-muted-foreground, border-slate-200→border-border, bg-slate-50→bg-muted/50 (logs/messages/users/subscriptions/settings pages + all SVG charts)
+  - Notification badge on Bell icon in top bar + count badge on sidebar "Vue d'ensemble" and "Messages" items (count from new tenants 24h + new contact messages + new users 24h)
+  - New "Notifications récentes" card in Overview with 3 columns (new tenants, unread messages, new users)
+  - New Settings page sections: SEO (title, description, keywords, OG image preview), Email SMTP (host, port, user, password, from email, from name), Analytics IDs (GA + FB Pixel)
+  - New Subscriptions page: per-subscription actions (Activer/Suspendre/Désactiver/Supprimer), plan pricing cards with Mensuel/Annuel toggle, inline amount edit via PATCH
+  - New Users page features: per-user Suspendre/Activer toggle, per-user Supprimer (AlertDialog), select-all checkbox, bulk delete with confirmation, "Actif"/"Suspendu" badges
+- **Rewrote `src/components/superadmin/tenant-detail-panel.tsx`** with: businesses list (name, type, address, phone, email), users list (name, email, role, isActive), subscription details (plan, status, amount, billing period, next billing date, payment method), quick actions (Suspendre/Activer/Supprimer with AlertDialog), configuration JSON viewer
+- Toast notifications via sonner for all actions
+- Fixed pre-existing lint error in DonutChart (cumulative offset calculation) by using pre-computed cumulative fractions array
+- Created agent-ctx file `SUPERADMIN-V2-subagent-l.md` documenting all changes
+
+Verification:
+- `npx tsc --noEmit` → 0 errors
+- `npx next build` → ✓ Compiled successfully in 19.9s, 67 static pages generated
+- `bun run lint` → only pre-existing errors in other files (page.tsx, business-logo.ts, use-auth-store.ts) — no new errors introduced in superadmin files
+
+Files Created:
+- `src/app/api/superadmin/settings/route.ts` — GET (singleton upsert) + PUT
+- `src/app/api/superadmin/users/[id]/route.ts` — PATCH + DELETE
+- `agent-ctx/SUPERADMIN-V2-subagent-l.md` — work record
+
+Files Modified:
+- `prisma/schema.prisma` — PlatformSetting model + Subscription.status doc + Subscription.billingPeriod
+- `src/types/index.ts` — extended types (suspended, billingPeriod, annual prices, PlatformSettingData)
+- `src/app/api/superadmin/subscriptions/route.ts` — accept "suspended" filter
+- `src/app/api/superadmin/subscriptions/[subscriptionId]/route.ts` — added PATCH/GET/DELETE cascade
+- `src/app/api/superadmin/tenants/route.ts` — include businesses + user.isActive
+- `src/app/api/superadmin/tenants/[tenantId]/route.ts` — implemented DELETE cascade
+- `src/components/superadmin/subscription-status-badge.tsx` — "suspended" badge
+- `src/components/superadmin/superadmin-dashboard.tsx` — full rewrite with notifications, settings, dark mode, subscriptions actions, users actions
+- `src/components/superadmin/tenant-detail-panel.tsx` — full rewrite with businesses/users/actions
+
+Stage Summary:
+- Superadmin dashboard now has SEO + Email SMTP configuration via singleton API
+- Notifications badge with live count in sidebar + bell icon
+- Subscriptions page can suspend/activate/cancel/delete boutiques with cascade
+- Plan pricing cards + Mensuel/Annuel toggle + inline amount editing
+- Users page supports suspend/activate, delete with AlertDialog, select all + bulk delete
+- Tenant detail panel shows businesses, users, subscription details, and quick actions
+- Dark mode fixed: all cards/text/borders use theme-aware tokens (bg-background, text-foreground, border-border, bg-muted/50)
+- All money displays use formatFCFA / formatFCFAShort
+- TypeScript strict: 0 errors. Next.js build: ✓ passing.

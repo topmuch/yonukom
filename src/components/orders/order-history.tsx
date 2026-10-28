@@ -27,6 +27,7 @@ import {
   Trash2,
   Printer,
   CheckCircle2,
+  Plus,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
@@ -44,6 +45,7 @@ import {
   OrderDetailDialog,
   type OrderDetailData,
 } from "@/components/orders/order-detail-dialog";
+import { CreateOrderDialog } from "@/components/orders/create-order-dialog";
 import type { EcomOrderStatus, PaymentMethod } from "@/types/index";
 
 // Shape returned by GET /api/orders (with included orderItems.product, customer, payments)
@@ -78,22 +80,27 @@ interface ApiOrder {
 }
 
 // Filtres disponibles (POV POS)
-type StatusFilter = "all" | "paid" | "unpaid" | "partial" | "pending" | "cancelled";
+type StatusFilter = "all" | "paid" | "unpaid" | "partial" | "pending" | "delivered" | "cancelled";
 
 const STATUS_TABS: { id: StatusFilter; label: string }[] = [
   { id: "all", label: "Tous" },
   { id: "paid", label: "Payés" },
   { id: "unpaid", label: "Non payés" },
   { id: "pending", label: "En attente" },
+  { id: "delivered", label: "Livrés" },
   { id: "cancelled", label: "Annulés" },
 ];
 
-// Détermine le "bucket de paiement" d'une commande à partir du paidAmount et du status.
-// Renvoie : "paid" | "partial" | "unpaid" | "pending" | "cancelled"
-function paymentBucket(order: ApiOrder): "paid" | "partial" | "unpaid" | "pending" | "cancelled" {
+// Détermine le "bucket de paiement" d'une commande à partir du paidAmount, du status et du orderType.
+// Renvoie : "paid" | "partial" | "unpaid" | "pending" | "delivered" | "cancelled"
+function paymentBucket(order: ApiOrder): "paid" | "partial" | "unpaid" | "pending" | "delivered" | "cancelled" {
   // Annulée : prioritaire
   if (order.status === "cancelled" || (order as ApiOrder & { isCancelled?: boolean }).isCancelled) {
     return "cancelled";
+  }
+  // Livré : status delivered ou shipped (commande livrée au client)
+  if (order.status === "delivered" || order.status === "shipped") {
+    return "delivered";
   }
   // Pending : status pending/draft/to_pay/to_ship etc. ET aucun paiement reçu
   const pendingStatuses = ["pending", "draft", "to_pay", "to_ship", "quote_validated", "delivery_note"];
@@ -116,6 +123,7 @@ const BUCKET_LABELS: Record<string, string> = {
   partial: "Partiel",
   unpaid: "Non payé",
   pending: "En attente",
+  delivered: "Livré",
   cancelled: "Annulée",
 };
 
@@ -124,6 +132,7 @@ const BUCKET_BADGE_CLASS: Record<string, string> = {
   partial: "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30",
   unpaid: "bg-rose-500/10 text-rose-700 dark:text-rose-400 border-rose-500/30",
   pending: "bg-yellow-500/10 text-yellow-700 dark:text-yellow-400 border-yellow-500/30",
+  delivered: "bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/30",
   cancelled: "bg-slate-500/10 text-slate-600 dark:text-slate-300 border-slate-500/30",
 };
 
@@ -202,6 +211,7 @@ export function OrderHistory() {
   const [deleteTarget, setDeleteTarget] = useState<ApiOrder | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [markingPaidId, setMarkingPaidId] = useState<string | null>(null);
+  const [createOpen, setCreateOpen] = useState(false);
 
   const fetchOrders = useCallback(async () => {
     if (!businessId) {
@@ -315,6 +325,7 @@ export function OrderHistory() {
     unpaid: orders.filter((o) => paymentBucket(o) === "unpaid").length,
     partial: orders.filter((o) => paymentBucket(o) === "partial").length,
     pending: orders.filter((o) => paymentBucket(o) === "pending").length,
+    delivered: orders.filter((o) => paymentBucket(o) === "delivered").length,
     cancelled: orders.filter((o) => paymentBucket(o) === "cancelled").length,
   };
 
@@ -330,20 +341,30 @@ export function OrderHistory() {
           <Receipt className="w-5 h-5 text-primary" />
           Historique des ventes
         </h2>
-        <Button
-          variant="outline"
-          size="sm"
-          className="text-xs gap-1"
-          onClick={fetchOrders}
-          disabled={loading}
-        >
-          {loading ? (
-            <Loader2 className="w-3.5 h-3.5 animate-spin" />
-          ) : (
-            <Filter className="w-3.5 h-3.5" />
-          )}
-          Actualiser
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            className="gap-1.5"
+            onClick={() => setCreateOpen(true)}
+          >
+            <Plus className="w-4 h-4" />
+            Ajouter une commande
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="text-xs gap-1"
+            onClick={fetchOrders}
+            disabled={loading}
+          >
+            {loading ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <Filter className="w-3.5 h-3.5" />
+            )}
+            Actualiser
+          </Button>
+        </div>
       </motion.div>
 
       {/* Search + filters */}
@@ -744,6 +765,15 @@ export function OrderHistory() {
           // After status change, refresh the list and close dialog
           fetchOrders();
           setDetailOpen(false);
+        }}
+      />
+
+      {/* Create order dialog */}
+      <CreateOrderDialog
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        onCreated={() => {
+          fetchOrders();
         }}
       />
     </div>

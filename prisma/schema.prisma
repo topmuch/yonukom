@@ -532,8 +532,10 @@ model Subscription {
 
   /// "starter" | "pro" | "enterprise"
   plan              String    @default("starter")
-  /// "active" | "expired" | "past_due" | "cancelled"
+  /// "active" | "suspended" | "expired" | "past_due" | "cancelled"
   status            String    @default("active")
+  /// "monthly" | "annual" — période de facturation
+  billingPeriod     String    @default("monthly")
 
   currentPeriodStart DateTime  @default(now())
   currentPeriodEnd   DateTime
@@ -936,4 +938,35 @@ model Promo {
 
   @@index([businessId])
   @@index([isActive])
+}
+
+// ============================================================
+// PARAMÈTRES PLATEFORME — SEO, Email, Analytics
+// ============================================================
+
+/// Singleton contenant tous les paramètres globaux de la plateforme YonuKom.
+/// Accessible uniquement par le superadmin via /api/superadmin/settings.
+model PlatformSetting {
+  id          String   @id @default("singleton")
+
+  /// SEO metadata for the platform
+  seoTitle       String?
+  seoDescription String?
+  seoKeywords    String?
+  ogImageUrl     String?
+
+  /// Email configuration (SMTP)
+  smtpHost       String?
+  smtpPort       Int?
+  smtpUser       String?
+  smtpPassword   String?
+  smtpFromEmail  String?
+  smtpFromName   String?
+
+  /// Google Analytics ID
+  googleAnalyticsId String?
+  /// Facebook Pixel ID
+  facebookPixelId   String?
+
+  updatedAt   DateTime @updatedAt
 }

@@ -8,7 +8,7 @@ export async function GET(request: Request) {
 
     const where: Record<string, unknown> = {};
     if (status) {
-      const validStatuses = ['active', 'expired', 'past_due', 'cancelled'];
+      const validStatuses = ['active', 'suspended', 'expired', 'past_due', 'cancelled'];
       if (!validStatuses.includes(status)) {
         return NextResponse.json(
           { error: `Invalid status filter. Must be one of: ${validStatuses.join(', ')}` },

@@ -12,6 +12,18 @@ export async function GET() {
             name: true,
             email: true,
             role: true,
+            isActive: true,
+          },
+        },
+        businesses: {
+          select: {
+            id: true,
+            name: true,
+            type: true,
+            phone: true,
+            email: true,
+            address: true,
+            city: true,
           },
         },
       },
