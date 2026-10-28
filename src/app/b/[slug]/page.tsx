@@ -203,7 +203,7 @@ export default function PublicStorePage() {
     <div className="min-h-screen bg-gray-50 pb-28">
       {/* ===== TOP BAR ===== */}
       <div className="bg-slate-900 text-white text-xs px-4 py-1.5 hidden sm:block">
-        <div className="max-w-5xl mx-auto flex items-center justify-between">
+        <div className="max-w-7xl mx-auto flex items-center justify-between">
           <span className="text-slate-300">📞 Commandez en ligne — Livraison & Retrait</span>
           <div className="flex items-center gap-3 text-slate-300">
             {store?.allowDelivery && <span>🚚 Livraison</span>}
@@ -214,7 +214,7 @@ export default function PublicStorePage() {
 
       {/* ===== HEADER (logo seul, pas de nom) ===== */}
       <header className="sticky top-0 z-30 bg-white shadow-sm border-b border-slate-100">
-        <div className="max-w-5xl mx-auto px-4 py-3 flex items-center gap-4">
+        <div className="max-w-7xl mx-auto px-4 py-3 flex items-center gap-4">
           {/* Logo uniquement */}
           <div className="shrink-0">
             {store?.storeLogoUrl ? (
@@ -257,6 +257,13 @@ export default function PublicStorePage() {
           </div>
         </div>
       </header>
+
+      {/* ===== BANNIÈRE (si présente) ===== */}
+      {store?.storeBannerUrl && sliderImages.length === 0 && (
+        <div className="w-full max-h-48 sm:max-h-64 overflow-hidden">
+          <img src={store.storeBannerUrl} alt={store.name} className="w-full h-full object-cover" />
+        </div>
+      )}
 
       {/* ===== HERO SLIDER ===== */}
       <section className="relative overflow-hidden h-56 sm:h-72 lg:h-80">
@@ -337,7 +344,7 @@ export default function PublicStorePage() {
 
       {/* ===== CATEGORY FILTERS ===== */}
       <div className="sticky top-[57px] sm:top-[61px] z-20 bg-white border-b border-slate-100 shadow-sm">
-        <div className="max-w-5xl mx-auto px-4 py-2.5 flex gap-2 overflow-x-auto scrollbar-none">
+        <div className="max-w-7xl mx-auto px-4 py-2.5 flex gap-2 overflow-x-auto scrollbar-none">
           <button onClick={() => setActiveCategory("all")}
             className={`shrink-0 px-4 py-1.5 rounded-full text-xs font-semibold transition-all ${activeCategory === "all" ? "text-white shadow-sm" : "bg-slate-50 text-slate-600 hover:bg-slate-100"}`}
             style={activeCategory === "all" ? { backgroundColor: primaryColor } : {}}>
@@ -357,7 +364,7 @@ export default function PublicStorePage() {
       </div>
 
       {/* ===== PRODUCTS ===== */}
-      <main id="products" className="max-w-5xl mx-auto px-4 py-5">
+      <main id="products" className="max-w-7xl mx-auto px-4 py-5">
         {filteredProducts.length === 0 ? (
           <div className="text-center py-16">
             <Package className="w-12 h-12 text-slate-300 mx-auto mb-2" />
@@ -371,7 +378,7 @@ export default function PublicStorePage() {
               const isLowStock = isAvailable && product.availableQuantity <= 5;
               return (
                 <div key={product.id} className={`group bg-white rounded-2xl overflow-hidden border border-slate-100 transition-all ${isAvailable ? "hover:shadow-lg hover:border-slate-200" : "opacity-60"}`}>
-                  <div className="relative aspect-square bg-slate-50 overflow-hidden">
+                  <div className="relative bg-slate-50 overflow-hidden" style={{ aspectRatio: "314 / 306" }}>
                     {product.imageUrl ? (
                       <img src={product.imageUrl} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
                     ) : (
@@ -416,7 +423,7 @@ export default function PublicStorePage() {
       </main>
 
       {/* ===== SERVICE FEATURES ===== */}
-      <section className="max-w-5xl mx-auto px-4 py-6">
+      <section className="max-w-7xl mx-auto px-4 py-6">
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
             { Icon: Truck, title: "Livraison rapide", desc: "Partout à Dakar" },
@@ -435,7 +442,7 @@ export default function PublicStorePage() {
 
       {/* ===== FOOTER ===== */}
       <footer className="bg-slate-900 text-slate-300 mt-6">
-        <div className="max-w-5xl mx-auto px-4 py-8">
+        <div className="max-w-7xl mx-auto px-4 py-8">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-6">
             <div>
               {store?.storeLogoUrl ? (
@@ -479,7 +486,7 @@ export default function PublicStorePage() {
       <AnimatePresence>
         {cartCount > 0 && !cartOpen && (
           <motion.div initial={{ y: 100, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 100, opacity: 0 }} className="fixed bottom-0 left-0 right-0 z-40 px-3 pb-3">
-            <button onClick={() => setCartOpen(true)} className="w-full max-w-5xl mx-auto flex items-center gap-3 px-5 py-3.5 rounded-2xl text-white font-bold shadow-2xl transition-transform active:scale-98" style={{ backgroundColor: primaryColor }}>
+            <button onClick={() => setCartOpen(true)} className="w-full max-w-7xl mx-auto flex items-center gap-3 px-5 py-3.5 rounded-2xl text-white font-bold shadow-2xl transition-transform active:scale-98" style={{ backgroundColor: primaryColor }}>
               <div className="relative"><ShoppingCart className="w-5 h-5" /><span className="absolute -top-2 -right-2 w-4 h-4 rounded-full bg-white text-[10px] font-bold flex items-center justify-center" style={{ color: primaryColor }}>{cartCount}</span></div>
               <span className="text-sm">Voir le panier</span>
               <span className="ml-auto text-base">{grandTotal.toLocaleString("fr-FR")} FCFA</span>
@@ -493,7 +500,7 @@ export default function PublicStorePage() {
       <AnimatePresence>
         {cartOpen && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 bg-black/50 flex items-end" onClick={() => setCartOpen(false)}>
-            <motion.div initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }} transition={{ type: "spring", stiffness: 300, damping: 30 }} className="bg-white w-full max-w-5xl mx-auto rounded-t-3xl max-h-[85vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+            <motion.div initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }} transition={{ type: "spring", stiffness: 300, damping: 30 }} className="bg-white w-full max-w-7xl mx-auto rounded-t-3xl max-h-[85vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
               <div className="pt-3 flex justify-center"><div className="w-10 h-1 rounded-full bg-slate-300" /></div>
               <div className="flex items-center justify-between p-4 pb-2 border-b border-slate-100">
                 <div className="flex items-center gap-2"><ShoppingCart className="w-5 h-5" style={{ color: primaryColor }} /><h3 className="font-bold text-slate-900">Mon panier ({cartCount})</h3></div>

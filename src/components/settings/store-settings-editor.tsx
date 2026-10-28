@@ -20,6 +20,7 @@ export function StoreSettingsEditor() {
   const [form, setForm] = useState({
     storeSlug: "", isStoreActive: false, storePrimaryColor: "#1E40AF",
     allowPickup: true, allowDelivery: true, deliveryFee: 0,
+    storeBannerUrl: "",
   });
   const [sliderImages, setSliderImages] = useState<string[]>([]);
   const [uploadingSlide, setUploadingSlide] = useState(false);
@@ -37,6 +38,7 @@ export function StoreSettingsEditor() {
           storePrimaryColor: s.storePrimaryColor || "#1E40AF",
           allowPickup: s.allowPickup ?? true, allowDelivery: s.allowDelivery ?? true,
           deliveryFee: s.deliveryFee || 0,
+          storeBannerUrl: s.storeBannerUrl || "",
         });
         setSliderImages(Array.isArray(s.storeSliderImages) ? s.storeSliderImages : []);
       }
@@ -91,6 +93,35 @@ export function StoreSettingsEditor() {
         </p>
         {error && <div className="p-3 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-xs">{error}</div>}
         {saved && <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs flex items-center gap-2"><CheckCircle2 className="w-4 h-4" />Paramètres enregistrés.</div>}
+
+        {/* Bannière */}
+        <div className="space-y-2">
+          <Label className="text-xs font-medium">Bannière de la boutique</Label>
+          <p className="text-[10px] text-muted-foreground">Image large affichée en haut de votre boutique (recommandé: 1200×300px, max 2MB)</p>
+          {form.storeBannerUrl ? (
+            <div className="relative group">
+              <img src={form.storeBannerUrl} alt="Bannière" className="w-full h-24 sm:h-32 object-cover rounded-xl border border-slate-200" />
+              <button type="button" onClick={() => setForm({ ...form, storeBannerUrl: "" })}
+                className="absolute top-1 right-1 w-7 h-7 rounded-full bg-rose-500 text-white flex items-center justify-center shadow-md">
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          ) : (
+            <label className="flex items-center justify-center gap-2 px-4 py-4 rounded-xl border-2 border-dashed border-slate-200 hover:border-slate-300 cursor-pointer transition-colors">
+              <input type="file" accept="image/*" className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  if (file.size > 2 * 1024 * 1024) { toast.error("Image trop grande (max 2MB)"); return; }
+                  const reader = new FileReader();
+                  reader.onload = () => setForm({ ...form, storeBannerUrl: reader.result as string });
+                  reader.readAsDataURL(file);
+                }} />
+              <Plus className="w-4 h-4 text-slate-400" />
+              <span className="text-xs text-slate-500">Ajouter une bannière</span>
+            </label>
+          )}
+        </div>
 
         <div className="space-y-2">
           <Label className="text-xs font-medium">Slug (URL publique)</Label>
