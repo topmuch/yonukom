@@ -47,6 +47,7 @@ import { CustomerList } from "@/components/customers/customer-list";
 import { CashSessionManager } from "@/components/cash/cash-session-manager";
 import { AuditLogViewer } from "@/components/audit/audit-log-viewer";
 import { BusinessProfileEditor } from "@/components/settings/business-profile-editor";
+import { StoreSettingsEditor } from "@/components/settings/store-settings-editor";
 // --- Imports pour les nouveaux modules métier (V2) ---
 import { InvoiceList } from "@/components/invoices/invoice-list";
 import { DebtsDashboard } from "@/components/customers/debts-dashboard";
@@ -89,6 +90,7 @@ import {
   Sparkles,
   Rocket,
   Ticket as TicketIcon,
+  Store,
 } from "lucide-react";
 
 // --- Page Views ---
@@ -1079,7 +1081,7 @@ function PipelineTab() {
 
 function SettingsTab({ onLogout }: { onLogout: () => void }) {
   const user = useAuthStore((s) => s.user);
-  const [activeSection, setActiveSection] = useState<"profile" | "audit" | "ticket">("profile");
+  const [activeSection, setActiveSection] = useState<"profile" | "audit" | "ticket" | "store">("profile");
 
   return (
     <div className="px-4 py-6 space-y-4">
@@ -1100,6 +1102,7 @@ function SettingsTab({ onLogout }: { onLogout: () => void }) {
         )}
         <div className="flex flex-wrap gap-2 mb-3">
           <Button variant={activeSection === "profile" ? "default" : "outline"} size="sm" className="text-xs gap-1" onClick={() => setActiveSection("profile")}><Building2 className="w-3.5 h-3.5" />Profil</Button>
+          <Button variant={activeSection === "store" ? "default" : "outline"} size="sm" className="text-xs gap-1" onClick={() => setActiveSection("store")}><Store className="w-3.5 h-3.5" />Boutique</Button>
           <Button variant={activeSection === "ticket" ? "default" : "outline"} size="sm" className="text-xs gap-1" onClick={() => setActiveSection("ticket")}><TicketIcon className="w-3.5 h-3.5" />Ticket</Button>
           <PermissionGuard permission="canViewAuditLog" fallback={null}>
             <Button variant={activeSection === "audit" ? "default" : "outline"} size="sm" className="text-xs gap-1" onClick={() => setActiveSection("audit")}><Shield className="w-3.5 h-3.5" />Audit</Button>
@@ -1107,6 +1110,7 @@ function SettingsTab({ onLogout }: { onLogout: () => void }) {
         </div>
       </motion.div>
       {activeSection === "profile" && <BusinessProfileEditor />}
+      {activeSection === "store" && <StoreSettingsEditor />}
       {activeSection === "ticket" && <TicketCustomization />}
       {activeSection === "audit" && (<PermissionGuard permission="canViewAuditLog" showLocked lockedMessage="Seul le Gérant ou Patron peut voir le journal d'audit."><AuditLogViewer /></PermissionGuard>)}
     </div>
