@@ -258,14 +258,15 @@ export default function PublicStorePage() {
         </div>
       </header>
 
-      {/* ===== BANNIÈRE (si présente) ===== */}
-      {store?.storeBannerUrl && sliderImages.length === 0 && (
-        <div className="w-full max-h-48 sm:max-h-64 overflow-hidden">
-          <img src={store.storeBannerUrl} alt={store.name} className="w-full h-full object-cover" />
+      {/* ===== BANNIÈRE (taille originale, pleine largeur) ===== */}
+      {store?.storeBannerUrl && (
+        <div className="w-full overflow-hidden">
+          <img src={store.storeBannerUrl} alt={store.name} className="w-full h-auto object-contain" />
         </div>
       )}
 
-      {/* ===== HERO SLIDER ===== */}
+      {/* ===== HERO SLIDER (seulement si images slider présentes) ===== */}
+      {sliderImages.length > 0 && (
       <section className="relative overflow-hidden h-56 sm:h-72 lg:h-80">
         <AnimatePresence mode="wait">
           <motion.div
@@ -276,46 +277,17 @@ export default function PublicStorePage() {
             transition={{ duration: 0.6 }}
             className="absolute inset-0"
           >
-            {sliderImages.length > 0 ? (
-              // Mode image: afficher l'image en plein écran
-              <img
-                src={sliderImages[currentSlide]}
-                alt={`Slide ${currentSlide + 1}`}
-                className="w-full h-full object-cover"
-              />
-            ) : (
-              // Mode texte: gradient couleur + texte
-              <div className="w-full h-full" style={{ background: `linear-gradient(135deg, ${primaryColor} 0%, ${primaryColor}cc 50%, ${primaryColor}99 100%)` }}>
-                <div className="h-full flex items-center px-6 sm:px-12">
-                  <div className="text-white max-w-lg">
-                    <p className="text-xs sm:text-sm font-medium text-white/70 mb-1">{store?.name}</p>
-                    <h2 className="text-xl sm:text-3xl font-extrabold mb-2">{HERO_SLIDES[currentSlide].title}</h2>
-                    <p className="text-sm text-white/80 mb-4">{HERO_SLIDES[currentSlide].subtitle}</p>
-                    <button
-                      onClick={() => document.getElementById('products')?.scrollIntoView({ behavior: 'smooth' })}
-                      className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white text-sm font-bold shadow-lg transition-transform hover:scale-105"
-                      style={{ color: primaryColor }}
-                    >
-                      {HERO_SLIDES[currentSlide].cta}
-                      <ChevronRight className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
+            <img src={sliderImages[currentSlide]} alt={`Slide ${currentSlide + 1}`} className="w-full h-full object-cover" />
           </motion.div>
         </AnimatePresence>
 
-        {/* Overlay texte si image présente */}
-        {sliderImages.length > 0 && (
-          <div className="absolute inset-0 flex items-end bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none">
-            <div className="p-6 sm:p-12">
-              <p className="text-xs sm:text-sm font-medium text-white/80 mb-1">{store?.name}</p>
-              <h2 className="text-xl sm:text-3xl font-extrabold text-white mb-1">{HERO_SLIDES[currentSlide % HERO_SLIDES.length]?.title || "Bienvenue"}</h2>
-              <p className="text-sm text-white/80">{HERO_SLIDES[currentSlide % HERO_SLIDES.length]?.subtitle || ""}</p>
-            </div>
+        {/* Overlay texte */}
+        <div className="absolute inset-0 flex items-end bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none">
+          <div className="p-6 sm:p-12">
+            <p className="text-xs sm:text-sm font-medium text-white/80 mb-1">{store?.name}</p>
+            <h2 className="text-xl sm:text-3xl font-extrabold text-white mb-1">Bienvenue</h2>
           </div>
-        )}
+        </div>
 
         {/* Slider dots */}
         {totalSlides > 1 && (
@@ -340,6 +312,37 @@ export default function PublicStorePage() {
             </button>
           </>
         )}
+      </section>
+      )}
+
+      {/* ===== CATÉGORIES (4 carrés 313x523) ===== */}
+      <section className="max-w-7xl mx-auto px-4 py-5">
+        <h2 className="text-base font-bold text-slate-800 mb-3">Nos catégories</h2>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          {categories.map((cat) => {
+            const count = products.filter((p) => (p.category || "Autres") === cat).length;
+            const catImage = cat.toLowerCase().includes("plat") ? "/demo-store/cat-plats.jpg"
+              : cat.toLowerCase().includes("yassa") ? "/demo-store/cat-yassa.jpg"
+              : cat.toLowerCase().includes("boisson") ? "/demo-store/cat-boissons.jpg"
+              : cat.toLowerCase().includes("entrée") || cat.toLowerCase().includes("entree") ? "/demo-store/cat-entrees.jpg"
+              : "/demo-store/cat-plats.jpg";
+            return (
+              <button
+                key={cat}
+                onClick={() => { setActiveCategory(cat); document.getElementById('products')?.scrollIntoView({ behavior: 'smooth' }); }}
+                className="group relative overflow-hidden rounded-2xl border border-slate-100 hover:shadow-lg transition-all"
+                style={{ aspectRatio: "313 / 523" }}
+              >
+                <img src={catImage} alt={cat} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
+                <div className="absolute bottom-0 left-0 right-0 p-3 text-left">
+                  <p className="text-white font-bold text-sm sm:text-base">{cat}</p>
+                  <p className="text-white/70 text-xs">{count} produit{count > 1 ? "s" : ""}</p>
+                </div>
+              </button>
+            );
+          })}
+        </div>
       </section>
 
       {/* ===== CATEGORY FILTERS ===== */}
