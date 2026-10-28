@@ -19,6 +19,15 @@ const PUBLIC_ROUTES = [
   "/api/health",
   "/api/contact/messages", // POST formulaire de contact public
   "/api/onboarding", // POST crée le compte (avant login)
+  "/api/uploads", // GET sert les images uploadées (publique pour les reçus/tickets)
+];
+
+// --- Routes dont le contenu est public mais qui doivent accepter un token optionnel ---
+// (reçus imprimables, clôture de caisse, factures PDF — accessibles via URL directe)
+const OPTIONAL_AUTH_ROUTES = [
+  "/api/orders/", // /api/orders/[id]/receipt — le reçu est public
+  "/api/invoices/", // /api/invoices/[id]/pdf — la facture est publique
+  "/api/cash-sessions/", // /api/cash-sessions/[id]/closure-book — le livre de clôture est public
 ];
 
 // --- Rate limiting pour /api/auth/login (anti brute-force) ---
@@ -28,6 +37,16 @@ const LOGIN_WINDOW_MS = 60_000; // 1 minute
 
 function isPublicRoute(pathname: string): boolean {
   return PUBLIC_ROUTES.some((route) => pathname.startsWith(route));
+}
+
+function isOptionalAuthRoute(pathname: string): boolean {
+  // Les routes avec auth optionnel sont celles qui finissent par /receipt, /pdf, /closure-book
+  return OPTIONAL_AUTH_ROUTES.some((route) => {
+    if (!pathname.startsWith(route)) return false;
+    return pathname.endsWith("/receipt") 
+      || pathname.endsWith("/pdf") 
+      || pathname.endsWith("/closure-book");
+  });
 }
 
 async function verifyToken(token: string): Promise<any | null> {
@@ -75,6 +94,27 @@ export async function middleware(request: NextRequest) {
   // --- Routes publiques : pas besoin d'auth ---
   if (isPublicRoute(pathname)) {
     return NextResponse.next();
+  }
+
+  // --- Routes avec auth optionnel (reçus, factures, clôtures) ---
+  // Ces routes sont accessibles sans token (pour impression directe)
+  // mais si un token est présent, on l'injecte dans les headers
+  if (isOptionalAuthRoute(pathname)) {
+    const authHeader = request.headers.get("authorization");
+    const token = request.cookies.get("yonukom_token")?.value 
+      || (authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null);
+    if (token) {
+      const payload = await verifyToken(token);
+      if (payload) {
+        const requestHeaders = new Headers(request.headers);
+        requestHeaders.set("x-user-id", payload.userId || "");
+        requestHeaders.set("x-user-email", payload.email || "");
+        requestHeaders.set("x-user-role", payload.role || "");
+        requestHeaders.set("x-business-id", payload.businessId || "");
+        return NextResponse.next({ request: { headers: requestHeaders } });
+      }
+    }
+    return NextResponse.next(); // Pas de token → on laisse passer (route publique d'impression)
   }
 
   // --- Vérifier le token JWT (depuis le cookie ou le header) ---

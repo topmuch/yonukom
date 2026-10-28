@@ -38,14 +38,42 @@ export function LoginScreen({ onLoginSuccess, successMessage }: LoginScreenProps
   const loadConfig = useConfigStore((s) => s.loadConfig);
 
   // Demo login (quick role selection)
-  const handleDemoLogin = (role: UserRole) => {
-    const roleUsers: Record<UserRole, { name: string; email: string }> = {
-      superadmin: { name: "Admin YonuKom", email: "admin@yonukom.sn" },
-      patron: { name: "Ibrahima Fall", email: "ibrahima@yonukom.sn" },
-      gerant: { name: "Mamadou Diallo", email: "mamadou@yonukom.sn" },
-      vendeur: { name: "Fatou Sow", email: "fatou@yonukom.sn" },
+  const handleDemoLogin = async (role: UserRole) => {
+    const roleUsers: Record<UserRole, { name: string; email: string; password: string }> = {
+      superadmin: { name: "Admin YonuKom", email: "admin@yonukom.sn", password: "yonukom123" },
+      patron: { name: "Ibrahima Fall", email: "ibrahima@yonukom.sn", password: "yonukom123" },
+      gerant: { name: "Mamadou Diallo", email: "mamadou@yonukom.sn", password: "yonukom123" },
+      vendeur: { name: "Fatou Sow", email: "fatou@yonukom.sn", password: "yonukom123" },
     };
 
+    // Try to login via the real API (so the JWT cookie is set)
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: roleUsers[role].email,
+          password: roleUsers[role].password,
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        login(data.user, data.token);
+
+        if (typeof data.onboardingConfig === "string" && data.onboardingConfig) {
+          loadConfig(data.onboardingConfig);
+        } else {
+          useConfigStore.setState({ isOnboarded: false, isLoaded: true });
+        }
+        onLoginSuccess();
+        return;
+      }
+    } catch {
+      // Fallback: create a demo session in memory (no real auth)
+    }
+
+    // Fallback: create demo session without real API login
     login({
       id: `demo-${role}`,
       email: roleUsers[role].email,
@@ -55,11 +83,8 @@ export function LoginScreen({ onLoginSuccess, successMessage }: LoginScreenProps
       businessName: role === "superadmin" ? "YonuKom Platform" : "YonuKom Demo",
     });
 
-    // Pour les comptes démo, on marque l'onboarding comme complété
-    // (sinon le user tombe sur l'onboarding wizard à chaque fois).
-    // Les comptes démo sont là pour tester l'app, pas pour refaire l'onboarding.
+    // Pour les comptes démo, on charge une config démo minimale
     if (role !== "superadmin") {
-      // Charge une config démo minimale pour que l'app fonctionne
       try {
         loadConfig(
           JSON.stringify({
