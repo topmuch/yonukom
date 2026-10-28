@@ -512,6 +512,17 @@ model Tenant {
   /// Configuration générée par l'onboarding (JSON string)
   config            String?
 
+  // --- Configuration Boutique en Ligne Express ---
+  storeSlug         String?   @unique // ex: "fatou-jus" — URL: /b/fatou-jus
+  isStoreActive     Boolean   @default(false)
+  storeLogoUrl      String?
+  storeBannerUrl    String?
+  storePrimaryColor String    @default("#1E40AF")
+  /// Options de livraison
+  allowPickup       Boolean   @default(true)
+  allowDelivery     Boolean   @default(true)
+  deliveryFee       Int       @default(0) // en FCFA
+
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
@@ -519,6 +530,7 @@ model Tenant {
   users             User[]
   subscription      Subscription?
   businesses        Business[]
+  onlineOrders      OnlineOrder[]
 
   @@index([ownerEmail])
   @@index([businessType])
@@ -969,4 +981,49 @@ model PlatformSetting {
   facebookPixelId   String?
 
   updatedAt   DateTime @updatedAt
+}
+
+// ============================================================
+// BOUTIQUE EN LIGNE EXPRESS (V1)
+// ============================================================
+
+/// Commande provenant de la boutique en ligne publique (/b/[slug]).
+/// Intégrée au système de stock "Réservé" — la quantité commandée
+/// est déduite de available_quantity et ajoutée à reserved_quantity.
+model OnlineOrder {
+  id                String    @id @default(cuid())
+  tenantId          String
+  tenant            Tenant    @relation(fields: [tenantId], references: [id])
+  
+  /// Infos client (le téléphone est OBLIGATOIRE pour contact WhatsApp)
+  customerName      String
+  customerPhone     String
+  
+  /// Null si retrait en boutique (PICKUP)
+  deliveryAddress   String?
+  
+  /// "PICKUP" ou "DELIVERY"
+  deliveryMethod    String
+  deliveryFee       Int       @default(0)
+  
+  /// Total produits + frais de livraison
+  totalAmount       Int
+  
+  /// "CASH_ON_DELIVERY" ou "WAVE_OM_LINK"
+  paymentMethod     String
+  
+  /// "PENDING" → "CONFIRMED" → "COMPLETED"
+  /// "PENDING" → "CANCELLED" (libère le stock réservé)
+  status            String    @default("PENDING")
+  
+  /// Snapshot JSON des produits commandés (nom, qty, prix unitaire)
+  /// Format: [{ productId, name, quantity, unitPrice, totalPrice }]
+  items             String    @default("[]")
+  
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  
+  @@index([tenantId])
+  @@index([status])
+  @@index([customerPhone])
 }

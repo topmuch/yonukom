@@ -48,6 +48,7 @@ export type TabId =
   | "categories"
   | "customers"
   | "orders"
+  | "online-orders"
   | "history"
   | "pipeline"
   | "invoices"
@@ -131,6 +132,14 @@ const ALL_TABS: TabConfig[] = [
     gradient: "from-amber-500 to-orange-500",
     accent: "bg-amber-500",
     color: "#F59E0B",
+  },
+  {
+    id: "online-orders",
+    label: "Cmds Online",
+    icon: ShoppingBag,
+    gradient: "from-cyan-500 to-blue-500",
+    accent: "bg-cyan-500",
+    color: "#06B6D4",
   },
   {
     id: "history",
@@ -468,7 +477,7 @@ export function AppShell({ activeTab, onTabChange, children }: AppShellProps) {
           <p className="px-3 pt-1 pb-1 text-[10px] font-semibold text-white/50 uppercase tracking-wider">
             Principal
           </p>
-          {tabs.filter(t => ["home", "pos", "products", "categories", "stock", "customers", "caisse", "orders"].includes(t.id)).map((tab) => {
+          {tabs.filter(t => ["home", "pos", "products", "categories", "stock", "customers", "caisse", "orders", "online-orders"].includes(t.id)).map((tab) => {
             const isActive = activeTab === tab.id;
             const Icon = tab.icon;
             return (
