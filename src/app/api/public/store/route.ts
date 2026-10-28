@@ -30,6 +30,7 @@ export async function GET(request: NextRequest) {
         isStoreActive: true,
         storeLogoUrl: true,
         storeBannerUrl: true,
+        storeSliderImages: true,
         storePrimaryColor: true,
         allowPickup: true,
         allowDelivery: true,

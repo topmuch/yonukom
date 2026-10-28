@@ -18,16 +18,16 @@ export async function GET(request: NextRequest) {
       where: { id: business.tenantId },
       select: {
         id: true, name: true, storeSlug: true, isStoreActive: true,
-        storeLogoUrl: true, storeBannerUrl: true, storePrimaryColor: true,
-        allowPickup: true, allowDelivery: true, deliveryFee: true,
+        storeLogoUrl: true, storeBannerUrl: true, storeSliderImages: true,
+        storePrimaryColor: true, allowPickup: true, allowDelivery: true, deliveryFee: true,
       },
     });
     if (!tenant) return NextResponse.json({ error: "Tenant introuvable" }, { status: 404 });
 
-    // Si storeLogoUrl est null, utiliser le logo du Business
     const storeWithFallback = {
       ...tenant,
       storeLogoUrl: tenant.storeLogoUrl || business.logoUrl || null,
+      storeSliderImages: tenant.storeSliderImages ? JSON.parse(tenant.storeSliderImages) : [],
     };
     return NextResponse.json({ store: storeWithFallback });
   } catch (error) {
@@ -42,7 +42,7 @@ export async function PUT(request: NextRequest) {
     const body = await request.json();
     const {
       businessId, storeSlug, isStoreActive, storeLogoUrl, storeBannerUrl,
-      storePrimaryColor, allowPickup, allowDelivery, deliveryFee,
+      storeSliderImages, storePrimaryColor, allowPickup, allowDelivery, deliveryFee,
     } = body;
     if (!businessId) return NextResponse.json({ error: "businessId requis" }, { status: 400 });
 
@@ -56,19 +56,16 @@ export async function PUT(request: NextRequest) {
     if (typeof storeSlug === "string") {
       const slug = storeSlug.trim().toLowerCase().replace(/[^a-z0-9-]/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "");
       if (slug) {
-        const existing = await db.tenant.findFirst({
-          where: { storeSlug: slug, NOT: { id: business.tenantId! } },
-          select: { id: true },
-        });
+        const existing = await db.tenant.findFirst({ where: { storeSlug: slug, NOT: { id: business.tenantId! } }, select: { id: true } });
         if (existing) return NextResponse.json({ error: "Ce slug est déjà utilisé" }, { status: 409 });
         data.storeSlug = slug;
-      } else {
-        data.storeSlug = null;
-      }
+      } else { data.storeSlug = null; }
     }
     if (typeof isStoreActive === "boolean") data.isStoreActive = isStoreActive;
     if (typeof storeLogoUrl === "string") data.storeLogoUrl = storeLogoUrl || null;
     if (typeof storeBannerUrl === "string") data.storeBannerUrl = storeBannerUrl || null;
+    if (Array.isArray(storeSliderImages)) data.storeSliderImages = JSON.stringify(storeSliderImages);
+    else if (typeof storeSliderImages === "string") data.storeSliderImages = storeSliderImages || null;
     if (typeof storePrimaryColor === "string") data.storePrimaryColor = storePrimaryColor;
     if (typeof allowPickup === "boolean") data.allowPickup = allowPickup;
     if (typeof allowDelivery === "boolean") data.allowDelivery = allowDelivery;
@@ -81,11 +78,17 @@ export async function PUT(request: NextRequest) {
       data,
       select: {
         id: true, name: true, storeSlug: true, isStoreActive: true,
-        storeLogoUrl: true, storeBannerUrl: true, storePrimaryColor: true,
-        allowPickup: true, allowDelivery: true, deliveryFee: true,
+        storeLogoUrl: true, storeBannerUrl: true, storeSliderImages: true,
+        storePrimaryColor: true, allowPickup: true, allowDelivery: true, deliveryFee: true,
       },
     });
-    return NextResponse.json({ success: true, store: updated });
+    return NextResponse.json({
+      success: true,
+      store: {
+        ...updated,
+        storeSliderImages: updated.storeSliderImages ? JSON.parse(updated.storeSliderImages) : [],
+      },
+    });
   } catch (error) {
     console.error("[PUT /api/store/settings] error:", error);
     return NextResponse.json({ error: "Erreur serveur" }, { status: 500 });

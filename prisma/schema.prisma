@@ -517,6 +517,8 @@ model Tenant {
   isStoreActive     Boolean   @default(false)
   storeLogoUrl      String?
   storeBannerUrl    String?
+  /// Images du slider hero (JSON array d'URLs: ["url1", "url2", "url3"])
+  storeSliderImages String?
   storePrimaryColor String    @default("#1E40AF")
   /// Options de livraison
   allowPickup       Boolean   @default(true)

@@ -18,6 +18,7 @@ import {
 interface StoreInfo {
   id: string; name: string; storeSlug: string; isStoreActive: boolean;
   storeLogoUrl: string | null; storeBannerUrl: string | null;
+  storeSliderImages?: string[] | string | null;
   storePrimaryColor: string; allowPickup: boolean; allowDelivery: boolean;
   deliveryFee: number; ownerPhone: string | null;
 }
@@ -49,12 +50,24 @@ export default function PublicStorePage() {
 
   // Hero slider
   const [currentSlide, setCurrentSlide] = useState(0);
+  const sliderImages: string[] = useMemo(() => {
+    if (store?.storeSliderImages) {
+      if (Array.isArray(store.storeSliderImages)) return store.storeSliderImages as string[];
+      try { return JSON.parse(store.storeSliderImages as string); } catch { return []; }
+    }
+    return [];
+  }, [store]);
+
+  // Slides = images si disponibles, sinon slides texte par défaut
+  const totalSlides = sliderImages.length > 0 ? sliderImages.length : HERO_SLIDES.length;
+
   useEffect(() => {
+    if (totalSlides <= 1) return;
     const timer = setInterval(() => {
-      setCurrentSlide((prev) => (prev + 1) % HERO_SLIDES.length);
+      setCurrentSlide((prev) => (prev + 1) % totalSlides);
     }, 4000);
     return () => clearInterval(timer);
-  }, []);
+  }, [totalSlides]);
 
   // Cart
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -246,49 +259,80 @@ export default function PublicStorePage() {
       </header>
 
       {/* ===== HERO SLIDER ===== */}
-      <section className="relative overflow-hidden h-48 sm:h-64" style={{ background: `linear-gradient(135deg, ${primaryColor} 0%, ${primaryColor}cc 50%, ${primaryColor}99 100%)` }}>
+      <section className="relative overflow-hidden h-56 sm:h-72 lg:h-80">
         <AnimatePresence mode="wait">
           <motion.div
             key={currentSlide}
-            initial={{ opacity: 0, x: 50 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -50 }}
-            transition={{ duration: 0.5 }}
-            className="absolute inset-0 flex items-center px-6 sm:px-12"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.6 }}
+            className="absolute inset-0"
           >
-            <div className="text-white max-w-lg">
-              <p className="text-xs sm:text-sm font-medium text-white/70 mb-1">{store?.name}</p>
-              <h2 className="text-xl sm:text-3xl font-extrabold mb-2">{HERO_SLIDES[currentSlide].title}</h2>
-              <p className="text-sm text-white/80 mb-4">{HERO_SLIDES[currentSlide].subtitle}</p>
-              <button
-                onClick={() => document.getElementById('products')?.scrollIntoView({ behavior: 'smooth' })}
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white text-sm font-bold shadow-lg transition-transform hover:scale-105"
-                style={{ color: primaryColor }}
-              >
-                {HERO_SLIDES[currentSlide].cta}
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
+            {sliderImages.length > 0 ? (
+              // Mode image: afficher l'image en plein écran
+              <img
+                src={sliderImages[currentSlide]}
+                alt={`Slide ${currentSlide + 1}`}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              // Mode texte: gradient couleur + texte
+              <div className="w-full h-full" style={{ background: `linear-gradient(135deg, ${primaryColor} 0%, ${primaryColor}cc 50%, ${primaryColor}99 100%)` }}>
+                <div className="h-full flex items-center px-6 sm:px-12">
+                  <div className="text-white max-w-lg">
+                    <p className="text-xs sm:text-sm font-medium text-white/70 mb-1">{store?.name}</p>
+                    <h2 className="text-xl sm:text-3xl font-extrabold mb-2">{HERO_SLIDES[currentSlide].title}</h2>
+                    <p className="text-sm text-white/80 mb-4">{HERO_SLIDES[currentSlide].subtitle}</p>
+                    <button
+                      onClick={() => document.getElementById('products')?.scrollIntoView({ behavior: 'smooth' })}
+                      className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white text-sm font-bold shadow-lg transition-transform hover:scale-105"
+                      style={{ color: primaryColor }}
+                    >
+                      {HERO_SLIDES[currentSlide].cta}
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </motion.div>
         </AnimatePresence>
 
+        {/* Overlay texte si image présente */}
+        {sliderImages.length > 0 && (
+          <div className="absolute inset-0 flex items-end bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none">
+            <div className="p-6 sm:p-12">
+              <p className="text-xs sm:text-sm font-medium text-white/80 mb-1">{store?.name}</p>
+              <h2 className="text-xl sm:text-3xl font-extrabold text-white mb-1">{HERO_SLIDES[currentSlide % HERO_SLIDES.length]?.title || "Bienvenue"}</h2>
+              <p className="text-sm text-white/80">{HERO_SLIDES[currentSlide % HERO_SLIDES.length]?.subtitle || ""}</p>
+            </div>
+          </div>
+        )}
+
         {/* Slider dots */}
-        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
-          {HERO_SLIDES.map((_, i) => (
-            <button key={i} onClick={() => setCurrentSlide(i)}
-              className={`h-1.5 rounded-full transition-all ${i === currentSlide ? 'w-6 bg-white' : 'w-1.5 bg-white/40'}`} />
-          ))}
-        </div>
+        {totalSlides > 1 && (
+          <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5 z-10">
+            {Array.from({ length: totalSlides }).map((_, i) => (
+              <button key={i} onClick={() => setCurrentSlide(i)}
+                className={`h-1.5 rounded-full transition-all ${i === currentSlide ? 'w-6 bg-white' : 'w-1.5 bg-white/40'}`} />
+            ))}
+          </div>
+        )}
 
         {/* Slide arrows */}
-        <button onClick={() => setCurrentSlide((prev) => (prev - 1 + HERO_SLIDES.length) % HERO_SLIDES.length)}
-          className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-white/20 backdrop-blur hover:bg-white/30 flex items-center justify-center text-white transition-colors">
-          <ChevronLeft className="w-5 h-5" />
-        </button>
-        <button onClick={() => setCurrentSlide((prev) => (prev + 1) % HERO_SLIDES.length)}
-          className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-white/20 backdrop-blur hover:bg-white/30 flex items-center justify-center text-white transition-colors">
-          <ChevronRight className="w-5 h-5" />
-        </button>
+        {totalSlides > 1 && (
+          <>
+            <button onClick={() => setCurrentSlide((prev) => (prev - 1 + totalSlides) % totalSlides)}
+              className="absolute left-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/30 backdrop-blur hover:bg-black/50 flex items-center justify-center text-white transition-colors z-10">
+              <ChevronLeft className="w-5 h-5" />
+            </button>
+            <button onClick={() => setCurrentSlide((prev) => (prev + 1) % totalSlides)}
+              className="absolute right-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/30 backdrop-blur hover:bg-black/50 flex items-center justify-center text-white transition-colors z-10">
+              <ChevronRight className="w-5 h-5" />
+            </button>
+          </>
+        )}
       </section>
 
       {/* ===== CATEGORY FILTERS ===== */}

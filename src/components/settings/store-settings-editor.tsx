@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { Store, Loader2, CheckCircle2, Truck, Package, ExternalLink, Copy } from "lucide-react";
+import { Store, Loader2, CheckCircle2, Truck, Package, ExternalLink, Copy, Plus, X } from "lucide-react";
 import { useAuthStore } from "@/stores/use-auth-store";
 
 export function StoreSettingsEditor() {
@@ -21,6 +21,8 @@ export function StoreSettingsEditor() {
     storeSlug: "", isStoreActive: false, storePrimaryColor: "#1E40AF",
     allowPickup: true, allowDelivery: true, deliveryFee: 0,
   });
+  const [sliderImages, setSliderImages] = useState<string[]>([]);
+  const [uploadingSlide, setUploadingSlide] = useState(false);
 
   const fetchSettings = useCallback(async () => {
     if (!businessId) { setLoading(false); return; }
@@ -36,6 +38,7 @@ export function StoreSettingsEditor() {
           allowPickup: s.allowPickup ?? true, allowDelivery: s.allowDelivery ?? true,
           deliveryFee: s.deliveryFee || 0,
         });
+        setSliderImages(Array.isArray(s.storeSliderImages) ? s.storeSliderImages : []);
       }
     } catch { setError("Erreur réseau"); }
     finally { setLoading(false); }
@@ -49,7 +52,7 @@ export function StoreSettingsEditor() {
     try {
       const res = await fetch("/api/store/settings", {
         method: "PUT", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ businessId, ...form }),
+        body: JSON.stringify({ businessId, ...form, storeSliderImages: sliderImages }),
       });
       if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.error || "Erreur"); }
       setSaved(true); setTimeout(() => setSaved(false), 4000); fetchSettings();
@@ -133,6 +136,66 @@ export function StoreSettingsEditor() {
                 onChange={(e) => setForm({ ...form, deliveryFee: parseInt(e.target.value) || 0 })}
                 placeholder="500" className="max-w-[200px]" />
             </div>
+          )}
+        </div>
+
+        {/* Slider images */}
+        <div className="space-y-2 pt-2 border-t border-slate-100">
+          <Label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+            Images du slider (hero)
+          </Label>
+          <p className="text-[10px] text-muted-foreground">
+            Ajoutez jusqu'à 5 images qui défileront en haut de votre boutique.
+            Si aucune image n'est ajoutée, un texte animé sera affiché.
+          </p>
+
+          {/* Current images */}
+          {sliderImages.length > 0 && (
+            <div className="grid grid-cols-3 gap-2">
+              {sliderImages.map((img, i) => (
+                <div key={i} className="relative group">
+                  <img src={img} alt={`Slide ${i + 1}`} className="w-full aspect-video object-cover rounded-lg border border-slate-200" />
+                  <button
+                    type="button"
+                    onClick={() => setSliderImages(sliderImages.filter((_, idx) => idx !== i))}
+                    className="absolute top-1 right-1 w-6 h-6 rounded-full bg-rose-500 text-white flex items-center justify-center shadow-md opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Upload button */}
+          {sliderImages.length < 5 && (
+            <label className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl border-2 border-dashed border-slate-200 hover:border-slate-300 cursor-pointer transition-colors">
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  if (file.size > 2 * 1024 * 1024) { toast.error("Image trop grande (max 2MB)"); return; }
+                  setUploadingSlide(true);
+                  try {
+                    const reader = new FileReader();
+                    reader.onload = () => {
+                      setSliderImages([...sliderImages, reader.result as string]);
+                      setUploadingSlide(false);
+                    };
+                    reader.onerror = () => { toast.error("Erreur de lecture"); setUploadingSlide(false); };
+                    reader.readAsDataURL(file);
+                  } catch { setUploadingSlide(false); }
+                }}
+              />
+              {uploadingSlide ? (
+                <><Loader2 className="w-4 h-4 animate-spin" /> Upload...</>
+              ) : (
+                <><Plus className="w-4 h-4" /> Ajouter une image</>
+              )}
+            </label>
           )}
         </div>
 
