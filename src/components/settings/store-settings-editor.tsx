@@ -29,7 +29,11 @@ export function StoreSettingsEditor() {
     if (!businessId) { setLoading(false); return; }
     setLoading(true);
     try {
-      const res = await fetch(`/api/store/settings?businessId=${encodeURIComponent(businessId)}`);
+      const token = typeof window !== "undefined" ? localStorage.getItem("yonukom_token") : null;
+      const res = await fetch(`/api/store/settings?businessId=${encodeURIComponent(businessId)}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        credentials: "include",
+      });
       if (res.ok) {
         const data = await res.json();
         const s = data.store;
@@ -52,8 +56,14 @@ export function StoreSettingsEditor() {
     if (!businessId) return;
     setSaving(true); setError(null); setSaved(false);
     try {
+      const token = typeof window !== "undefined" ? localStorage.getItem("yonukom_token") : null;
       const res = await fetch("/api/store/settings", {
-        method: "PUT", headers: { "Content-Type": "application/json" },
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        credentials: "include",
         body: JSON.stringify({ businessId, ...form, storeSliderImages: sliderImages }),
       });
       if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.error || "Erreur"); }
