@@ -34,6 +34,8 @@ import {
   Check,
   Package,
   AlertCircle,
+  ImagePlus,
+  X,
 } from "lucide-react";
 import { useAuthStore } from "@/stores/use-auth-store";
 import { ConnectivityBanner } from "@/components/layout/connectivity-banner";
@@ -42,6 +44,7 @@ interface Category {
   id: string;
   name: string;
   color: string | null;
+  imageUrl: string | null;
   sortOrder: number;
   isActive: boolean;
   _count?: { products: number };
@@ -70,6 +73,8 @@ export function CategoriesTab() {
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [formName, setFormName] = useState("");
   const [formColor, setFormColor] = useState<string>("#3B82F6");
+  const [formImage, setFormImage] = useState<string | null>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const [deleteTarget, setDeleteTarget] = useState<Category | null>(null);
@@ -100,10 +105,54 @@ export function CategoriesTab() {
     fetchCategories();
   }, [fetchCategories]);
 
+  /**
+   * Upload une image vers /api/upload (compression sharp côté serveur → WebP).
+   * Retourne l'URL publique ou null en cas d'échec.
+   */
+  const uploadImage = useCallback(
+    async (file: File): Promise<string | null> => {
+      if (!businessId) {
+        toast.error("Session expirée");
+        return null;
+      }
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error("Image trop grande (max 5 Mo)");
+        return null;
+      }
+      const token =
+        typeof window !== "undefined"
+          ? localStorage.getItem("yonukom_token")
+          : null;
+      const fd = new FormData();
+      fd.append("file", file);
+      fd.append("businessId", businessId);
+      try {
+        const res = await fetch("/api/upload", {
+          method: "POST",
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+          credentials: "include",
+          body: fd,
+        });
+        if (!res.ok) {
+          const d = await res.json().catch(() => ({}));
+          toast.error(d.error || "Échec de l'upload");
+          return null;
+        }
+        const data = await res.json();
+        return (data.url as string) || null;
+      } catch {
+        toast.error("Erreur réseau lors de l'upload");
+        return null;
+      }
+    },
+    [businessId]
+  );
+
   const openCreate = () => {
     setEditingCategory(null);
     setFormName("");
     setFormColor("#3B82F6");
+    setFormImage(null);
     setDialogOpen(true);
   };
 
@@ -111,6 +160,7 @@ export function CategoriesTab() {
     setEditingCategory(cat);
     setFormName(cat.name);
     setFormColor(cat.color ?? "#3B82F6");
+    setFormImage(cat.imageUrl ?? null);
     setDialogOpen(true);
   };
 
@@ -120,12 +170,15 @@ export function CategoriesTab() {
     setSaving(true);
     try {
       const url = editingCategory
-        ? `/api/categories/${editingCategory.id}`
+        ? `/api/categories/${editingCategory.id}?businessId=${encodeURIComponent(businessId)}`
         : "/api/categories";
       const method = editingCategory ? "PATCH" : "POST";
-      const body = editingCategory
-        ? { businessId, name: formName.trim(), color: formColor }
-        : { businessId, name: formName.trim(), color: formColor };
+      const body = {
+        businessId,
+        name: formName.trim(),
+        color: formColor,
+        imageUrl: formImage,
+      };
 
       const res = await fetch(url, {
         method,
@@ -258,17 +311,28 @@ export function CategoriesTab() {
               <Card className="hover:shadow-md transition-shadow">
                 <CardContent className="p-4">
                   <div className="flex items-start gap-3">
-                    <div
-                      className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
-                      style={{
-                        backgroundColor: (cat.color ?? "#64748B") + "20",
-                      }}
-                    >
-                      <Tag
-                        className="w-5 h-5"
-                        style={{ color: cat.color ?? "#64748B" }}
-                      />
-                    </div>
+                    {cat.imageUrl ? (
+                      <div className="w-12 h-12 rounded-xl overflow-hidden shrink-0 border border-border bg-muted">
+                        <img
+                          src={cat.imageUrl}
+                          alt={cat.name}
+                          className="w-full h-full object-cover"
+                          loading="lazy"
+                        />
+                      </div>
+                    ) : (
+                      <div
+                        className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+                        style={{
+                          backgroundColor: (cat.color ?? "#64748B") + "20",
+                        }}
+                      >
+                        <Tag
+                          className="w-5 h-5"
+                          style={{ color: cat.color ?? "#64748B" }}
+                        />
+                      </div>
+                    )}
                     <div className="flex-1 min-w-0">
                       <p className="font-semibold text-sm truncate">
                         {cat.name}
@@ -335,6 +399,61 @@ export function CategoriesTab() {
                 maxLength={50}
               />
             </div>
+
+            {/* Image de la catégorie (optionnelle) */}
+            <div className="space-y-1.5">
+              <Label>Image de la catégorie</Label>
+              <p className="text-[10px] text-muted-foreground -mt-0.5">
+                Affichée sur la carte et dans la caisse (JPG/PNG/WEBP, max 5 Mo,
+                compression automatique).
+              </p>
+              {formImage ? (
+                <div className="relative group w-fit">
+                  <img
+                    src={formImage}
+                    alt="Aperçu catégorie"
+                    className="w-24 h-24 rounded-xl object-cover border border-border"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setFormImage(null)}
+                    className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-rose-500 text-white flex items-center justify-center shadow-md"
+                    aria-label="Retirer l'image"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              ) : (
+                <label className="flex flex-col items-center justify-center gap-1.5 w-24 h-24 rounded-xl border-2 border-dashed border-border hover:border-primary/40 cursor-pointer transition-colors">
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,image/gif"
+                    className="hidden"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      setUploadingImage(true);
+                      const url = await uploadImage(file);
+                      setUploadingImage(false);
+                      e.target.value = "";
+                      if (url) {
+                        setFormImage(url);
+                        toast.success("Image ajoutée");
+                      }
+                    }}
+                  />
+                  {uploadingImage ? (
+                    <Loader2 className="w-5 h-5 text-muted-foreground animate-spin" />
+                  ) : (
+                    <ImagePlus className="w-5 h-5 text-muted-foreground" />
+                  )}
+                  <span className="text-[10px] text-muted-foreground">
+                    {uploadingImage ? "Upload..." : "Ajouter"}
+                  </span>
+                </label>
+              )}
+            </div>
+
             <div className="space-y-1.5">
               <Label>Couleur</Label>
               <div className="flex flex-wrap gap-2">

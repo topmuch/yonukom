@@ -4,7 +4,9 @@
 // ============================================================
 
 import { NextRequest, NextResponse } from "next/server";
+import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
+import { getTokenFromRequest } from "@/lib/auth";
 
 interface TeamMemberStats {
   id: string;
@@ -130,6 +132,122 @@ export async function GET(request: NextRequest) {
     console.error("[Team] GET error:", error);
     return NextResponse.json(
       { error: "Échec de récupération de l'équipe" },
+      { status: 500 }
+    );
+  }
+}
+
+// POST /api/team — ajoute un membre à l'équipe (vendeur/gérant)
+// Body: { businessId, name, email, phone?, role, password }
+// ⚠️ Seul le patron/gérant peut ajouter des membres. Le rôle superadmin est
+// interdit ici (réservé à la plateforme).
+export async function POST(request: NextRequest) {
+  try {
+    // Auth : récupère le businessId + rôle depuis le JWT (middleware a déjà
+    // vérifié l'authentification).
+    const tokenPayload = getTokenFromRequest(request);
+    const callerRole = tokenPayload?.role;
+    // On autorise patron et gérant à ajouter des membres. Les vendeurs ne
+    // peuvent pas créer de comptes.
+    if (callerRole && callerRole !== "patron" && callerRole !== "gerant") {
+      return NextResponse.json(
+        { error: "Seul le patron ou le gérant peut ajouter des membres" },
+        { status: 403 }
+      );
+    }
+
+    const body = await request.json();
+    const { businessId, name, email, phone, role, password } = body as {
+      businessId?: string;
+      name?: string;
+      email?: string;
+      phone?: string;
+      role?: string;
+      password?: string;
+    };
+
+    if (!businessId) {
+      return NextResponse.json(
+        { error: "businessId est obligatoire" },
+        { status: 400 }
+      );
+    }
+    if (!name || !name.trim()) {
+      return NextResponse.json(
+        { error: "Le nom est obligatoire" },
+        { status: 400 }
+      );
+    }
+    if (!email || !email.trim()) {
+      return NextResponse.json(
+        { error: "L'email est obligatoire" },
+        { status: 400 }
+      );
+    }
+    if (!password || password.length < 6) {
+      return NextResponse.json(
+        { error: "Le mot de passe doit contenir au moins 6 caractères" },
+        { status: 400 }
+      );
+    }
+
+    // Valider le rôle (vendeur ou gérant uniquement — jamais patron/superadmin
+    // via cette route : le patron est créé à l'inscription, le superadmin via
+    // le seed plateforme).
+    const finalRole = role === "gerant" ? "gerant" : "vendeur";
+
+    // Vérifier que le business existe + récupérer le tenantId
+    const business = await db.business.findUnique({
+      where: { id: businessId },
+      select: { id: true, tenantId: true },
+    });
+    if (!business) {
+      return NextResponse.json(
+        { error: "Commerce introuvable" },
+        { status: 404 }
+      );
+    }
+
+    // Email unique (contrainte @unique sur User.email)
+    const existing = await db.user.findUnique({
+      where: { email: email.trim().toLowerCase() },
+      select: { id: true },
+    });
+    if (existing) {
+      return NextResponse.json(
+        { error: "Un compte avec cet email existe déjà" },
+        { status: 409 }
+      );
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const user = await db.user.create({
+      data: {
+        email: email.trim().toLowerCase(),
+        name: name.trim(),
+        phone: phone ? String(phone).trim() : null,
+        password: hashedPassword,
+        role: finalRole,
+        isActive: true,
+        businessId,
+        tenantId: business.tenantId,
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        phone: true,
+        role: true,
+        isActive: true,
+      },
+    });
+
+    return NextResponse.json(user, { status: 201 });
+  } catch (error) {
+    console.error("[Team] POST error:", error);
+    return NextResponse.json(
+      { error: "Échec de la création du membre" },
       { status: 500 }
     );
   }

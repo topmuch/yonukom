@@ -47,9 +47,10 @@ export async function PATCH(
     }
 
     const body = await request.json();
-    const { name, color, sortOrder, isActive } = body as {
+    const { name, color, imageUrl, sortOrder, isActive } = body as {
       name?: string;
       color?: string;
+      imageUrl?: string | null;
       sortOrder?: number;
       isActive?: boolean;
     };
@@ -57,6 +58,14 @@ export async function PATCH(
     const data: Record<string, unknown> = {};
     if (typeof name === "string" && name.trim()) {
       data.name = name.trim();
+    }
+    // Image : accepte une URL (string non vide) ou null/"" pour l'effacer.
+    if (imageUrl !== undefined) {
+      if (typeof imageUrl === "string" && imageUrl.trim()) {
+        data.imageUrl = imageUrl.trim();
+      } else {
+        data.imageUrl = null;
+      }
     }
     if (color !== undefined) {
       const trimmedColor = (color || "").trim();

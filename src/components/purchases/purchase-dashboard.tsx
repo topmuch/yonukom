@@ -376,7 +376,6 @@ export function PurchaseDashboard() {
             <div className="flex justify-end">
               <Button
                 onClick={() => setPurchaseDialogOpen(true)}
-                disabled={suppliers.length === 0 && products.length === 0}
               >
                 <Plus className="w-4 h-4 mr-2" />
                 Nouvel achat

@@ -46,10 +46,11 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { businessId, name, color, sortOrder } = body as {
+    const { businessId, name, color, imageUrl, sortOrder } = body as {
       businessId?: string;
       name?: string;
       color?: string;
+      imageUrl?: string;
       sortOrder?: number;
     };
 
@@ -91,6 +92,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Image optionnelle (URL servie par /api/uploads). On accepte une URL
+    // relative (commençant par /api/uploads ou /uploads) ou une URL absolue https.
+    const trimmedImage =
+      typeof imageUrl === "string" && imageUrl.trim()
+        ? imageUrl.trim()
+        : null;
+
     // Créer la catégorie — l'unicité [businessId, name] est garantie par le schéma.
     // Si une catégorie existe déjà avec ce nom, Prisma lèvera P2002 → 409.
     try {
@@ -99,6 +107,7 @@ export async function POST(request: NextRequest) {
           businessId,
           name: trimmedName,
           color: trimmedColor,
+          imageUrl: trimmedImage,
           sortOrder: Number(sortOrder) || 0,
           isActive: true,
         },

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { motion } from "framer-motion";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,7 @@ import {
   Clock,
   Loader2,
   ShoppingBag,
+  Bell,
 } from "lucide-react";
 import { useAuthStore } from "@/stores/use-auth-store";
 import { ConnectivityBanner } from "@/components/layout/connectivity-banner";
@@ -57,9 +58,13 @@ export function OnlineOrdersTab() {
   const [filter, setFilter] = useState<string>("PENDING");
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
-  // Pour récupérer le tenantId, on utilise le businessId du user
-  // (en V1, un business = un tenant)
+  // L'API online-orders résout le tenantId à partir du businessId
+  // (le login renvoie businessId, pas tenantId).
   const businessId = user?.businessId;
+
+  // Référence des IDs de commandes PENDING déjà vus (pour détecter les nouvelles)
+  const seenPendingIdsRef = useRef<Set<string>>(new Set());
+  const firstLoadRef = useRef(true);
 
   const fetchOrders = useCallback(async () => {
     if (!businessId) {
@@ -69,7 +74,7 @@ export function OnlineOrdersTab() {
     setLoading(true);
     try {
       const qs = filter === "ALL" ? "" : `&status=${filter}`;
-      const res = await fetch(`/api/online-orders?tenantId=${businessId}${qs}`);
+      const res = await fetch(`/api/online-orders?businessId=${businessId}${qs}`);
       if (res.ok) {
         const data = await res.json();
         setOrders(data.orders || []);
@@ -86,6 +91,59 @@ export function OnlineOrdersTab() {
   useEffect(() => {
     fetchOrders();
   }, [fetchOrders]);
+
+  // --- Détection des nouvelles commandes PENDING (notification) ---
+  // Toutes les 30s, on interroge l'API pour les commandes en attente.
+  // Si de nouvelles apparaissent (IDs non vus), on affiche un toast + on
+  // rafraîchit la liste affichée.
+  const checkNewPendingOrders = useCallback(async () => {
+    if (!businessId) return;
+    try {
+      const res = await fetch(
+        `/api/online-orders?businessId=${businessId}&status=PENDING`
+      );
+      if (!res.ok) return;
+      const data = await res.json();
+      const pending: OnlineOrder[] = data.orders || [];
+      const currentIds = new Set(pending.map((o) => o.id));
+      const seen = seenPendingIdsRef.current;
+
+      // Nouvelles commandes = IDs présents maintenant mais pas dans `seen`
+      const newOrders = pending.filter((o) => !seen.has(o.id));
+
+      if (!firstLoadRef.current && newOrders.length > 0) {
+        // Toast pour chaque nouvelle commande (max 3 toasts pour éviter le spam)
+        for (const o of newOrders.slice(0, 3)) {
+          toast.success(
+            `🛒 Nouvelle commande de ${o.customerName} — ${formatFCFA(o.totalAmount)}`,
+            { duration: 8000 }
+          );
+        }
+        if (newOrders.length > 3) {
+          toast.success(`+${newOrders.length - 3} autre(s) commande(s)`);
+        }
+        // Rafraîchir la liste affichée si l'utilisateur est sur PENDING ou ALL
+        if (filter === "PENDING" || filter === "ALL") {
+          fetchOrders();
+        }
+      }
+
+      // Mettre à jour les IDs vus
+      seenPendingIdsRef.current = currentIds;
+      firstLoadRef.current = false;
+    } catch {
+      // Silencieux — le polling ne doit pas casser l'UI
+    }
+  }, [businessId, filter, fetchOrders]);
+
+  useEffect(() => {
+    if (!businessId) return;
+    // Premier check immédiat (pour peupler seenPendingIds sans toaster)
+    checkNewPendingOrders();
+    // Puis toutes les 30s
+    const interval = setInterval(checkNewPendingOrders, 30000);
+    return () => clearInterval(interval);
+  }, [businessId, checkNewPendingOrders]);
 
   const handleAction = async (orderId: string, action: "CONFIRMED" | "CANCELLED" | "COMPLETED") => {
     setActionLoading(orderId + action);
@@ -136,9 +194,16 @@ export function OnlineOrdersTab() {
           <h2 className="text-lg font-bold flex items-center gap-2">
             <ShoppingBag className="w-5 h-5 text-primary" />
             Commandes en ligne
+            {filter === "PENDING" && orders.length > 0 && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-xs font-bold border border-amber-300 animate-pulse">
+                <Bell className="w-3 h-3" />
+                {orders.length} en attente
+              </span>
+            )}
           </h2>
           <p className="text-xs text-muted-foreground mt-1">
-            Commandes reçues depuis votre boutique en ligne
+            Commandes reçues depuis votre boutique en ligne — actualisé
+            automatiquement toutes les 30s
           </p>
         </div>
       </div>

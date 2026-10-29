@@ -182,6 +182,10 @@ model Category {
   name        String
   /// Couleur optionnelle (hex) pour différencier visuellement les chips
   color       String?
+  /// Image optionnelle (URL servie par /api/uploads) affichée sur la carte
+  /// de catégorie et dans la caisse. Permet une identité visuelle forte
+  /// (ex: photo du plat, logo de la gamme).
+  imageUrl    String?
   /// Ordre d'affichage (les plus petits en premier)
   sortOrder   Int      @default(0)
   /// Une catégorie peut être désactivée sans être supprimée

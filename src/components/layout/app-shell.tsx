@@ -7,7 +7,7 @@
 
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect, useCallback } from "react";
 import { ConnectivityDot } from "@/components/layout/connectivity-banner";
 import { RoleBadge } from "@/components/auth/permission-guard";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
@@ -258,6 +258,32 @@ export function AppShell({ activeTab, onTabChange, children }: AppShellProps) {
   const businessName = user?.businessName ?? "YonuKom";
   const businessInitial = businessName.trim().charAt(0).toUpperCase() || "Y";
 
+  // --- Badge de notifications : compteur de commandes en ligne en attente ---
+  // Polling toutes les 30s pour détecter les nouvelles commandes PENDING.
+  // Affiché sur l'onglet "Cmds Online" (mobile bottom nav + desktop sidebar).
+  const onlineBusinessId = user?.businessId;
+  const [pendingOnlineCount, setPendingOnlineCount] = useState(0);
+  const fetchPendingOnlineCount = useCallback(async () => {
+    if (!onlineBusinessId) return;
+    try {
+      const res = await fetch(
+        `/api/online-orders?businessId=${onlineBusinessId}&status=PENDING`
+      );
+      if (!res.ok) return;
+      const data = await res.json();
+      setPendingOnlineCount(Array.isArray(data.orders) ? data.orders.length : 0);
+    } catch {
+      // Silencieux
+    }
+  }, [onlineBusinessId]);
+
+  useEffect(() => {
+    if (!onlineBusinessId) return;
+    fetchPendingOnlineCount();
+    const interval = setInterval(fetchPendingOnlineCount, 30000);
+    return () => clearInterval(interval);
+  }, [onlineBusinessId, fetchPendingOnlineCount]);
+
   // Mode plein écran pour le POS — masque le sidebar et occupe toute la largeur
   const isFullscreen = activeTab === "pos";
 
@@ -414,6 +440,12 @@ export function AppShell({ activeTab, onTabChange, children }: AppShellProps) {
                 ) : (
                   <Icon className="w-5 h-5" strokeWidth={1.8} />
                 )}
+                {/* Badge notifications commandes en ligne */}
+                {tab.id === "online-orders" && pendingOnlineCount > 0 && (
+                  <span className="absolute top-1 right-1 min-w-[16px] h-4 px-1 rounded-full bg-amber-500 text-white text-[9px] font-bold flex items-center justify-center ring-2 ring-background animate-pulse">
+                    {pendingOnlineCount > 9 ? "9+" : pendingOnlineCount}
+                  </span>
+                )}
                 <span className="text-[10px] font-medium leading-none">
                   {tab.label}
                 </span>
@@ -502,6 +534,12 @@ export function AppShell({ activeTab, onTabChange, children }: AppShellProps) {
                   style={isActive ? { color: tab.color } : undefined}
                 />
                 <span className="relative z-10 truncate">{tab.label}</span>
+                {/* Badge notifications commandes en ligne (sidebar desktop) */}
+                {tab.id === "online-orders" && pendingOnlineCount > 0 && (
+                  <span className="ml-auto min-w-[18px] h-[18px] px-1 rounded-full bg-amber-500 text-white text-[10px] font-bold flex items-center justify-center shrink-0">
+                    {pendingOnlineCount > 9 ? "9+" : pendingOnlineCount}
+                  </span>
+                )}
                 {isActive && (
                   <motion.span
                     layoutId="sidebar-active-dot"
@@ -541,6 +579,12 @@ export function AppShell({ activeTab, onTabChange, children }: AppShellProps) {
                   style={isActive ? { color: tab.color } : undefined}
                 />
                 <span className="relative z-10 truncate">{tab.label}</span>
+                {/* Badge notifications commandes en ligne (sidebar desktop) */}
+                {tab.id === "online-orders" && pendingOnlineCount > 0 && (
+                  <span className="ml-auto min-w-[18px] h-[18px] px-1 rounded-full bg-amber-500 text-white text-[10px] font-bold flex items-center justify-center shrink-0">
+                    {pendingOnlineCount > 9 ? "9+" : pendingOnlineCount}
+                  </span>
+                )}
                 {isActive && (
                   <motion.span
                     layoutId="sidebar-active-dot"
@@ -580,6 +624,12 @@ export function AppShell({ activeTab, onTabChange, children }: AppShellProps) {
                   style={isActive ? { color: tab.color } : undefined}
                 />
                 <span className="relative z-10 truncate">{tab.label}</span>
+                {/* Badge notifications commandes en ligne (sidebar desktop) */}
+                {tab.id === "online-orders" && pendingOnlineCount > 0 && (
+                  <span className="ml-auto min-w-[18px] h-[18px] px-1 rounded-full bg-amber-500 text-white text-[10px] font-bold flex items-center justify-center shrink-0">
+                    {pendingOnlineCount > 9 ? "9+" : pendingOnlineCount}
+                  </span>
+                )}
                 {isActive && (
                   <motion.span
                     layoutId="sidebar-active-dot"

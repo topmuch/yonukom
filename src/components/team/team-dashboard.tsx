@@ -206,6 +206,7 @@ export function TeamDashboard() {
   // Dialog states
   const [commissionDialogOpen, setCommissionDialogOpen] = useState(false);
   const [payrollDialogOpen, setPayrollDialogOpen] = useState(false);
+  const [addMemberOpen, setAddMemberOpen] = useState(false);
 
   // --- Fetchers ---
   const fetchMembers = useCallback(async () => {
@@ -427,10 +428,19 @@ export function TeamDashboard() {
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="flex items-center gap-2"
+        className="flex items-center justify-between gap-3"
       >
-        <Users className="w-5 h-5 text-primary" />
-        <h2 className="text-lg font-bold">Gestion d'équipe</h2>
+        <div className="flex items-center gap-2">
+          <Users className="w-5 h-5 text-primary" />
+          <h2 className="text-lg font-bold">Gestion d'équipe</h2>
+        </div>
+        {businessId && (
+          <Button onClick={() => setAddMemberOpen(true)} className="gap-1.5 shrink-0">
+            <Plus className="w-4 h-4" />
+            <span className="hidden sm:inline">Ajouter un membre</span>
+            <span className="sm:hidden">Ajouter</span>
+          </Button>
+        )}
       </motion.div>
 
       {!businessId ? (
@@ -769,6 +779,16 @@ export function TeamDashboard() {
           }
         }}
       />
+
+      {/* === Add Member Dialog === */}
+      <AddMemberDialog
+        open={addMemberOpen}
+        onOpenChange={setAddMemberOpen}
+        businessId={businessId}
+        onCreated={() => {
+          fetchMembers();
+        }}
+      />
     </div>
   );
 }
@@ -1077,6 +1097,172 @@ function PayrollDialog({
             Créer l'entrée
           </Button>
         </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ============================================================
+// Add Member Dialog — Ajouter un membre à l'équipe (vendeur/gérant)
+// ============================================================
+interface AddMemberDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  businessId: string;
+  onCreated: () => void;
+}
+
+function AddMemberDialog({ open, onOpenChange, businessId, onCreated }: AddMemberDialogProps) {
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [role, setRole] = useState<"vendeur" | "gerant">("vendeur");
+  const [password, setPassword] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  // Reset form quand on ferme
+  useEffect(() => {
+    if (!open) {
+      setName("");
+      setEmail("");
+      setPhone("");
+      setRole("vendeur");
+      setPassword("");
+    }
+  }, [open]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!businessId || !name.trim() || !email.trim() || !password) return;
+    setSaving(true);
+    try {
+      const token = typeof window !== "undefined" ? localStorage.getItem("yonukom_token") : null;
+      const res = await fetch("/api/team", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        credentials: "include",
+        body: JSON.stringify({
+          businessId,
+          name: name.trim(),
+          email: email.trim(),
+          phone: phone.trim() || undefined,
+          role,
+          password,
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Échec de la création");
+      }
+      toast.success(`${role === "gerant" ? "Gérant" : "Vendeur"} ajouté à l'équipe`);
+      onOpenChange(false);
+      onCreated();
+    } catch (err: any) {
+      toast.error(err.message || "Erreur");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Ajouter un membre à l&apos;équipe</DialogTitle>
+          <DialogDescription>
+            Créez un compte vendeur ou gérant. Il pourra se connecter avec cet
+            email et ce mot de passe.
+          </DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-3">
+          <div className="space-y-1.5">
+            <Label htmlFor="m-name">Nom complet *</Label>
+            <Input
+              id="m-name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Ex: Awa Diop"
+              required
+              autoFocus
+              maxLength={60}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="m-email">Email *</Label>
+            <Input
+              id="m-email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="awa.diop@example.com"
+              required
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="m-phone">Téléphone (WhatsApp)</Label>
+            <Input
+              id="m-phone"
+              type="tel"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="78 382 18 22"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="m-role">Rôle</Label>
+            <Select value={role} onValueChange={(v) => setRole(v as "vendeur" | "gerant")}>
+              <SelectTrigger id="m-role">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="vendeur">Vendeur (vente uniquement)</SelectItem>
+                <SelectItem value="gerant">Gérant (stock + caisse)</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-[10px] text-muted-foreground">
+              Le gérant peut gérer le stock et la caisse. Le vendeur ne fait que
+              des ventes.
+            </p>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="m-pass">Mot de passe temporaire *</Label>
+            <Input
+              id="m-pass"
+              type="text"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Min. 6 caractères"
+              required
+              minLength={6}
+            />
+            <p className="text-[10px] text-muted-foreground">
+              Le membre pourra le changer après sa première connexion.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              disabled={saving}
+            >
+              Annuler
+            </Button>
+            <Button type="submit" disabled={saving || !name.trim() || !email.trim() || !password}>
+              {saving ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                  Création...
+                </>
+              ) : (
+                "Créer le compte"
+              )}
+            </Button>
+          </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   );
