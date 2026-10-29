@@ -28,6 +28,10 @@ export interface ProductItem {
   imageUrl?: string;
   description?: string;
   sku?: string;
+  /** PRODUCT = article avec stock ; SERVICE = prestation sans stock (coiffure…) */
+  itemType?: "PRODUCT" | "SERVICE";
+  /** Durée estimée en minutes (services uniquement) */
+  duration?: number | null;
 }
 
 // Catégorie dynamique transmise par PosScreen
@@ -144,8 +148,11 @@ interface ProductRowProps {
 }
 
 function ProductRow({ product, categoryColor, categoryName, onAdd }: ProductRowProps) {
-  const isOutOfStock = product.quantity === 0;
-  const isLowStock = product.quantity > 0 && product.quantity <= 5;
+  // Un SERVICE n'a pas de stock physique → jamais en rupture, jamais stock bas.
+  // Il peut toujours être ajouté au panier (prestation illimitée).
+  const isService = product.itemType === "SERVICE";
+  const isOutOfStock = !isService && product.quantity === 0;
+  const isLowStock = !isService && product.quantity > 0 && product.quantity <= 5;
   const hasImage = Boolean(product.imageUrl);
 
   // Récupère la quantité dans le panier pour ce produit (pour le sélecteur)
@@ -168,8 +175,11 @@ function ProductRow({ product, categoryColor, categoryName, onAdd }: ProductRowP
     updateQuantity(product.id, cartQty + 1);
   };
 
-  // Description secondaire (ex: "6 Inches (4 serve)" ou "Stock: 25 dispo")
-  const description = product.description || categoryName || `Stock: ${product.quantity} dispo`;
+  // Description secondaire : pour un service, on affiche "Service" + durée
+  // (pas de notion de stock). Pour un produit, "Stock: X dispo" ou la description.
+  const description = isService
+    ? product.description || `Service${product.duration ? ` · ${product.duration} min` : ""}`
+    : product.description || categoryName || `Stock: ${product.quantity} dispo`;
 
   return (
     <motion.div
@@ -213,8 +223,14 @@ function ProductRow({ product, categoryColor, categoryName, onAdd }: ProductRowP
             aria-hidden
           />
         )}
-        {/* Badge rupture/stock bas en haut à droite */}
-        {isOutOfStock ? (
+        {/* Badge rupture/stock bas/service en haut à droite */}
+        {isService ? (
+          <div className="absolute top-1.5 right-1.5">
+            <Badge className="text-[9px] px-1.5 py-0 h-4 bg-violet-100 text-violet-700 border border-violet-300">
+              Service
+            </Badge>
+          </div>
+        ) : isOutOfStock ? (
           <div className="absolute top-1.5 right-1.5">
             <Badge variant="destructive" className="text-[9px] px-1.5 py-0 h-4">
               Rupture

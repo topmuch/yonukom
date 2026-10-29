@@ -186,6 +186,7 @@ export async function POST(request: NextRequest) {
       unitPrice: number
       totalPrice: number
       isManual: boolean
+      itemType: 'PRODUCT' | 'SERVICE'
     }
 
     let subtotal = 0
@@ -196,12 +197,16 @@ export async function POST(request: NextRequest) {
       let productId: string
       let unitPrice: number
       let isManual = false
+      // itemType de l'article résolu (PRODUCT par défaut, SERVICE pour les
+      // services et les articles manuels). Utilisé pour sauter la déduction
+      // de stock lors de la vente d'un service.
+      let resolvedItemType: 'PRODUCT' | 'SERVICE' = 'PRODUCT'
 
       if (item.productId) {
         // Produit existant — utiliser le prix du payload (snapshot), sinon le prix DB
         const existing = await db.product.findUnique({
           where: { id: item.productId },
-          select: { id: true, salePrice: true, productType: true },
+          select: { id: true, salePrice: true, productType: true, itemType: true },
         })
         if (!existing) {
           return NextResponse.json(
@@ -215,6 +220,9 @@ export async function POST(request: NextRequest) {
             ? Number(item.unitPrice)
             : Number(item.price ?? existing.salePrice)
         isManual = false
+        // itemType du produit réel (PRODUCT ou SERVICE). Les services ne
+        // déduisent pas de stock à la vente.
+        resolvedItemType = existing.itemType
       } else {
         // Article manuel — créer un Product "service" à la volée
         const manualPrice =
@@ -229,6 +237,7 @@ export async function POST(request: NextRequest) {
             purchasePrice: 0,
             quantity: 0,
             productType: 'service',
+            itemType: 'SERVICE',
             unitType: 'piece',
             minStockAlert: 0,
             isActive: true,
@@ -238,11 +247,12 @@ export async function POST(request: NextRequest) {
         productId = newProd.id
         unitPrice = manualPrice
         isManual = true
+        resolvedItemType = 'SERVICE'
       }
 
       const totalPrice = qty * unitPrice
       subtotal += totalPrice
-      resolvedItems.push({ productId, quantity: qty, unitPrice, totalPrice, isManual })
+      resolvedItems.push({ productId, quantity: qty, unitPrice, totalPrice, isManual, itemType: resolvedItemType })
     }
 
     // --- Frais de livraison + type de commande ---
@@ -332,10 +342,11 @@ export async function POST(request: NextRequest) {
         },
       })
 
-      // Stock movements + décrément pour les items basés sur un produit existant
-      // (les articles manuels "service" ne déduisent pas de stock)
+      // Stock movements + décrément pour les items basés sur un produit
+      // avec stock. Les SERVICES (itemType=SERVICE) et les articles manuels
+      // (isManual) ne déduisent JAMAIS de stock — ce sont des prestations.
       for (const ri of resolvedItems) {
-        if (ri.isManual) continue // service — pas de stock
+        if (ri.isManual || ri.itemType === 'SERVICE') continue // service — pas de stock
         await tx.stockMovement.create({
           data: {
             type: 'sale',
