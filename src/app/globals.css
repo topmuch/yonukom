@@ -1,0 +1,276 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  /* YonuKom custom colors */
+  --color-yk-deep: var(--yk-deep);
+  --color-yk-deep-light: var(--yk-deep-light);
+  --color-yk-deep-dark: var(--yk-deep-dark);
+  --color-yk-emerald: var(--yk-emerald);
+  --color-yk-emerald-light: var(--yk-emerald-light);
+  --color-yk-amber: var(--yk-amber);
+  --color-yk-amber-light: var(--yk-amber-light);
+  --color-yk-lavender: var(--yk-lavender);
+  --color-yk-surface: var(--yk-surface);
+  /* Vibrant accent tokens */
+  --color-yk-coral: var(--yk-coral);
+  --color-yk-mint: var(--yk-mint);
+  --color-yk-sun: var(--yk-sun);
+  --color-yk-grape: var(--yk-grape);
+}
+
+/* ============================================================
+   YonuKom — Palette de couleurs (Premium Blue Theme)
+   Primaire : Bleu vibrant (#338BE2) — confiance & modernité
+   Accent : Lavande claire (#B7BEDA)
+   Fond : Bleu très clair (#F6F9FE) — réduit la fatigue visuelle
+   Texte : Bleu nuit (#1E293B)
+   ============================================================ */
+
+:root {
+  --radius: 0.625rem;
+
+  /* YonuKom brand tokens (Premium Blue) */
+  --yk-deep: oklch(0.62 0.166 251);         /* #338BE2 Bleu vibrant principal */
+  --yk-deep-light: oklch(0.72 0.135 251);   /* #5BA5EA Bleu clair */
+  --yk-deep-dark: oklch(0.50 0.165 251);   /* #2074C6 Bleu foncé (hover) */
+  --yk-emerald: oklch(0.57 0.17 162);       /* #059669 Vert émeraude (validation) */
+  --yk-emerald-light: oklch(0.75 0.15 162); /* #6EE7B7 Vert émeraude clair */
+  --yk-amber: oklch(0.70 0.17 55);          /* #E5940 Orange/ambre pour alertes */
+  --yk-amber-light: oklch(0.90 0.10 55);    /* Orange clair */
+  --yk-lavender: oklch(0.79 0.043 256);     /* #B7BEDA Lavande claire */
+  --yk-surface: oklch(0.985 0.005 250);     /* #F6F9FE Bleu très clair (page bg) */
+
+  /* Vibrant accent tokens — more colorful palette */
+  --yk-coral: #FF6B6B;                       /* Corail chaleureux */
+  --yk-mint: #4ECDC4;                        /* Menthe fraîche */
+  --yk-sun: #FFE66D;                         /* Soleil (jaune doux) */
+  --yk-grape: #A78BFA;                       /* Raisin lavande */
+
+  /* shadcn/ui tokens mapped to YonuKom palette */
+  --background: oklch(0.985 0.005 250);      /* #F6F9FE Bleu très clair */
+  --foreground: oklch(0.278 0.033 257);      /* #1E293B Bleu nuit foncé */
+  --card: oklch(1 0 0);                      /* #FFFFFF Blanc pur pour les cartes */
+  --card-foreground: oklch(0.278 0.033 257);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.278 0.033 257);
+  --primary: oklch(0.62 0.166 251);          /* #338BE2 Bleu vibrant YonuKom */
+  --primary-foreground: oklch(1 0 0);        /* Blanc sur bleu */
+  --secondary: oklch(0.57 0.17 162);         /* Vert émeraude YonuKom */
+  --secondary-foreground: oklch(1 0 0);
+  --muted: oklch(0.96 0.008 250);            /* Gris très clair teinté */
+  --muted-foreground: oklch(0.50 0.03 257);  /* Gris moyen */
+  --accent: oklch(0.79 0.043 256);           /* #B7BEDA Lavande pour accents */
+  --accent-foreground: oklch(0.278 0.033 257);
+  --destructive: oklch(0.577 0.245 27.325);  /* Rouge destructif */
+  --border: oklch(0.90 0.012 250);           /* Bordure subtile bleutée */
+  --input: oklch(0.90 0.012 250);
+  --ring: oklch(0.62 0.166 251);             /* Ring bleu vibrant */
+
+  /* Charts */
+  --chart-1: oklch(0.62 0.166 251);   /* Bleu vibrant */
+  --chart-2: oklch(0.57 0.17 162);    /* Émeraude */
+  --chart-3: oklch(0.70 0.17 55);    /* Ambre */
+  --chart-4: oklch(0.65 0.20 330);    /* Rose */
+  --chart-5: oklch(0.79 0.043 256);   /* Lavande */
+
+  /* Sidebar — bleu vibrant comme dans le dashboard image */
+  --sidebar: oklch(0.62 0.166 251);
+  --sidebar-foreground: oklch(1 0 0);
+  --sidebar-primary: oklch(1 0 0);
+  --sidebar-primary-foreground: oklch(0.62 0.166 251);
+  --sidebar-accent: oklch(0.55 0.155 251);
+  --sidebar-accent-foreground: oklch(1 0 0);
+  --sidebar-border: oklch(0.70 0.135 251);
+  --sidebar-ring: oklch(1 0 0);
+}
+
+.dark {
+  --yk-deep: oklch(0.68 0.150 251);
+  --yk-deep-light: oklch(0.78 0.120 251);
+  --yk-deep-dark: oklch(0.58 0.150 251);
+  --yk-emerald: oklch(0.65 0.17 162);
+  --yk-emerald-light: oklch(0.80 0.14 162);
+  --yk-amber: oklch(0.75 0.15 55);
+  --yk-amber-light: oklch(0.85 0.10 55);
+  --yk-lavender: oklch(0.45 0.05 256);
+  --yk-surface: oklch(0.18 0.02 257);
+
+  /* Vibrant accents (dark variant — slightly brighter for contrast) */
+  --yk-coral: #FF8585;
+  --yk-mint: #5DD9D0;
+  --yk-sun: #FFEC85;
+  --yk-grape: #B79BFB;
+
+  --background: oklch(0.21 0.03 257);        /* #0F172A Bleu nuit foncé */
+  --foreground: oklch(0.96 0.005 250);
+  --card: oklch(0.26 0.035 257);             /* Bleu nuit plus clair pour cartes */
+  --card-foreground: oklch(0.96 0.005 250);
+  --popover: oklch(0.26 0.035 257);
+  --popover-foreground: oklch(0.96 0.005 250);
+  --primary: oklch(0.68 0.150 251);          /* Bleu vibrant (un peu plus lumineux en dark) */
+  --primary-foreground: oklch(0.18 0.02 257);
+  --secondary: oklch(0.65 0.17 162);
+  --secondary-foreground: oklch(0.98 0 0);
+  --muted: oklch(0.30 0.03 257);
+  --muted-foreground: oklch(0.72 0.02 250);
+  --accent: oklch(0.40 0.06 256);
+  --accent-foreground: oklch(0.96 0.005 250);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.68 0.150 251);
+
+  --chart-1: oklch(0.68 0.150 251);
+  --chart-2: oklch(0.65 0.17 162);
+  --chart-3: oklch(0.75 0.15 55);
+  --chart-4: oklch(0.65 0.20 330);
+  --chart-5: oklch(0.55 0.10 256);
+
+  --sidebar: oklch(0.18 0.025 257);
+  --sidebar-foreground: oklch(0.96 0.005 250);
+  --sidebar-primary: oklch(0.68 0.150 251);
+  --sidebar-primary-foreground: oklch(0.18 0.02 257);
+  --sidebar-accent: oklch(0.25 0.04 257);
+  --sidebar-accent-foreground: oklch(0.96 0.005 250);
+  --sidebar-border: oklch(1 0 0 / 8%);
+  --sidebar-ring: oklch(0.68 0.150 251);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* ============================================================
+   YonuKom — Styles utilitaires
+   ============================================================ */
+
+/* Boutons tactiles min 48px (Mobile-First) */
+.touch-target {
+  min-height: 48px;
+  min-width: 48px;
+}
+
+/* Scrollbar personnalisée pour les longues listes */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: oklch(0.80 0.01 250);
+  border-radius: 3px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: oklch(0.65 0.03 250);
+}
+
+/* Animation pulse pour l'indicateur offline */
+@keyframes pulse-offline {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+.animate-pulse-offline {
+  animation: pulse-offline 2s ease-in-out infinite;
+}
+
+/* ============================================================
+   YonuKom — Vibrant gradient utilities
+   ============================================================ */
+
+.bg-gradient-warm {
+  background-image: linear-gradient(135deg, #FF6B6B 0%, #FFB4A2 50%, #FF8FA3 100%);
+}
+.bg-gradient-cool {
+  background-image: linear-gradient(135deg, #338BE2 0%, #4ECDC4 100%);
+}
+.bg-gradient-sunset {
+  background-image: linear-gradient(135deg, #FF6B6B 0%, #A78BFA 100%);
+}
+.bg-gradient-mint {
+  background-image: linear-gradient(135deg, #4ECDC4 0%, #10B981 100%);
+}
+.bg-gradient-grape {
+  background-image: linear-gradient(135deg, #A78BFA 0%, #6366F1 100%);
+}
+.bg-gradient-sun {
+  background-image: linear-gradient(135deg, #FFE66D 0%, #FF9F1C 100%);
+}
+
+/* Text gradient helpers (use sparingly) */
+.text-gradient-warm {
+  background-image: linear-gradient(135deg, #FF6B6B 0%, #FFB4A2 50%, #FF8FA3 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.text-gradient-cool {
+  background-image: linear-gradient(135deg, #338BE2 0%, #4ECDC4 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Subtle gradient card backgrounds (very low opacity overlays) */
+.card-gradient-warm {
+  background-image:
+    linear-gradient(135deg, rgba(255, 107, 107, 0.06), rgba(167, 139, 250, 0.06)),
+    var(--card);
+}
+.card-gradient-cool {
+  background-image:
+    linear-gradient(135deg, rgba(51, 139, 226, 0.06), rgba(78, 205, 196, 0.06)),
+    var(--card);
+}
+.card-gradient-sunset {
+  background-image:
+    linear-gradient(135deg, rgba(255, 107, 107, 0.06), rgba(167, 139, 250, 0.06)),
+    var(--card);
+}
+
