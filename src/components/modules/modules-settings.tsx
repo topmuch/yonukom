@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Loader2, Puzzle, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { useAuthStore } from "@/stores/use-auth-store";
+import { useModulesStore } from "@/stores/use-modules-store";
 import { ModuleGrid } from "./ModuleGrid";
 import { getModulesWithState, type ModulesJson } from "@/lib/modules/module-utils";
 import type { ModuleId } from "@/lib/modules/module-config";
@@ -75,6 +76,8 @@ export function ModulesSettings() {
       }
       const data = await res.json();
       setModules(data.modules); // sync avec le serveur
+      // Rafraîchir le store partagé (pour que la nav + ModuleGuard se mettent à jour)
+      useModulesStore.getState().fetchModules(businessId);
       toast.success(`${enabled ? "Module activé" : "Module désactivé"}`);
     } catch (err: any) {
       // Revert optimistic update

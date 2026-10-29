@@ -13,6 +13,28 @@ import { RoleBadge } from "@/components/auth/permission-guard";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
 import { useConfigStore } from "@/stores/use-config-store";
 import { useAuthStore } from "@/stores/use-auth-store";
+import { useModulesStore } from "@/stores/use-modules-store";
+import type { ModuleId } from "@/lib/modules/module-config";
+
+/**
+ * Mapping TabId → ModuleId. Les onglets sans mapping sont toujours visibles.
+ * Les onglets avec mapping ne s'affichent que si le module correspondant est
+ * activé pour le tenant (Tenant.modules JSON).
+ */
+const TAB_MODULE_MAP: Partial<Record<TabId, ModuleId>> = {
+  pos: "pos",
+  products: "products",
+  categories: "products",
+  stock: "stock",
+  "online-orders": "online_store",
+  pipeline: "wholesale",
+  invoices: "wholesale",
+  debts: "debts",
+  stats: "reports",
+  team: "multi_users",
+  notifications: "whatsapp_auto",
+  "analytics-ai": "analytics_pro",
+};
 import {
   Home,
   ShoppingBag,
@@ -363,10 +385,12 @@ export function AppShell({ activeTab, onTabChange, children }: AppShellProps) {
   // Mode plein écran pour le POS — masque le sidebar et occupe toute la largeur
   const isFullscreen = activeTab === "pos";
 
-  // Dynamic tabs based on active modules (config) AND user role.
-  // The config filter decides which business modules are visible
-  // (pipeline_b2b / ecommerce_social); the role filter hides tabs the
-  // current user is not allowed to navigate to (anti-fraud nav layer).
+  // Dynamic tabs based on active modules (config) AND user role AND tenant modules.
+  // - config filter : pipeline_b2b / ecommerce_social / appointments (onboarding)
+  // - role filter : canAccessTab (anti-fraud nav layer)
+  // - modules filter : TAB_MODULE_MAP → isModuleEnabled (tenant.modules JSON)
+  const tenantModules = useModulesStore((s) => s.modules);
+
   const tabs = useMemo(() => {
     const isB2B = config?.pipeline_b2b ?? false;
     const isEcom = config?.ecommerce_social ?? false;
@@ -383,8 +407,16 @@ export function AppShell({ activeTab, onTabChange, children }: AppShellProps) {
 
     return configFiltered
       .filter((t) => t.id !== "appointments" || (config?.appointments ?? false))
-      .filter((t) => canAccessTab(role, t.id));
-  }, [config?.pipeline_b2b, config?.ecommerce_social, config?.appointments, user?.role]);
+      .filter((t) => canAccessTab(role, t.id))
+      // Filtrage par modules activables (Tenant.modules JSON)
+      // Si modules pas encore chargé (null) → on affiche tout (évite le flicker)
+      .filter((t) => {
+        if (!tenantModules) return true;
+        const moduleId = TAB_MODULE_MAP[t.id];
+        if (!moduleId) return true; // pas de restriction de module
+        return tenantModules[moduleId]?.enabled === true;
+      });
+  }, [config?.pipeline_b2b, config?.ecommerce_social, config?.appointments, user?.role, tenantModules]);
 
   const activeTabConfig =
     tabs.find((t) => t.id === activeTab) ?? ALL_TABS[0];

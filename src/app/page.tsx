@@ -10,6 +10,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useConfigStore } from "@/stores/use-config-store";
 import { useAuthStore } from "@/stores/use-auth-store";
+import { useModulesStore } from "@/stores/use-modules-store";
 import { useOnlineStatus } from "@/hooks/use-online-status";
 import { motion, AnimatePresence } from "framer-motion";
 import { LoginScreen } from "@/components/auth/login-screen";
@@ -775,6 +776,15 @@ function DashboardWithWelcome({ onLogout }: { onLogout: () => void }) {
 // --- Main Dashboard with tabs ---
 function DashboardMain({ onLogout }: { onLogout: () => void }) {
   const [activeTab, setActiveTab] = useState<TabId>("home");
+  const user = useAuthStore((s) => s.user);
+
+  // Fetch les modules du tenant au montage du dashboard (cache partagé
+  // par ModuleGuard + le filtrage des onglets dans AppShell).
+  useEffect(() => {
+    if (user?.businessId) {
+      useModulesStore.getState().fetchModules(user.businessId);
+    }
+  }, [user?.businessId]);
 
   return (
     <AppShell activeTab={activeTab} onTabChange={setActiveTab}>
