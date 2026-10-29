@@ -6,6 +6,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { requireSuperadmin } from "@/lib/require-superadmin";
 
 const ALLOWED_FIELDS = [
   "seoTitle",
@@ -23,8 +24,11 @@ const ALLOWED_FIELDS = [
 ] as const;
 
 // GET /api/superadmin/settings
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const forbidden = requireSuperadmin(request);
+    if (forbidden) return forbidden;
+
     let setting = await db.platformSetting.findUnique({
       where: { id: "singleton" },
     });
@@ -49,6 +53,9 @@ export async function GET() {
 // PUT /api/superadmin/settings
 export async function PUT(request: NextRequest) {
   try {
+    const forbidden = requireSuperadmin(request);
+    if (forbidden) return forbidden;
+
     const body = await request.json();
 
     // Build update payload with only allowed fields

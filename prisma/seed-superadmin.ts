@@ -4,6 +4,7 @@
 // ============================================================
 
 import { PrismaClient } from '@prisma/client';
+import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
@@ -11,13 +12,46 @@ async function main() {
   console.log('🌱 Seeding YonuKom superadmin demo data...\n');
 
   // ── Clean existing data (order matters for foreign keys) ──
+  // Comprehensive ordered deletion so the script is idempotent and
+  // re-runnable even when other seeds (seed-store-v2, registrations…)
+  // have left dependent rows behind (products, users, orders, etc.).
   console.log('🧹 Cleaning existing data...');
+  // 1. Tenant-scoped ancillary tables (depend on Tenant/Product)
+  await prisma.newsletterSubscriber.deleteMany();
+  await prisma.analyticsEvent.deleteMany();
+  await prisma.review.deleteMany();
+  await prisma.onlineOrder.deleteMany();
+  // 2. Subscription chain
   await prisma.subscriptionPayment.deleteMany();
   await prisma.subscription.deleteMany();
+  // 3. Platform-wide tables
   await prisma.platformLog.deleteMany();
   await prisma.auditLog.deleteMany();
-  await prisma.user.deleteMany({ where: { role: 'superadmin' } });
-  await prisma.business.deleteMany({ where: { tenantId: { not: null } } });
+  // 4. Tables depending on Product / User / Business (delete deepest first)
+  await prisma.stockMovement.deleteMany();
+  await prisma.orderItem.deleteMany();
+  await prisma.purchaseItem.deleteMany();
+  await prisma.payment.deleteMany();
+  await prisma.promo.deleteMany();
+  await prisma.debt.deleteMany();
+  await prisma.notificationLog.deleteMany();
+  await prisma.notificationSetting.deleteMany();
+  await prisma.payrollEntry.deleteMany();
+  await prisma.commission.deleteMany();
+  await prisma.attendance.deleteMany();
+  await prisma.invoice.deleteMany();
+  await prisma.purchase.deleteMany();
+  await prisma.supplier.deleteMany();
+  await prisma.cashSession.deleteMany();
+  await prisma.order.deleteMany();
+  await prisma.customer.deleteMany();
+  await prisma.category.deleteMany();
+  await prisma.product.deleteMany();
+  // 5. Users (referenced by Business via FK, and by AuditLog etc.)
+  await prisma.user.deleteMany();
+  // 6. Business (now that no FK rows remain)
+  await prisma.business.deleteMany();
+  // 7. Tenants last
   await prisma.tenant.deleteMany();
   console.log('  ✓ Cleaned\n');
 
@@ -230,16 +264,29 @@ async function main() {
   // ── 5. Create Superadmin User ──
   console.log('👤 Creating Superadmin User...');
 
+  // Real bcrypt hash so `bcrypt.compare("yonukom123", hash)` succeeds at login.
+  // (Previously a dummy 45-char string was stored → demo login always failed.)
+  const hashedPassword = await bcrypt.hash('yonukom123', 10);
+
   const superadmin = await prisma.user.upsert({
     where: { email: 'admin@yonukom.sn' },
-    update: {},
+    update: {
+      // Always refresh the password hash so re-running the seed repairs
+      // any account that was previously seeded with a broken hash.
+      password: hashedPassword,
+      name: 'Super Admin YonuKom',
+      phone: '+221 77 000 00 00',
+      role: 'superadmin',
+      isActive: true,
+    },
     create: {
       email: 'admin@yonukom.sn',
       name: 'Super Admin YonuKom',
       phone: '+221 77 000 00 00',
-      password: '$2b$10$dummyhashforsuperadmin1234567890abcdef', // Placeholder — replace with real bcrypt in production
+      password: hashedPassword,
       role: 'superadmin',
       isActive: true,
+      // superadmin has no businessId / tenantId
     },
   });
   console.log(`  ✓ ${superadmin.name} (${superadmin.email})\n`);
@@ -253,6 +300,8 @@ async function main() {
   console.log(`  Subscription Payments:  ${paymentsData.length}`);
   console.log(`  Platform Logs:          ${logsData.length}`);
   console.log(`  Superadmin User:        1`);
+  console.log(`  Superadmin email:       admin@yonukom.sn`);
+  console.log(`  Superadmin password:    yonukom123 (bcrypt hash valid)`);
   console.log('═══════════════════════════════════════════════════\n');
 }
 

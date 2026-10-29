@@ -1,15 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db as prisma } from "@/lib/db";
+import { requireSuperadmin } from "@/lib/require-superadmin";
 
 // PATCH /api/superadmin/messages/[messageId]
 // Body: { status?: "new"|"read"|"archived", adminNote?: string }
 export async function PATCH(
-  req: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ messageId: string }> }
 ) {
   try {
+    const forbidden = requireSuperadmin(request);
+    if (forbidden) return forbidden;
+
     const { messageId } = await params;
-    const body = await req.json();
+    const body = await request.json();
     const data: any = {};
 
     if (body.status && ["new", "read", "archived"].includes(body.status)) {
@@ -40,10 +44,13 @@ export async function PATCH(
 
 // DELETE /api/superadmin/messages/[messageId]
 export async function DELETE(
-  req: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ messageId: string }> }
 ) {
   try {
+    const forbidden = requireSuperadmin(request);
+    if (forbidden) return forbidden;
+
     const { messageId } = await params;
     await (prisma as any).contactMessage.delete({
       where: { id: messageId },

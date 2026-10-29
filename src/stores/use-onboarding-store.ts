@@ -150,16 +150,13 @@ export const useOnboardingStore = create<OnboardingStoreState>((set, get) => ({
         );
       }
 
-      // Sauvegarder la config dans le store local → isOnboarded devient true
-      const { useConfigStore } = await import("@/stores/use-config-store");
-      useConfigStore.getState().saveConfig(config);
-
-      // NE PAS appeler useAuthStore.login() ici — l'utilisateur est déjà
-      // connecté via /api/auth/login. L'ancien code appelait login() avec
-      // un faux utilisateur créé par /api/onboarding, ce qui écrasait la
-      // session réelle et causait des bugs (redirection vers landing page,
-      // utilisateur déconnecté, etc.).
-
+      // NE PAS appeler useConfigStore.saveConfig() ici — cela ferait passer
+      // isOnboarded=true immédiatement, ce qui démonterait le wizard (AppView
+      // bascule sur le dashboard) AVANT que l'écran de succès (SuccessScreen
+      // + confetti) ne s'affiche. On ne fait que marquer l'onboarding comme
+      // terminé → le wizard affiche SuccessScreen → l'utilisateur clique
+      // "Accéder à mon espace" → le wizard appelle alors saveConfig() (voir
+      // onboarding-wizard.tsx) ce qui bascule réellement vers le dashboard.
       set({
         isCompleted: true,
         generatedConfig: config,

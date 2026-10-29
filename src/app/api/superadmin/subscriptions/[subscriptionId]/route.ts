@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { requireSuperadmin } from "@/lib/require-superadmin";
 
 type Params = { params: Promise<{ subscriptionId: string }> };
 
 // GET /api/superadmin/subscriptions/[subscriptionId] — fetch single subscription
-export async function GET(_req: NextRequest, { params }: Params) {
+export async function GET(request: NextRequest, { params }: Params) {
   try {
+    const forbidden = requireSuperadmin(request);
+    if (forbidden) return forbidden;
+
     const { subscriptionId } = await params;
 
     const sub = await db.subscription.findUnique({
@@ -47,6 +51,9 @@ export async function GET(_req: NextRequest, { params }: Params) {
 // Valid statuses: active | suspended | expired | past_due | cancelled
 export async function PATCH(request: NextRequest, { params }: Params) {
   try {
+    const forbidden = requireSuperadmin(request);
+    if (forbidden) return forbidden;
+
     const { subscriptionId } = await params;
     const body = await request.json();
 
@@ -183,8 +190,11 @@ export async function PUT(request: NextRequest, ctx: Params) {
 
 // DELETE /api/superadmin/subscriptions/[subscriptionId]
 // Cascade delete: subscription + tenant + businesses + users
-export async function DELETE(_req: NextRequest, { params }: Params) {
+export async function DELETE(request: NextRequest, { params }: Params) {
   try {
+    const forbidden = requireSuperadmin(request);
+    if (forbidden) return forbidden;
+
     const { subscriptionId } = await params;
 
     const existing = await db.subscription.findUnique({

@@ -7,10 +7,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import bcrypt from 'bcryptjs'
 import { db } from '@/lib/db'
+import { requireSuperadmin } from '@/lib/require-superadmin'
 
 // GET /api/superadmin/users
 export async function GET(request: NextRequest) {
   try {
+    const forbidden = requireSuperadmin(request)
+    if (forbidden) return forbidden
+
     const { searchParams } = new URL(request.url)
     const roleFilter = searchParams.get('role')
 
@@ -58,6 +62,9 @@ export async function GET(request: NextRequest) {
 // POST /api/superadmin/users
 export async function POST(request: NextRequest) {
   try {
+    const forbidden = requireSuperadmin(request)
+    if (forbidden) return forbidden
+
     const body = await request.json()
     const { name, email, phone, role, password, businessId, tenantId } = body
 

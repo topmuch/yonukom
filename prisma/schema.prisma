@@ -429,8 +429,10 @@ model AuditLog {
   userId        String?
   user          User?    @relation(fields: [userId], references: [id])
 
-  businessId    String
-  business      Business @relation(fields: [businessId], references: [id])
+  /// Business concerné. Null pour les actions plateforme/superadmin
+  /// (login superadmin, opérations globales) — pas de tenant associé.
+  businessId    String?
+  business      Business? @relation(fields: [businessId], references: [id])
 
   /// Adresse IP pour traçabilité
   ipAddress     String?

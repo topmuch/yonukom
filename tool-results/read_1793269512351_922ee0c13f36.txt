@@ -1,0 +1,1129 @@
+     1→// ============================================================
+     2→// YonuKom - Système de gestion de vente (POS/ERP léger)
+     3→// Conçu pour les commerçants en Afrique de l'Ouest (Sénégal)
+     4→// Philosophy: Offline-First, Mobile-First, Ultra-Rapide
+     5→// ============================================================
+     6→
+     7→generator client {
+     8→  provider = "prisma-client-js"
+     9→}
+    10→
+    11→datasource db {
+    12→  provider = "sqlite"
+    13→  url      = env("DATABASE_URL")
+    14→}
+    15→
+    16→// ==========================================
+    17→// ENTREPRISE & AUTH / RÔLES
+    18→// ==========================================
+    19→
+    20→/// Représente l'entreprise (tenant) du commerçant.
+    21→/// Chaque Business est indépendante — modèle multi-tenant simple.
+    22→model Business {
+    23→  id                String   @id @default(cuid())
+    24→  name              String   // Nom de l'entreprise
+    25→  type              String   @default("mixte") // "ecommerce_social" | "pipeline_b2b" | "restaurant" | "mixte"
+    26→  phone             String?  // Numéro WhatsApp business
+    27→  email             String?  // Email de contact du commerce
+    28→  address           String?  // Adresse postale du commerce
+    29→  city              String?  // Dakar, Thiès, Saint-Louis, etc.
+    30→  country           String   @default("SN") // Sénégal par défaut
+    31→  currency          String   @default("XOF") // FCFA — toujour entier, jamais flottant
+    32→  logoUrl           String?  // Logo du commerce (URL ou base64 si upload)
+    33→  /// Lien de paiement Wave (généré dans Wave Business) — envoyé aux clients via WhatsApp
+    34→  wavePaymentLink   String?
+    35→  /// URL cible du QR code imprimé sur les tickets de caisse (modifiable par le commerçant)
+    36→  qrCodeUrl        String?  // défaut: https://yonukom.qrtags.pro/
+    37→  /// Message personnalisé affiché en bas du ticket de caisse
+    38→  ticketFooterMessage String?
+    39→
+    40→  /// JSON généré par l'onboarding qui active/masque les modules dynamiquement.
+    41→  /// Ex: { "ecommerce_social": true, "pipeline_b2b": false, "restaurant": true, "payments": ["wave", "orange_money"] }
+    42→  onboardingConfig  String?  // JSON string — configuration des modules
+    43→  onboardingCompleted Boolean @default(false)
+    44→
+    45→  /// Lien vers le Tenant Superadmin (optionnel — un Business est toujours lié à un Tenant)
+    46→  tenantId          String?
+    47→  tenant            Tenant?  @relation(fields: [tenantId], references: [id])
+    48→
+    49→  users             User[]
+    50→  products          Product[]
+    51→  customers         Customer[]
+    52→  orders            Order[]
+    53→  auditLogs         AuditLog[]
+    54→  cashSessions      CashSession[]
+    55→  // Relations vers les nouveaux modules métier
+    56→  suppliers         Supplier[]
+    57→  purchases         Purchase[]
+    58→  invoices          Invoice[]
+    59→  attendances       Attendance[]
+    60→  commissions       Commission[]
+    61→  payrollEntries    PayrollEntry[]
+    62→  notificationLogs  NotificationLog[]
+    63→  notificationSetting NotificationSetting?
+    64→  categories        Category[]
+    65→  debts             Debt[]
+    66→  promos            Promo[]
+    67→
+    68→  createdAt         DateTime @default(now())
+    69→  updatedAt         DateTime @updatedAt
+    70→}
+    71→
+    72→/// Utilisateur avec rôle strict (Anti-Fraude).
+    73→/// 4 Rôles : Superadmin (plateforme), Patron (tout voir), Gérant (stock/caisse), Vendeur (vente uniquement)
+    74→model User {
+    75→  id          String   @id @default(cuid())
+    76→  email       String   @unique
+    77→  name        String
+    78→  phone       String?  // Numéro de téléphone
+    79→  password    String   // Hash bcrypt du mot de passe
+    80→  role        String   @default("vendeur") // "superadmin" | "patron" | "gerant" | "vendeur"
+    81→  isActive    Boolean  @default(true)
+    82→
+    83→  /// Obligatoire pour les utilisateurs tenant (patron/gerant/vendeur)
+    84→  /// Null pour le superadmin (n'appartient à aucun commerce)
+    85→  businessId  String?
+    86→  business    Business? @relation(fields: [businessId], references: [id])
+    87→
+    88→  /// Lien vers le Tenant (pour les utilisateurs d'un tenant)
+    89→  tenantId    String?
+    90→  tenant      Tenant?   @relation(fields: [tenantId], references: [id])
+    91→
+    92→  auditLogs   AuditLog[]
+    93→  // Relations vers les nouveaux modules métier (gestion d'équipe)
+    94→  attendances   Attendance[]
+    95→  commissions   Commission[]
+    96→  payrollEntries PayrollEntry[]
+    97→
+    98→  createdAt   DateTime @default(now())
+    99→  updatedAt   DateTime @updatedAt
+   100→
+   101→  @@index([role])
+   102→  @@index([tenantId])
+   103→}
+   104→
+   105→// ==========================================
+   106→// PRODUITS & STOCK
+   107→// ==========================================
+   108→
+   109→/// Produit avec distinction CRITIQUE entre stock physique et stock réservé.
+   110→/// 
+   111→/// ⚠️ LOGIQUE MÉTIER IMPORTANTE :
+   112→/// - quantity = Stock PHYSIQUE (ce qui est réellement en magasin)
+   113→/// - reservedQuantity = Stock RÉSERVÉ (commandes validées en devis mais pas encore livrées)
+   114→/// - Stock DISPONIBLE = quantity - reservedQuantity
+   115→/// - Un devis validé DÉDUIT du stock disponible mais PAS du stock physique
+   116→/// - Une livraison DÉDUIT du stock physique et libère la réservation
+   117→model Product {
+   118→  id                String   @id @default(cuid())
+   119→  name              String   // Nom du produit (ex: "Thiébou Rouge", "Sac riz 25kg")
+   120→  sku               String?  // Code produit / référence
+   121→  description       String?
+   122→  /// Catégorie (texte) — DEPRECATED, utiliser categoryId (FK vers Category)
+   123→  /// Conservé pour la rétro-compatibilité avec les produits existants.
+   124→  category          String?
+   125→  /// Lien vers une Category créée par le commerçant (optionnel)
+   126→  categoryId        String?
+   127→  categoryRef       Category? @relation(fields: [categoryId], references: [id])
+   128→  imageUrl          String?
+   129→
+   130→  // --- PRIX ---
+   131→  /// Prix d'achat en FCFA — ⚠️ NON VISIBLE par le vendeur (règle anti-fraude)
+   132→  purchasePrice     Int      @default(0)
+   133→  /// Prix de vente en FCFA
+   134→  salePrice         Int
+   135→
+   136→  // --- STOCK (DISTINCTION CRITIQUE) ---
+   137→  /// Stock physique total en magasin
+   138→  quantity          Int      @default(0)
+   139→  /// Stock réservé par des devis B2B validés (pas encore livrés)
+   140→  reservedQuantity  Int      @default(0)
+   141→  /// Seuil d'alerte stock bas — notification quand quantity <= minStockAlert
+   142→  minStockAlert     Int      @default(5)
+   143→
+   144→  // --- TYPE DE PRODUIT ---
+   145→  /// "standard" = produit normal
+   146→  /// "plate_restaurant" = plat fini (restaurant) — vente déduit 1 unité
+   147→  /// "service" = prestation (pas de stock déduit)
+   148→  productType       String   @default("standard")
+   149→  /// "piece" | "kg" | "litre" | "plat"
+   150→  unitType          String   @default("piece")
+   151→
+   152→  isActive          Boolean  @default(true)
+   153→
+   154→  // --- BOUTIQUE EN LIGNE (V2) ---
+   155→  /// Produit vedette — mis en avant en haut de la boutique publique
+   156→  isFeatured        Boolean  @default(false)
+   157→  /// Prix barré (si renseigné et > salePrice → badge "promo" + ancien prix affiché barré)
+   158→  compareAtPrice    Int?
+   159→
+   160→  businessId        String
+   161→  business          Business @relation(fields: [businessId], references: [id])
+   162→
+   163→  orderItems        OrderItem[]
+   164→  stockMovements    StockMovement[]
+   165→  purchaseItems     PurchaseItem[]
+   166→  reviews           Review[]
+   167→
+   168→  createdAt         DateTime @default(now())
+   169→  updatedAt         DateTime @updatedAt
+   170→
+   171→  @@index([categoryId])
+   172→  @@index([isFeatured])
+   173→}
+   174→
+   175→/// Catégorie de produit créée par le commerçant (remplace le select hardcoded).
+   176→/// Chaque catégorie est propre à un Business — modèle multi-tenant simple.
+   177→model Category {
+   178→  id          String   @id @default(cuid())
+   179→  businessId  String
+   180→  business    Business @relation(fields: [businessId], references: [id])
+   181→  /// Nom lisible : "Boissons", "Plats", "Cosmétiques", etc.
+   182→  name        String
+   183→  /// Couleur optionnelle (hex) pour différencier visuellement les chips
+   184→  color       String?
+   185→  /// Image optionnelle (URL servie par /api/uploads) affichée sur la carte
+   186→  /// de catégorie et dans la caisse. Permet une identité visuelle forte
+   187→  /// (ex: photo du plat, logo de la gamme).
+   188→  imageUrl    String?
+   189→  /// Ordre d'affichage (les plus petits en premier)
+   190→  sortOrder   Int      @default(0)
+   191→  /// Une catégorie peut être désactivée sans être supprimée
+   192→  isActive    Boolean  @default(true)
+   193→
+   194→  products    Product[]
+   195→  createdAt   DateTime @default(now())
+   196→  updatedAt   DateTime @updatedAt
+   197→
+   198→  @@index([businessId])
+   199→  @@unique([businessId, name])
+   200→}
+   201→
+   202→/// Journal de tous les mouvements de stock — traçabilité complète.
+   203→/// Chaque vente, restock, réservation, perte génère un mouvement.
+   204→model StockMovement {
+   205→  id              String   @id @default(cuid())
+   206→
+   207→  /// "sale" = vente (déduit stock physique)
+   208→  /// "restock" = réapprovisionnement
+   209→  /// "reservation" = devis B2B validé (augmente reservedQuantity)
+   210→  /// "reservation_release" = livraison B2B (libère réservation + déduit physique)
+   211→  /// "loss" = perte/gaspillage (déduit stock physique SANS impacter le CA)
+   212→  /// "adjustment" = ajustement manuel (nécessite un motif)
+   213→  type            String
+   214→
+   215→  /// Quantité du mouvement (toujours positif — le type détermine le sens)
+   216→  quantity        Int
+   217→
+   218→  /// Motif obligatoire pour "loss" et "adjustment"
+   219→  reason          String?
+   220→
+   221→  /// Flag spécifique aux pertes (restaurant) :
+   222→  /// Une perte déduit le stock mais n'apparaît PAS dans le Chiffre d'Affaires
+   223→  isLoss          Boolean  @default(false)
+   224→
+   225→  productId       String
+   226→  product         Product  @relation(fields: [productId], references: [id])
+   227→
+   228→  /// Référence à la commande si le mouvement est lié à une vente
+   229→  orderId         String?
+   230→  /// Utilisateur qui a effectué le mouvement
+   231→  userId          String?
+   232→
+   233→  /// Marqueur offline — ce mouvement a été créé hors ligne
+   234→  isOfflineCreated Boolean @default(false)
+   235→  syncedAt        DateTime?
+   236→
+   237→  createdAt       DateTime @default(now())
+   238→}
+   239→
+   240→// ==========================================
+   241→// CLIENTS
+   242→// ==========================================
+   243→
+   244→/// Client — peut être B2C (e-com social) ou B2B (grossiste)
+   245→model Customer {
+   246→  id              String   @id @default(cuid())
+   247→  name            String
+   248→  phone           String   // Numéro WhatsApp — essentiel en Afrique de l'Ouest
+   249→  email           String?
+   250→  address         String?
+   251→
+   252→  /// Moyens de paiement préférés du client
+   253→  /// "wave" | "orange_money" | "cash" | "cb"
+   254→  paymentMethod   String?  @default("cash")
+   255→
+   256→  /// Client B2B (grossiste) — active les fonctionnalités pipeline
+   257→  isB2B           Boolean  @default(false)
+   258→  /// Limite de crédit en FCFA (B2B uniquement)
+   259→  creditLimit     Int?     @default(0)
+   260→
+   261→  /// Produits favoris du client (e-com social) — IDs séparés par virgules
+   262→  /// Permet la saisie de commande en < 15 secondes
+   263→  favoriteProductIds String?
+   264→
+   265→  businessId      String
+   266→  business        Business @relation(fields: [businessId], references: [id])
+   267→
+   268→  orders          Order[]
+   269→  invoices        Invoice[]
+   270→  debts           Debt[]
+   271→
+   272→  createdAt       DateTime @default(now())
+   273→  updatedAt       DateTime @updatedAt
+   274→}
+   275→
+   276→// ==========================================
+   277→// COMMANDES
+   278→// ==========================================
+   279→
+   280→/// Commande avec statuts variables selon le module actif.
+   281→///
+   282→/// Module E-Commerce Social : "to_pay" → "to_ship" → "shipped" | "cancelled"
+   283→/// Module Pipeline B2B : "draft" → "quote_validated" → "delivery_note" → "invoiced" | "cancelled"
+   284→/// Module Restaurant : "pending" → "completed" | "cancelled"
+   285→model Order {
+   286→  id              String   @id @default(cuid())
+   287→  /// Numéro lisible et unique (ex: YK-2025-0001)
+   288→  orderNumber     String   @unique
+   289→
+   290→  /// Statut de la commande (dépend du module — voir commentaires ci-dessus)
+   291→  status          String   @default("draft")
+   292→
+   293→  // --- MONTANTS EN FCFA (entiers — JAMAIS de flottants avec la monnaie) ---
+   294→  /// Somme des OrderItem.totalPrice avant remises
+   295→  subtotal        Int      @default(0)
+   296→  /// Montant total TTC
+   297→  totalAmount     Int      @default(0)
+   298→  /// Total des paiements reçus (somme de Payment.amount)
+   299→  paidAmount      Int      @default(0)
+   300→  /// Reste à payer = totalAmount - paidAmount (calculé automatiquement)
+   301→  remainingAmount Int      @default(0)
+   302→
+   303→  // --- LIVRAISON ---
+   304→  deliveryAddress String?
+   305→  deliveryDate    DateTime?
+   306→  isDelivered     Boolean  @default(false)
+   307→  /// Frais de livraison (FCFA) — 0 si pas de livraison
+   308→  deliveryFee     Int      @default(0)
+   309→  /// Type de commande: "dine_in" | "takeaway" | "delivery"
+   310→  orderType       String   @default("dine_in")
+   311→
+   312→  // --- E-COMMERCE SOCIAL ---
+   313→  /// WhatsApp de confirmation envoyé ?
+   314→  whatsappSent    Boolean  @default(false)
+   315→  /// Lien de paiement Wave/OM collé par le client
+   316→  paymentLink     String?
+   317→
+   318→  // --- ANTI-FRADE : ANNULATION CONTRÔLÉE ---
+   319→  /// Un vendeur NE PEUT PAS supprimer une vente — uniquement annuler
+   320→  isCancelled     Boolean  @default(false)
+   321→  /// Motif d'annulation OBLIGATOIRE (tracé dans AuditLog)
+   322→  cancellationReason String?
+   323→
+   324→  // --- OFFLINE-FIRST ---
+   325→  /// Cette commande a été créée en mode hors ligne
+   326→  isOfflineCreated Boolean @default(false)
+   327→  /// Date à laquelle la commande a été synchronisée au serveur
+   328→  syncedAt        DateTime?
+   329→
+   330→  businessId      String
+   331→  business        Business @relation(fields: [businessId], references: [id])
+   332→
+   333→  customerId      String
+   334→  customer        Customer @relation(fields: [customerId], references: [id])
+   335→
+   336→  /// ID de la promo appliquée à cette commande (optionnel)
+   337→  promoId         String?
+   338→
+   339→  orderItems      OrderItem[]
+   340→  payments        Payment[]
+   341→  invoices        Invoice[]
+   342→  commissions     Commission[]
+   343→  /// Dettes liées à cette commande (si la dette vient d'une vente à crédit)
+   344→  debts           Debt[]
+   345→
+   346→  /// userId qui a créé la commande
+   347→  createdBy       String?
+   348→  /// userId qui a annulé la commande (si applicable)
+   349→  cancelledBy     String?
+   350→
+   351→  createdAt       DateTime @default(now())
+   352→  updatedAt       DateTime @updatedAt
+   353→}
+   354→
+   355→/// Ligne de commande — un produit avec sa quantité et prix
+   356→model OrderItem {
+   357→  id            String   @id @default(cuid())
+   358→
+   359→  productId     String
+   360→  product       Product  @relation(fields: [productId], references: [id])
+   361→
+   362→  orderId       String
+   363→  order         Order    @relation(fields: [orderId], references: [id])
+   364→
+   365→  quantity      Int      @default(1)
+   366→  /// Prix unitaire au moment de la vente (snapshot — ne change pas si le prix produit change)
+   367→  unitPrice     Int
+   368→  /// totalPrice = quantity × unitPrice
+   369→  totalPrice    Int
+   370→
+   371→  createdAt     DateTime @default(now())
+   372→}
+   373→
+   374→// ==========================================
+   375→// PAIEMENTS (inclut ACOMPPTES B2B)
+   376→// ==========================================
+   377→
+   378→/// Paiement — peut être un paiement complet ou un acompte (B2B).
+   379→/// Plusieurs paiements partiels possibles par commande.
+   380→model Payment {
+   381→  id            String   @id @default(cuid())
+   382→  /// Montant en FCFA
+   383→  amount        Int
+   384→  /// Moyen de paiement : "cash" | "wave" | "orange_money" | "cb" | "cheque" | "virement"
+   385→  method        String
+   386→  /// Référence du paiement (ex: ID transaction Wave, n° chèque)
+   387→  reference     String?
+   388→
+   389→  /// Flag acompte B2B — un acompte est un paiement partiel sur un devis validé
+   390→  isDeposit     Boolean  @default(false)
+   391→
+   392→  orderId       String
+   393→  order         Order    @relation(fields: [orderId], references: [id])
+   394→
+   395→  /// userId qui a reçu/enregistré le paiement
+   396→  receivedBy    String?
+   397→
+   398→  // --- OFFLINE-FIRST ---
+   399→  isOfflineCreated Boolean @default(false)
+   400→  syncedAt      DateTime?
+   401→
+   402→  createdAt     DateTime @default(now())
+   403→}
+   404→
+   405→// ==========================================
+   406→// JOURNAL D'AUDIT (Anti-Fraude)
+   407→// ==========================================
+   408→
+   409→/// Journal d'audit immuable — trace TOUTE action sensible.
+   410→/// Actions tracées : vente créée, vente annulée, ajustement stock,
+   411→/// clôture caisse, paiement reçu, changement rôle, connexion/échec
+   412→model AuditLog {
+   413→  id            String   @id @default(cuid())
+   414→
+   415→  /// Action effectuée
+   416→  /// "sale_created" | "sale_cancelled" | "stock_adjustment" | "stock_loss"
+   417→  /// | "cash_open" | "cash_close" | "payment_received" | "role_change"
+   418→  /// | "login" | "login_failed" | "price_change" | "product_created"
+   419→  action        String
+   420→
+   421→  /// Type de l'entité concernée : "order" | "product" | "user" | "payment" | "cash_session"
+   422→  entityType    String?
+   423→  /// ID de l'entité concernée
+   424→  entityId      String?
+   425→  /// Détails de l'action en JSON (avant/après, motif, etc.)
+   426→  details       String?
+   427→
+   428→  /// Utilisateur qui a effectué l'action
+   429→  userId        String?
+   430→  user          User?    @relation(fields: [userId], references: [id])
+   431→
+   432→  businessId    String
+   433→  business      Business @relation(fields: [businessId], references: [id])
+   434→
+   435→  /// Adresse IP pour traçabilité
+   436→  ipAddress     String?
+   437→
+   438→  createdAt     DateTime @default(now())
+   439→}
+   440→
+   441→// ==========================================
+   442→// CLÔTURE DE CAISSE
+   443→// ==========================================
+   444→
+   445→/// Session de caisse — ouverture et clôture avec calcul des écarts.
+   446→/// Le montant théorique est calculé automatiquement à partir des ventes.
+   447→/// Le montant réel est saisi par le gérant/patron.
+   448→/// L'écart = montant réel - montant théorique (si ≠ 0, investigation nécessaire)
+   449→model CashSession {
+   450→  id              String   @id @default(cuid())
+   451→  /// Date/heure d'ouverture de la caisse
+   452→  openedAt        DateTime
+   453→  /// Date/heure de clôture (null = caisse encore ouverte)
+   454→  closedAt        DateTime?
+   455→
+   456→  /// Montant théorique = somme des paiements reçus pendant la session
+   457→  theoreticalTotal Int?
+   458→  /// Montant réel déclaré par le gérant/patron à la clôture
+   459→  declaredTotal    Int?
+   460→  /// Écart = declaredTotal - theoreticalTotal (calculé automatiquement)
+   461→  difference       Int?
+   462→
+   463→  /// userId qui a ouvert la caisse
+   464→  openedBy        String
+   465→  /// userId qui a fermé la caisse
+   466→  closedBy        String?
+   467→
+   468→  businessId      String
+   469→  business        Business @relation(fields: [businessId], references: [id])
+   470→
+   471→  /// Caisse actuellement ouverte ?
+   472→  isActive        Boolean  @default(true)
+   473→
+   474→  createdAt       DateTime @default(now())
+   475→  updatedAt       DateTime @updatedAt
+   476→}
+   477→
+   478→// ==========================================
+   479→// SYNC QUEUE (File d'attente hors ligne)
+   480→// ==========================================
+   481→
+   482→/// Éléments en attente de synchronisation avec le serveur.
+   483→/// Chaque action d'écriture effectuée hors ligne est stockée ici
+   484→/// et sera rejouée automatiquement quand le réseau revient.
+   485→model SyncQueueItem {
+   486→  id            String   @id @default(cuid())
+   487→  /// Action CRUD : "create" | "update" | "delete"
+   488→  action        String
+   489→  /// Type d'entité : "order" | "payment" | "stock_movement" | "customer" | "product"
+   490→  entityType    String
+   491→  /// ID local de l'entité (pour référence lors du sync)
+   492→  entityId      String?
+   493→  /// Données à synchroniser (JSON string)
+   494→  payload       String
+   495→
+   496→  /// Nombre de tentatives de synchronisation
+   497→  retryCount    Int      @default(0)
+   498→  /// Nombre max de tentatives avant abandon
+   499→  maxRetries    Int      @default(3)
+   500→  /// Dernière erreur rencontrée lors du sync
+   501→  lastError     String?
+   502→
+   503→  /// Synchronisation réussie ?
+   504→  isSynced      Boolean  @default(false)
+   505→  syncedAt      DateTime?
+   506→
+   507→  createdAt     DateTime @default(now())
+   508→}
+   509→
+   510→// ==========================================
+   511→// SUPERADMIN — GESTION MULTI-TENANT
+   512→// ==========================================
+   513→
+   514→/// Modèle pour représenter chaque commerce inscrit (tenant).
+   515→/// C'est la vue Superadmin de la plateforme — chaque Tenant est un client YonuKom.
+   516→model Tenant {
+   517→  id                String    @id @default(cuid())
+   518→  name              String    // Nom du commerce (ex: "Boutique Fatou")
+   519→  ownerName         String    // Nom du propriétaire
+   520→  ownerEmail        String    @unique
+   521→  ownerPhone        String
+   522→  /// "retail_shop" | "restaurant" | "wholesaler" | "tiktok_seller" | "ecommerce_social" | "mixte"
+   523→  businessType      String    @default("retail_shop")
+   524→  /// Configuration générée par l'onboarding (JSON string)
+   525→  config            String?
+   526→
+   527→  // --- Configuration Boutique en Ligne Express ---
+   528→  storeSlug         String?   @unique // ex: "fatou-jus" — URL: /b/fatou-jus
+   529→  isStoreActive     Boolean   @default(false)
+   530→  storeLogoUrl      String?
+   531→  storeBannerUrl    String?
+   532→  /// Images du slider hero (JSON array d'URLs: ["url1", "url2", "url3"])
+   533→  storeSliderImages String?
+   534→  storePrimaryColor String    @default("#1E40AF")
+   535→  /// Options de livraison
+   536→  allowPickup       Boolean   @default(true)
+   537→  allowDelivery     Boolean   @default(true)
+   538→  deliveryFee       Int       @default(0) // en FCFA
+   539→
+   540→  createdAt         DateTime  @default(now())
+   541→  updatedAt         DateTime  @updatedAt
+   542→
+   543→  // Relations
+   544→  users             User[]
+   545→  subscription      Subscription?
+   546→  businesses        Business[]
+   547→  onlineOrders      OnlineOrder[]
+   548→  reviews           Review[]
+   549→  newsletterSubs    NewsletterSubscriber[]
+   550→  analyticsEvents   AnalyticsEvent[]
+   551→
+   552→  @@index([ownerEmail])
+   553→  @@index([businessType])
+   554→}
+   555→
+   556→/// Modèle pour les abonnements des tenants.
+   557→model Subscription {
+   558→  id                String    @id @default(cuid())
+   559→  tenantId          String    @unique
+   560→  tenant            Tenant    @relation(fields: [tenantId], references: [id])
+   561→
+   562→  /// "starter" | "pro" | "enterprise"
+   563→  plan              String    @default("starter")
+   564→  /// "active" | "suspended" | "expired" | "past_due" | "cancelled"
+   565→  status            String    @default("active")
+   566→  /// "monthly" | "annual" — période de facturation
+   567→  billingPeriod     String    @default("monthly")
+   568→
+   569→  currentPeriodStart DateTime  @default(now())
+   570→  currentPeriodEnd   DateTime
+   571→
+   572→  /// Montant en FCFA (entier — JAMAIS flottant)
+   573→  amount            Int       @default(0)
+   574→  /// "wave" | "orange_money" | "cash" | "bank_transfer"
+   575→  paymentMethod     String?
+   576→  lastPaymentDate   DateTime?
+   577→  nextBillingDate   DateTime?
+   578→
+   579→  createdAt         DateTime  @default(now())
+   580→  updatedAt         DateTime  @updatedAt
+   581→
+   582→  payments          SubscriptionPayment[]
+   583→
+   584→  @@index([status])
+   585→  @@index([nextBillingDate])
+   586→}
+   587→
+   588→/// Modèle pour les paiements des abonnements (historique).
+   589→model SubscriptionPayment {
+   590→  id                String    @id @default(cuid())
+   591→  subscriptionId    String
+   592→  subscription      Subscription @relation(fields: [subscriptionId], references: [id])
+   593→
+   594→  /// Montant payé en FCFA (entier)
+   595→  amount            Int
+   596→  paymentDate       DateTime  @default(now())
+   597→  /// "wave" | "orange_money" | "cash" | "bank_transfer"
+   598→  paymentMethod     String
+   599→  /// Référence de transaction (ex: ID Wave)
+   600→  reference         String?
+   601→  /// "completed" | "failed" | "pending"
+   602→  status            String    @default("completed")
+   603→
+   604→  createdAt         DateTime  @default(now())
+   605→
+   606→  @@index([subscriptionId])
+   607→  @@index([paymentDate])
+   608→}
+   609→
+   610→/// Modèle pour les logs globaux de la plateforme (superadmin).
+   611→model PlatformLog {
+   612→  id                String    @id @default(cuid())
+   613→  /// "info" | "warning" | "error" | "critical"
+   614→  level             String    @default("info")
+   615→  /// "payment" | "sync" | "api" | "user_action" | "impersonation" | "tenant_change"
+   616→  category          String
+   617→  message           String
+   618→  /// Données supplémentaires (JSON string)
+   619→  metadata          String?
+   620→
+   621→  createdAt         DateTime  @default(now())
+   622→
+   623→  @@index([level])
+   624→  @@index([category])
+   625→  @@index([createdAt])
+   626→}
+   627→
+   628→/// Messages envoyés depuis le formulaire de contact de la page /contact.
+   629→/// Accessibles en lecture par le superadmin via le bouton "Messages".
+   630→model ContactMessage {
+   631→  id          String   @id @default(cuid())
+   632→  /// Nom complet du contact
+   633→  name        String
+   634→  /// Email du contact
+   635→  email       String
+   636→  /// Contenu du message
+   637→  message     String
+   638→  /// Statut: "new" (non lu) | "read" (lu) | "archived"
+   639→  status      String   @default("new")
+   640→  /// Note interne du superadmin (optionnel)
+   641→  adminNote   String?
+   642→
+   643→  createdAt   DateTime @default(now())
+   644→  updatedAt   DateTime @updatedAt
+   645→
+   646→  @@index([status])
+   647→  @@index([createdAt])
+   648→  @@index([email])
+   649→}
+   650→
+   651→// ============================================================
+   652→// MODULES MÉTIER AVANCÉS — ajoutés pour la V2
+   653→// ============================================================
+   654→
+   655→/// Fournisseur (achat & dettes fournisseurs)
+   656→model Supplier {
+   657→  id              String   @id @default(cuid())
+   658→  businessId      String
+   659→  business        Business @relation(fields: [businessId], references: [id])
+   660→  name            String
+   661→  phone           String?
+   662→  email           String?
+   663→  address         String?
+   664→  /// Solde dû à ce fournisseur (cumul des achats - paiements)
+   665→  outstandingBalance Int @default(0)
+   666→  /// Note interne
+   667→  notes           String?
+   668→  isActive        Boolean  @default(true)
+   669→
+   670→  purchases       Purchase[]
+   671→  createdAt       DateTime @default(now())
+   672→  updatedAt       DateTime @updatedAt
+   673→
+   674→  @@index([businessId])
+   675→  @@index([isActive])
+   676→}
+   677→
+   678→/// Bon de commande / facture fournisseur
+   679→model Purchase {
+   680→  id              String   @id @default(cuid())
+   681→  businessId      String
+   682→  business        Business @relation(fields: [businessId], references: [id])
+   683→  supplierId      String?
+   684→  supplier        Supplier? @relation(fields: [supplierId], references: [id])
+   685→  /// Numéro de référence (ex: BC-2026-001)
+   686→  reference       String
+   687→  /// Statut : "draft" | "ordered" | "received" | "paid" | "cancelled"
+   688→  status          String   @default("draft")
+   689→  /// Montant total HT (FCFA)
+   690→  totalAmount     Int      @default(0)
+   691→  /// Montant déjà payé (FCFA)
+   692→  paidAmount      Int      @default(0)
+   693→  /// Date de réception prévue / effective
+   694→  orderDate       DateTime @default(now())
+   695→  receivedDate    DateTime?
+   696→  notes           String?
+   697→
+   698→  items           PurchaseItem[]
+   699→  createdAt       DateTime @default(now())
+   700→  updatedAt       DateTime @updatedAt
+   701→
+   702→  @@index([businessId])
+   703→  @@index([supplierId])
+   704→  @@index([status])
+   705→  @@unique([businessId, reference])
+   706→}
+   707→
+   708→model PurchaseItem {
+   709→  id              String   @id @default(cuid())
+   710→  purchaseId      String
+   711→  purchase        Purchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+   712→  productId       String?
+   713→  product         Product? @relation(fields: [productId], references: [id])
+   714→  /// Nom libre (au cas où le produit n'existe pas encore en DB)
+   715→  productName     String
+   716→  quantity        Int
+   717→  /// Prix d'achat unitaire (FCFA)
+   718→  unitPrice       Int
+   719→  /// Total ligne = quantity * unitPrice
+   720→  totalPrice      Int
+   721→
+   722→  createdAt       DateTime @default(now())
+   723→
+   724→  @@index([purchaseId])
+   725→  @@index([productId])
+   726→}
+   727→
+   728→/// Facture client — reçus formalisés avec numérotation fiscale
+   729→model Invoice {
+   730→  id              String   @id @default(cuid())
+   731→  businessId      String
+   732→  business        Business @relation(fields: [businessId], references: [id])
+   733→  /// Numéro de facture unique par business (ex: FAC-2026-0001)
+   734→  number          String
+   735→  /// Lien vers la commande (optionnel — vente encaissée via POS)
+   736→  orderId         String?
+   737→  order           Order?   @relation(fields: [orderId], references: [id])
+   738→  customerId      String?
+   739→  customer        Customer? @relation(fields: [customerId], references: [id])
+   740→  /// Montant HT (FCFA)
+   741→  subtotal        Int      @default(0)
+   742→  /// TVA en % (généralement 18% au Sénégal)
+   743→  taxRate         Float    @default(0)
+   744→  /// Montant TVA
+   745→  taxAmount       Int      @default(0)
+   746→  /// Total TTC
+   747→  totalAmount     Int      @default(0)
+   748→  /// Montant déjà payé
+   749→  paidAmount      Int      @default(0)
+   750→  /// Statut : "draft" | "sent" | "paid" | "partial" | "cancelled"
+   751→  status          String   @default("draft")
+   752→  /// Date d'émission / échéance
+   753→  issueDate       DateTime @default(now())
+   754→  dueDate         DateTime?
+   755→  /// Notes / conditions
+   756→  notes           String?
+   757→  /// Items (snapshot au moment de la facturation)
+   758→  itemsJson       String   @default("[]")
+   759→
+   760→  createdAt       DateTime @default(now())
+   761→  updatedAt       DateTime @updatedAt
+   762→
+   763→  @@index([businessId])
+   764→  @@index([customerId])
+   765→  @@index([status])
+   766→  @@unique([businessId, number])
+   767→}
+   768→
+   769→/// Pointage / présence des employés
+   770→model Attendance {
+   771→  id              String   @id @default(cuid())
+   772→  businessId      String
+   773→  business        Business @relation(fields: [businessId], references: [id])
+   774→  userId          String
+   775→  user            User     @relation(fields: [userId], references: [id])
+   776→  /// Date du pointage (jour)
+   777→  date            DateTime
+   778→  checkInTime     DateTime?
+   779→  checkOutTime    DateTime?
+   780→  /// Minutes travaillées (calculé au checkout)
+   781→  workedMinutes   Int      @default(0)
+   782→  notes           String?
+   783→
+   784→  createdAt       DateTime @default(now())
+   785→
+   786→  @@index([businessId])
+   787→  @@index([userId])
+   788→  @@index([date])
+   789→}
+   790→
+   791→/// Commission par vendeur (par vente ou par période)
+   792→model Commission {
+   793→  id              String   @id @default(cuid())
+   794→  businessId      String
+   795→  business        Business @relation(fields: [businessId], references: [id])
+   796→  userId          String
+   797→  user            User     @relation(fields: [userId], references: [id])
+   798→  /// Type : "percentage" (sur vente) ou "fixed" (montant fixe)
+   799→  type            String   @default("percentage")
+   800→  /// % (si percentage) ou montant (si fixed) — FCFA
+   801→  value           Float    @default(0)
+   802→  /// Lien vers la vente qui a généré la commission (optionnel)
+   803→  orderId         String?
+   804→  order           Order?   @relation(fields: [orderId], references: [id])
+   805→  /// Montant calculé en FCFA
+   806→  amount          Int      @default(0)
+   807→  /// Statut : "due" | "paid"
+   808→  status          String   @default("due")
+   809→  paidAt          DateTime?
+   810→
+   811→  createdAt       DateTime @default(now())
+   812→
+   813→  @@index([businessId])
+   814→  @@index([userId])
+   815→  @@index([status])
+   816→}
+   817→
+   818→/// Entrée de paie (avance, retenue, salaire)
+   819→model PayrollEntry {
+   820→  id              String   @id @default(cuid())
+   821→  businessId      String
+   822→  business        Business @relation(fields: [businessId], references: [id])
+   823→  userId          String
+   824→  user            User     @relation(fields: [userId], references: [id])
+   825→  /// Type : "advance" (avance) | "deduction" (retenue) | "salary" (salaire net) | "bonus"
+   826→  type            String
+   827→  /// Montant en FCFA
+   828→  amount          Int
+   829→  /// Période (ex: "2026-10")
+   830→  period          String
+   831→  notes           String?
+   832→  paidAt          DateTime @default(now())
+   833→
+   834→  createdAt       DateTime @default(now())
+   835→
+   836→  @@index([businessId])
+   837→  @@index([userId])
+   838→  @@index([period])
+   839→}
+   840→
+   841→/// Log des notifications WhatsApp envoyées (ou à envoyer)
+   842→model NotificationLog {
+   843→  id              String   @id @default(cuid())
+   844→  businessId      String
+   845→  business        Business @relation(fields: [businessId], references: [id])
+   846→  /// Destinataire (numéro téléphone format international sans +, ex: 221783821822)
+   847→  recipient       String
+   848→  /// Type de notification
+   849→  /// "sale_receipt" | "debt_reminder" | "stock_alert" | "daily_summary" | "custom"
+   850→  type            String
+   851→  /// Message pré-rempli (texte)
+   852→  message         String
+   853→  /// Canal : "wa_me_link" (génère un lien wa.me) ou "whatsapp_api" (si clé API configurée)
+   854→  channel         String   @default("wa_me_link")
+   855→  /// Statut : "pending" | "clicked" | "sent" | "failed"
+   856→  status          String   @default("pending")
+   857→  /// Lien wa.me généré
+   858→  waMeUrl         String?
+   859→  /// Métadonnées (JSON)
+   860→  metadata        String?
+   861→
+   862→  createdAt       DateTime @default(now())
+   863→
+   864→  @@index([businessId])
+   865→  @@index([recipient])
+   866→  @@index([type])
+   867→  @@index([status])
+   868→}
+   869→
+   870→/// Configuration des notifications WhatsApp par business
+   871→model NotificationSetting {
+   872→  id              String   @id @default(cuid())
+   873→  businessId      String   @unique
+   874→  business        Business @relation(fields: [businessId], references: [id])
+   875→  /// Activer l'envoi de reçu WhatsApp après chaque vente
+   876→  enableSaleReceipt   Boolean @default(true)
+   877→  /// Activer les rappels de dette automatiques
+   878→  enableDebtReminders Boolean @default(true)
+   879→  /// Nombre de jours avant relance (7, 15, 30)
+   880→  debtReminderDays   Int     @default(7)
+   881→  /// Activer les alertes de rupture de stock
+   882→  enableStockAlerts   Boolean @default(true)
+   883→  /// Seuil de stock global (peut être surchargé par produit)
+   884→  stockAlertThreshold Int     @default(5)
+   885→  /// Activer le récap quotidien
+   886→  enableDailySummary  Boolean @default(false)
+   887→  /// Heure du récap (ex: "20:00")
+   888→  dailySummaryTime    String  @default("20:00")
+   889→  /// Numéro WhatsApp du patron (pour recevoir les alertes)
+   890→  ownerPhone          String?
+   891→
+   892→  createdAt       DateTime @default(now())
+   893→  updatedAt       DateTime @updatedAt
+   894→}
+   895→
+   896→// ==========================================
+   897→// DETTES CLIENTS (Ventes à crédit / créances)
+   898→// ==========================================
+   899→
+   900→/// Dette client — créance indépendante d'une commande.
+   901→/// Peut être créée manuellement (vente à crédit isolée) ou liée à une commande (orderId).
+   902→/// Suivi du remboursement progressif via paidAmount + paymentHistory.
+   903→model Debt {
+   904→  id              String   @id @default(cuid())
+   905→  businessId      String
+   906→  business        Business @relation(fields: [businessId], references: [id])
+   907→  customerId      String
+   908→  customer        Customer @relation(fields: [customerId], references: [id])
+   909→  /// Montant de la dette (FCFA)
+   910→  amount          Int
+   911→  /// Montant déjà remboursé (FCFA)
+   912→  paidAmount      Int      @default(0)
+   913→  /// Date à laquelle la dette a été contractée
+   914→  debtDate        DateTime @default(now())
+   915→  /// Date de recouvrement prévue (quand le client a promis de payer)
+   916→  expectedPaymentDate DateTime?
+   917→  /// Statut: "active" (en cours) | "paid" (entièrement remboursée) | "partial" (partiellement)
+   918→  status          String   @default("active")
+   919→  /// Notes (libre)
+   920→  notes           String?
+   921→  /// Lien vers une commande (optionnel — si la dette vient d'une vente à crédit)
+   922→  orderId         String?
+   923→  order           Order?   @relation(fields: [orderId], references: [id])
+   924→  /// Historique des paiements (JSON string: [{date, amount, method}])
+   925→  paymentHistory  String   @default("[]")
+   926→  createdAt       DateTime @default(now())
+   927→  updatedAt       DateTime @updatedAt
+   928→
+   929→  @@index([businessId])
+   930→  @@index([customerId])
+   931→  @@index([status])
+   932→}
+   933→
+   934→// Ajout des relations manquantes aux modèles existants
+   935→
+   936→// ============================================================
+   937→// PROMOS & PERSONNALISATION DU TICKET
+   938→// ============================================================
+   939→
+   940→/// Promo commerciale (1 seule active à la fois par business).
+   941→/// Peut être de 3 types : globale (% sur tout), par produit (% sur un produit),
+   942→/// ou par montant (% si total > seuil).
+   943→model Promo {
+   944→  id              String   @id @default(cuid())
+   945→  businessId      String
+   946→  business        Business @relation(fields: [businessId], references: [id])
+   947→  /// Nom de la promo (ex: "Promo du jour -20%")
+   948→  name            String
+   949→  /// Type: "global" (% sur tout) | "product" (% sur 1 produit) | "amount" (% si total > seuil)
+   950→  type            String   @default("global")
+   951→  /// Pourcentage de réduction (ex: 20 = -20%)
+   952→  percentage      Float    @default(0)
+   953→  /// Si type="product" → ID du produit concerné (optionnel)
+   954→  productId       String?
+   955→  /// Si type="amount" → seuil minimum en FCFA (ex: 10000 = -10% si total > 10000 FCFA)
+   956→  minAmount       Int?
+   957→  /// Message affiché sur le ticket (ex: "Profitez de -20% sur tout aujourd'hui !")
+   958→  ticketMessage   String?
+   959→  /// Une seule promo active à la fois par business
+   960→  isActive        Boolean  @default(true)
+   961→  /// Période de validité
+   962→  startDate       DateTime @default(now())
+   963→  endDate         DateTime?
+   964→
+   965→  createdAt       DateTime @default(now())
+   966→  updatedAt       DateTime @updatedAt
+   967→
+   968→  @@index([businessId])
+   969→  @@index([isActive])
+   970→}
+   971→
+   972→// ============================================================
+   973→// PARAMÈTRES PLATEFORME — SEO, Email, Analytics
+   974→// ============================================================
+   975→
+   976→/// Singleton contenant tous les paramètres globaux de la plateforme YonuKom.
+   977→/// Accessible uniquement par le superadmin via /api/superadmin/settings.
+   978→model PlatformSetting {
+   979→  id          String   @id @default("singleton")
+   980→
+   981→  /// SEO metadata for the platform
+   982→  seoTitle       String?
+   983→  seoDescription String?
+   984→  seoKeywords    String?
+   985→  ogImageUrl     String?
+   986→
+   987→  /// Email configuration (SMTP)
+   988→  smtpHost       String?
+   989→  smtpPort       Int?
+   990→  smtpUser       String?
+   991→  smtpPassword   String?
+   992→  smtpFromEmail  String?
+   993→  smtpFromName   String?
+   994→
+   995→  /// Google Analytics ID
+   996→  googleAnalyticsId String?
+   997→  /// Facebook Pixel ID
+   998→  facebookPixelId   String?
+   999→
+  1000→  updatedAt   DateTime @updatedAt
+  1001→}
+  1002→
+  1003→// ============================================================
+  1004→// BOUTIQUE EN LIGNE EXPRESS (V1)
+  1005→// ============================================================
+  1006→
+  1007→/// Commande provenant de la boutique en ligne publique (/b/[slug]).
+  1008→/// Intégrée au système de stock "Réservé" — la quantité commandée
+  1009→/// est déduite de available_quantity et ajoutée à reserved_quantity.
+  1010→model OnlineOrder {
+  1011→  id                String    @id @default(cuid())
+  1012→  tenantId          String
+  1013→  tenant            Tenant    @relation(fields: [tenantId], references: [id])
+  1014→  
+  1015→  /// Infos client (le téléphone est OBLIGATOIRE pour contact WhatsApp)
+  1016→  customerName      String
+  1017→  customerPhone     String
+  1018→  
+  1019→  /// Null si retrait en boutique (PICKUP)
+  1020→  deliveryAddress   String?
+  1021→  
+  1022→  /// "PICKUP" ou "DELIVERY"
+  1023→  deliveryMethod    String
+  1024→  deliveryFee       Int       @default(0)
+  1025→  
+  1026→  /// Total produits + frais de livraison
+  1027→  totalAmount       Int
+  1028→  
+  1029→  /// "CASH_ON_DELIVERY" ou "WAVE_OM_LINK"
+  1030→  paymentMethod     String
+  1031→  
+  1032→  /// "PENDING" → "CONFIRMED" → "COMPLETED"
+  1033→  /// "PENDING" → "CANCELLED" (libère le stock réservé)
+  1034→  status            String    @default("PENDING")
+  1035→  
+  1036→  /// Snapshot JSON des produits commandés (nom, qty, prix unitaire)
+  1037→  /// Format: [{ productId, name, quantity, unitPrice, totalPrice }]
+  1038→  items             String    @default("[]")
+  1039→  
+  1040→  createdAt         DateTime  @default(now())
+  1041→  updatedAt         DateTime  @updatedAt
+  1042→  
+  1043→  @@index([tenantId])
+  1044→  @@index([status])
+  1045→  @@index([customerPhone])
+  1046→}
+  1047→
+  1048→// ============================================================
+  1049→// MODULES BOUTIQUE EN LIGNE — V2 (avis, newsletter, analytics, vedettes)
+  1050→// ============================================================
+  1051→
+  1052→/// Avis / notation client sur un produit ou la boutique en général.
+  1053→/// Lié au Tenant (la boutique publique). Modération : isApproved requise.
+  1054→model Review {
+  1055→  id            String   @id @default(cuid())
+  1056→  tenantId      String
+  1057→  tenant        Tenant   @relation(fields: [tenantId], references: [id])
+  1058→
+  1059→  /// Produit concerné (optionnel — null = avis sur la boutique en général)
+  1060→  productId     String?
+  1061→  product       Product? @relation(fields: [productId], references: [id])
+  1062→
+  1063→  /// Nom du client (saisi librement lors du dépôt d'avis)
+  1064→  customerName  String
+  1065→  customerPhone String?
+  1066→  /// Note de 1 à 5 étoiles
+  1067→  rating        Int
+  1068→  /// Commentaire textuel (optionnel)
+  1069→  comment       String?
+  1070→
+  1071→  /// Avis modéré (visible publiquement seulement si true)
+  1072→  isApproved    Boolean  @default(false)
+  1073→
+  1074→  createdAt     DateTime @default(now())
+  1075→
+  1076→  @@index([tenantId])
+  1077→  @@index([productId])
+  1078→  @@index([isApproved])
+  1079→  @@index([rating])
+  1080→}
+  1081→
+  1082→/// Abonné à la newsletter d'une boutique publique.
+  1083→/// L'email est unique par tenant. Le téléphone est optionnel (notifications WhatsApp).
+  1084→model NewsletterSubscriber {
+  1085→  id            String   @id @default(cuid())
+  1086→  tenantId      String
+  1087→  tenant        Tenant   @relation(fields: [tenantId], references: [id])
+  1088→  email         String
+  1089→  phone         String?
+  1090→  /// Source d'inscription : "store" (boutique publique) | "landing" (page d'accueil)
+  1091→  source        String   @default("store")
+  1092→  isActive      Boolean  @default(true)
+  1093→
+  1094→  createdAt     DateTime @default(now())
+  1095→  updatedAt     DateTime @updatedAt
+  1096→
+  1097→  @@index([tenantId])
+  1098→  @@index([isActive])
+  1099→  @@unique([tenantId, email])
+  1100→}
+  1101→
+  1102→/// Événement analytics anonyme pour la boutique publique.
+  1103→/// Permet au commerçant de voir les visites, vues produit, ajouts panier, commandes.
+  1104→/// Pas de PII — uniquement sessionId (UUID aléatoire côté client).
+  1105→model AnalyticsEvent {
+  1106→  id            String   @id @default(cuid())
+  1107→  tenantId      String
+  1108→  tenant        Tenant   @relation(fields: [tenantId], references: [id])
+  1109→
+  1110→  /// Type d'événement :
+  1111→  /// "page_view" | "product_view" | "add_to_cart" | "checkout" | "purchase" | "whatsapp_click"
+  1112→  type          String
+  1113→  /// Chemin consulté (ex: "/b/fatou-jus")
+  1114→  path          String?
+  1115→  /// Produit concerné (pour product_view / add_to_cart)
+  1116→  productId     String?
+  1117→  /// Session anonyme (UUID stocké en localStorage côté client)
+  1118→  sessionId     String?
+  1119→  /// Métadonnées JSON (navigateur, referrer, etc.)
+  1120→  meta          String?
+  1121→
+  1122→  createdAt     DateTime @default(now())
+  1123→
+  1124→  @@index([tenantId])
+  1125→  @@index([type])
+  1126→  @@index([createdAt])
+  1127→  @@index([sessionId])
+  1128→}
+  1129→

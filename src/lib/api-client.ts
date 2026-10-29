@@ -46,7 +46,7 @@ export function patchGlobalFetch() {
   const originalFetch = window.fetch;
   (window as any).__fetchPatched = true;
 
-  window.fetch = function (input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  window.fetch = async function (input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
     // Only patch same-origin API requests
     const url = typeof input === "string" ? input : (input as Request).url;
     const isApiCall = url.startsWith("/api/") || url.startsWith(window.location.origin + "/api/");
@@ -73,7 +73,34 @@ export function patchGlobalFetch() {
       }
     }
 
-    return originalFetch.call(this, input, init);
+    const response = await originalFetch.call(this, input, init);
+
+    // --- Intercepteur 401 : session expirée ---
+    // Si un appel API protégé retourne 401 (JWT expiré/invalide), on déconnecte
+    // l'utilisateur (clear localStorage) et on le renvoie vers le landing.
+    // On EXCLUT /api/auth/login et /api/auth/register : un 401 là-bas signifie
+    // "mauvais mot de passe", pas "session expirée" — le composant gère l'erreur.
+    if (response.status === 401 && isApiCall) {
+      const urlStr = typeof input === "string" ? input : (input as Request).url;
+      if (
+        !urlStr.includes("/api/auth/login") &&
+        !urlStr.includes("/api/auth/register")
+      ) {
+        // Évite les boucles si déjà sur le landing
+        if (window.location.pathname !== "/") {
+          try {
+            localStorage.removeItem("yonukom_token");
+            localStorage.removeItem("yonukom_user");
+            localStorage.removeItem("yonukom_config");
+          } catch {
+            /* ignore */
+          }
+          window.location.href = "/";
+        }
+      }
+    }
+
+    return response;
   };
 }
 

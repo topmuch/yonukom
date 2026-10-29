@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db as prisma } from "@/lib/db";
+import { requireSuperadmin } from "@/lib/require-superadmin";
 
 // GET /api/superadmin/messages — liste tous les messages de contact
 // Query params: ?status=new|read|archived (optionnel)
-export async function GET(req: NextRequest) {
+export async function GET(request: NextRequest) {
   try {
-    const url = new URL(req.url);
+    const forbidden = requireSuperadmin(request);
+    if (forbidden) return forbidden;
+
+    const url = new URL(request.url);
     const status = url.searchParams.get("status");
 
     const where: any = {};

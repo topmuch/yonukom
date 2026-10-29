@@ -1,8 +1,12 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { requireSuperadmin } from '@/lib/require-superadmin';
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
+    const forbidden = requireSuperadmin(request);
+    if (forbidden) return forbidden;
+
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status');
 

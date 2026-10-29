@@ -6,6 +6,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { requireSuperadmin } from "@/lib/require-superadmin";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -13,6 +14,9 @@ type Params = { params: Promise<{ id: string }> };
 // Body: { isActive?: boolean, role?: string, name?: string, email?: string, phone?: string }
 export async function PATCH(request: NextRequest, { params }: Params) {
   try {
+    const forbidden = requireSuperadmin(request);
+    if (forbidden) return forbidden;
+
     const { id } = await params;
     const body = await request.json();
 
@@ -120,6 +124,9 @@ export async function PATCH(request: NextRequest, { params }: Params) {
 // Refused if user is the only patron of a tenant or only patron of a business.
 export async function DELETE(request: NextRequest, { params }: Params) {
   try {
+    const forbidden = requireSuperadmin(request);
+    if (forbidden) return forbidden;
+
     const { id } = await params;
 
     const user = await db.user.findUnique({

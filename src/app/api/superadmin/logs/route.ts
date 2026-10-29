@@ -1,9 +1,13 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { getRecentPlatformLogs } from '@/lib/analytics/superadmin-metrics';
+import { requireSuperadmin } from '@/lib/require-superadmin';
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
+    const forbidden = requireSuperadmin(request);
+    if (forbidden) return forbidden;
+
     const { searchParams } = new URL(request.url);
     const level = searchParams.get('level');
     const category = searchParams.get('category');
@@ -61,8 +65,11 @@ export async function GET(request: Request) {
   }
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
+    const forbidden = requireSuperadmin(request);
+    if (forbidden) return forbidden;
+
     const body = await request.json();
     const { level, category, message, metadata } = body;
 

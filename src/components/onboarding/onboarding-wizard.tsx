@@ -129,8 +129,26 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
   const canGoPrev = currentStepIndex > 0;
 
   // --- Écran de succès : célébration plein écran ---
+  // Quand l'utilisateur clique sur "Accéder à mon espace", on sauvegarde la
+  // config générée dans useConfigStore → isOnboarded passe à true → AppView
+  // bascule du wizard vers le dashboard. (submit() ne fait que marquer
+  // isCompleted=true SANS saveConfig, pour laisser le temps à SuccessScreen
+  // de s'afficher.)
   if (isCompleted) {
-    return <SuccessScreen onComplete={onComplete} />;
+    const enterDashboard = async () => {
+      try {
+        const config = useOnboardingStore.getState().generatedConfig;
+        if (config) {
+          const { useConfigStore } = await import("@/stores/use-config-store");
+          useConfigStore.getState().saveConfig(config);
+        }
+      } catch {
+        /* fallback */
+      }
+      // Si un onComplete externe est fourni, l'appeler aussi
+      if (onComplete) onComplete();
+    };
+    return <SuccessScreen onComplete={enterDashboard} />;
   }
 
   const branding = STEP_BRANDING[step];

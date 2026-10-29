@@ -146,6 +146,23 @@ export async function middleware(request: NextRequest) {
   requestHeaders.set("x-user-role", payload.role || "");
   requestHeaders.set("x-business-id", payload.businessId || "");
 
+  // --- Garde superadmin (Layer 1) ---
+  // Les routes /api/superadmin/* sont réservées au superadmin.
+  // On vérifie le rôle DÉCODÉ DU JWT (et non l'en-tête modifiable) :
+  // cela empêche un vendeur/patron/gerant authentifié d'accéder aux
+  // routes superadmin (lecture PII tenants, escalation de privilèges, etc.).
+  // NOTE sur l'impersonation : l'impersonation change le businessId/token
+  // d'un autre tenant, mais le superadmin reste superadmin dans son JWT.
+  // Si à l'avenir l'impersonation réécrit le rôle, il faudra s'appuyer sur
+  // un claim séparé (ex. x-real-role) ; pour l'instant le JWT principal
+  // conserve le rôle superadmin.
+  if (pathname.startsWith("/api/superadmin/") && payload.role !== "superadmin") {
+    return NextResponse.json(
+      { error: "Accès réservé au superadministrateur" },
+      { status: 403 }
+    );
+  }
+
   return NextResponse.next({
     request: {
       headers: requestHeaders,

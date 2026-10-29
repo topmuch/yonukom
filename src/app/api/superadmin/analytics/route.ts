@@ -1,12 +1,16 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import {
   getTenantMetrics,
   getRevenueByMonth,
   getSubscriptionBreakdown,
 } from '@/lib/analytics/superadmin-metrics';
+import { requireSuperadmin } from '@/lib/require-superadmin';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const forbidden = requireSuperadmin(request);
+    if (forbidden) return forbidden;
+
     const [tenantMetrics, revenueByMonth, subscriptionBreakdown] = await Promise.all([
       getTenantMetrics(),
       getRevenueByMonth(),

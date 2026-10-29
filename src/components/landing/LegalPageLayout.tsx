@@ -19,10 +19,15 @@ export function LegalPageLayout({ children }: LegalPageLayoutProps) {
   const router = useRouter();
 
   const goHome = () => router.push("/");
+  // Les CTAs "Se connecter" / "Commencer" du Navbar basculent vers la page
+  // d'accueil avec le paramètre ?view= pour ouvrir directement le bon formulaire
+  // (page.tsx lit ce paramètre via window.location.search au montage).
+  const goLogin = () => router.push("/?view=login");
+  const goSignup = () => router.push("/?view=signup");
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
-      <Navbar variant="app" onBackToHome={goHome} />
+      <Navbar variant="app" onBackToHome={goHome} onLogin={goLogin} onSignup={goSignup} />
       <main className="flex-1">{children}</main>
       <Footer />
       <ScrollToTop />

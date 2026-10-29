@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
           action: 'login_failed',
           entityType: 'user',
           details: JSON.stringify({ email, reason: 'user_not_found' }),
-          businessId: 'unknown',
+          businessId: null,
         },
       })
       return NextResponse.json(
@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
           entityType: 'user',
           entityId: user.id,
           userId: user.id,
-          businessId: user.businessId ?? 'unknown',
+          businessId: user.businessId,
           details: JSON.stringify({ email, reason: 'wrong_password' }),
         },
       })
@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
         entityType: 'user',
         entityId: user.id,
         userId: user.id,
-        businessId: user.businessId ?? 'unknown',
+        businessId: user.businessId,
         details: JSON.stringify({ email, role: user.role }),
       },
     })

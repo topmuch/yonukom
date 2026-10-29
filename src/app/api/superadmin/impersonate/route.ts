@@ -1,8 +1,12 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { requireSuperadmin } from '@/lib/require-superadmin';
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
+    const forbidden = requireSuperadmin(request);
+    if (forbidden) return forbidden;
+
     const body = await request.json();
     const { tenantId } = body;
 

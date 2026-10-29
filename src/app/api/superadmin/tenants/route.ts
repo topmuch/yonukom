@@ -1,8 +1,12 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { requireSuperadmin } from '@/lib/require-superadmin';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const forbidden = requireSuperadmin(request);
+    if (forbidden) return forbidden;
+
     const tenants = await db.tenant.findMany({
       include: {
         subscription: true,
@@ -40,8 +44,11 @@ export async function GET() {
   }
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
+    const forbidden = requireSuperadmin(request);
+    if (forbidden) return forbidden;
+
     const body = await request.json();
     const { name, ownerName, ownerEmail, ownerPhone, businessType, config } = body;
 

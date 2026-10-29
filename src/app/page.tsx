@@ -143,6 +143,23 @@ export default function Home() {
     }
   }, [user, view]);
 
+  // --- Support des deep-links ?view=login|?view=signup ---
+  // Les pages marketing (/tarifs, /faq, /fonctionnalites, /yonukom) font
+  // router.push("/?view=signup") ou "/?view=login". On lit ce paramètre une
+  // fois l'auth hydratée, et si l'utilisateur n'est PAS connecté, on bascule
+  // sur le formulaire demandé. (Si connecté, l'auto-redirect l'envoie sur "app".)
+  useEffect(() => {
+    if (!authLoaded) return;
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const v = params.get("view");
+    if ((v === "signup" || v === "login") && !user && view === "landing") {
+      setSignupSuccess(null);
+      setView(v);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authLoaded]);
+
   // Synchronous fallback — instant view switch with no intermediate render
   // that could show a "Redirection..." placeholder.
   const effectiveView: PageView =
@@ -999,19 +1016,6 @@ function HomeTab({ onTabChange, onLogout }: { onTabChange: (tab: TabId) => void;
               })}
             </div>
           </div>
-
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }}>
-            <Card className="border-yk-amber/30 bg-yk-amber/5">
-              <CardContent className="p-4 flex items-center gap-3">
-                <AlertTriangle className="w-5 h-5 text-yk-amber shrink-0" />
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-yk-amber">1 produit en rupture</p>
-                  <p className="text-xs text-muted-foreground">Savon 500g est en rupture de stock</p>
-                </div>
-                <Button variant="outline" size="sm" className="shrink-0 text-xs" onClick={() => onTabChange("stock")}>Voir<ArrowRight className="w-3 h-3 ml-1" /></Button>
-              </CardContent>
-            </Card>
-          </motion.div>
 
           <PermissionGuard permission="canCloseCashSession" fallback={null}>
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6 }}>

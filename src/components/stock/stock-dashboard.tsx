@@ -24,6 +24,7 @@ import {
 import { motion } from "framer-motion";
 import { formatFCFA } from "@/lib/fcfa";
 import { useAuthStore } from "@/stores/use-auth-store";
+import { toast } from "sonner";
 
 interface StockProduct {
   id: string;
@@ -42,6 +43,7 @@ export function StockDashboard() {
   const [lossProduct, setLossProduct] = useState<StockProduct | null>(null);
   const [lossOpen, setLossOpen] = useState(false);
   const [activeView, setActiveView] = useState<"dashboard" | "products">("dashboard");
+  const [actioningId, setActioningId] = useState<string | null>(null);
 
   const user = useAuthStore((s) => s.user);
   const businessId = user?.businessId;
@@ -92,18 +94,54 @@ export function StockDashboard() {
     setLossOpen(true);
   };
 
-  const confirmLoss = (quantity: number, reason: string) => {
-    if (!lossProduct) return;
-    // Update stock locally (mock)
-    setProducts((prev) =>
-      prev.map((p) =>
-        p.id === lossProduct.id
-          ? { ...p, quantity: Math.max(0, p.quantity - quantity) }
-          : p
-      )
-    );
-    // In production, would call API: POST /api/stock-movements with type: "loss"
-    console.log(`Stock loss: ${lossProduct.name}, qty: ${quantity}, reason: ${reason}`);
+  const confirmLoss = async (quantity: number, reason: string) => {
+    if (!lossProduct || !businessId) return;
+    setActioningId("loss");
+    try {
+      const token =
+        typeof window !== "undefined"
+          ? localStorage.getItem("yonukom_token")
+          : null;
+      const res = await fetch("/api/stock-movements", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        credentials: "include",
+        body: JSON.stringify({
+          businessId,
+          productId: lossProduct.id,
+          quantity,
+          reason,
+          type: "loss",
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Échec de l'enregistrement");
+      }
+      const data = await res.json();
+      // Mettre à jour le stock localement depuis la réponse du serveur
+      // (le serveur a déduit + clampé à 0).
+      setProducts((prev) =>
+        prev.map((p) =>
+          p.id === lossProduct.id
+            ? { ...p, quantity: data.product?.quantity ?? Math.max(0, p.quantity - quantity) }
+            : p
+        )
+      );
+      toast.success(
+        `Perte enregistrée — ${lossProduct.name} (${quantity} unité${
+          quantity > 1 ? "s" : ""
+        })`
+      );
+      setLossProduct(null);
+    } catch (err: any) {
+      toast.error(err.message || "Erreur lors de l'enregistrement de la perte");
+    } finally {
+      setActioningId(null);
+    }
   };
 
   // Loading skeleton
