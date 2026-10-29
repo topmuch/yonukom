@@ -25,6 +25,8 @@ export async function GET(request: NextRequest) {
         wavePaymentLink: true,
         qrCodeUrl: true,
         ticketFooterMessage: true,
+        onboardingConfig: true,
+        onboardingCompleted: true,
       },
     });
     if (!business) {

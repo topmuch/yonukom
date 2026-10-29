@@ -24,6 +24,14 @@ export interface ConfigState {
   saveConfig: (config: ModuleConfig) => void;
   /** Réinitialiser (pour refaire l'onboarding) */
   resetConfig: () => void;
+  /**
+   * Rafraîchir la config depuis le serveur (après modification des settings
+   * business). Re-fetch /api/business/profile et recharge onboardingConfig.
+   * Corrige la staleness : avant, la config n'était jamais re-fetchée après
+   * login, donc un changement côté serveur n'était pas répercuté jusqu'à
+   * déconnexion/reconnexion.
+   */
+  refreshFromServer: (businessId: string) => Promise<void>;
 
   // --- SÉLECTEURS DE MODULES ---
   /** Le module E-Commerce Social est-il actif ? */
@@ -72,6 +80,32 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
     set({ config: null, isOnboarded: false, isLoaded: true });
     if (typeof window !== "undefined") {
       localStorage.removeItem("yonukom_config");
+    }
+  },
+
+  refreshFromServer: async (businessId: string) => {
+    if (typeof window === "undefined" || !businessId) return;
+    try {
+      const token = localStorage.getItem("yonukom_token");
+      const res = await fetch(
+        `/api/business/profile?businessId=${encodeURIComponent(businessId)}`,
+        {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+          credentials: "include",
+        }
+      );
+      if (!res.ok) return;
+      const data = await res.json();
+      // Si le business a une config d'onboarding, la recharger dans le store.
+      // Si onboardingCompleted=false, on marque isOnboarded=false pour
+      // forcer le wizard à se réafficher.
+      if (data.onboardingConfig) {
+        get().loadConfig(data.onboardingConfig);
+      } else if (data.onboardingCompleted === false) {
+        set({ isOnboarded: false, isLoaded: true });
+      }
+    } catch {
+      // Silencieux — le refresh ne doit pas casser l'UI
     }
   },
 

@@ -253,18 +253,34 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                   )}
                 </Button>
               ) : (
-                <Button
-                  onClick={nextStep}
-                  disabled={!canGoNext}
-                  className="touch-target min-w-[150px] text-white shadow-lg shadow-[#338BE2]/30 transition-all hover:shadow-xl hover:shadow-[#338BE2]/40 hover:-translate-y-0.5 disabled:translate-y-0 disabled:shadow-none"
-                  style={{
-                    background:
-                      "linear-gradient(135deg, #338BE2 0%, #2074C6 100%)",
-                  }}
-                >
-                  Continuer
-                  <ArrowRight className="w-4 h-4" />
-                </Button>
+                <div className="flex items-center gap-2">
+                  {/* Passer — visible sur les étapes optionnelles (pas l'étape 1
+                      business_type qui est obligatoire). Signale que l'étape
+                      peut être ignorée (les valeurs par défaut seront utilisées). */}
+                  {currentStepIndex >= 1 && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={nextStep}
+                      className="text-muted-foreground hover:text-foreground text-xs"
+                      title="Passer cette étape — les valeurs par défaut seront utilisées"
+                    >
+                      Passer
+                    </Button>
+                  )}
+                  <Button
+                    onClick={nextStep}
+                    disabled={!canGoNext}
+                    className="touch-target min-w-[150px] text-white shadow-lg shadow-[#338BE2]/30 transition-all hover:shadow-xl hover:shadow-[#338BE2]/40 hover:-translate-y-0.5 disabled:translate-y-0 disabled:shadow-none"
+                    style={{
+                      background:
+                        "linear-gradient(135deg, #338BE2 0%, #2074C6 100%)",
+                    }}
+                  >
+                    Continuer
+                    <ArrowRight className="w-4 h-4" />
+                  </Button>
+                </div>
               )}
             </div>
           </footer>

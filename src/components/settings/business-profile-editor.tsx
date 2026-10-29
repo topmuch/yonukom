@@ -102,6 +102,14 @@ export function BusinessProfileEditor() {
       }
       setSaved(true);
       setTimeout(() => setSaved(false), 4000);
+      // Rafraîchir la config store au cas où onboardingConfig a changé côté
+      // serveur (ex: reconfiguration des modules). Corrige la staleness M-C5.
+      try {
+        const { useConfigStore } = await import("@/stores/use-config-store");
+        await useConfigStore.getState().refreshFromServer(businessId);
+      } catch {
+        /* non-bloquant */
+      }
     } catch (err: any) {
       setError(err.message || "Erreur");
     } finally {

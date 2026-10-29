@@ -106,6 +106,14 @@ export function StoreSettingsEditor() {
       });
       if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.error || "Erreur"); }
       setSaved(true); setTimeout(() => setSaved(false), 4000); fetchSettings();
+      // Rafraîchir la config store (staleness M-C5) — au cas où les modules
+      // liés à la boutique en ligne ont changé côté serveur.
+      try {
+        const { useConfigStore } = await import("@/stores/use-config-store");
+        await useConfigStore.getState().refreshFromServer(businessId);
+      } catch {
+        /* non-bloquant */
+      }
     } catch (err: any) { setError(err.message || "Erreur"); }
     finally { setSaving(false); }
   };
