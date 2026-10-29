@@ -11,6 +11,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getDefaultCategories } from "@/config/default-categories";
+import { buildModulesForBusinessType } from "@/lib/modules/module-config";
 
 export async function POST(request: NextRequest) {
   try {
@@ -110,8 +111,23 @@ export async function POST(request: NextRequest) {
       }
     } catch (catErr) {
       console.error("[Onboarding] category creation failed:", catErr);
-      // Non-bloquant — l'échec de la création des catégories ne doit pas
-      // casser l'onboarding. Le marchand pourra créer ses catégories manuellement.
+    }
+
+    // --- Définir les modules activables selon le métier ---
+    // Un restaurant ne voit pas les modules salon, un salon ne voit pas
+    // wholesale, etc. Seuls les modules pertinents sont enabled=true.
+    // Le superadmin peut override (activer n'importe quel module).
+    if (existingBusiness.tenantId) {
+      try {
+        const bt = (businessType.type as string) || "mixte";
+        const modules = buildModulesForBusinessType(bt);
+        await db.tenant.update({
+          where: { id: existingBusiness.tenantId },
+          data: { modules: modules as any },
+        }).catch(() => {});
+      } catch {
+        /* non-bloquant */
+      }
     }
 
     // Journal d'audit : onboarding terminé

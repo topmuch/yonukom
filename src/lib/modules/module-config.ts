@@ -169,3 +169,52 @@ export function buildDefaultModules(): Record<
   }
   return result;
 }
+
+/**
+ * Mapping BusinessType → modules pertinents pour ce métier.
+ * Un restaurant ne voit pas les modules salon, un salon ne voit pas
+ * les modules restaurant/wholesale, etc.
+ * Après onboarding, seuls ces modules sont activés + visibles chez le client.
+ * Le superadmin peut override (activer n'importe quel module).
+ */
+import type { BusinessType } from "@/types";
+
+export const BUSINESS_TYPE_MODULES: Partial<Record<BusinessType, ModuleId[]>> = {
+  retail_shop: ["pos", "products", "stock", "reports", "debts", "printing", "multi_users"],
+  fast_food: ["pos", "products", "stock", "reports", "restaurant", "debts", "printing", "multi_users"],
+  restaurant: ["pos", "products", "stock", "reports", "restaurant", "debts", "printing", "multi_users"],
+  salon: ["pos", "products", "stock", "reports", "services", "debts", "printing", "multi_users"],
+  cosmetics: ["pos", "products", "stock", "reports", "services", "debts", "printing", "multi_users"],
+  wholesaler: ["pos", "products", "stock", "reports", "wholesale", "debts", "printing", "multi_users"],
+  tiktok_seller: ["pos", "products", "stock", "reports", "ecommerce", "online_store", "debts", "printing"],
+  mobile_vendor: ["pos", "products", "stock", "reports", "ecommerce", "debts", "printing"],
+  // Legacy
+  ecommerce_social: ["pos", "products", "stock", "reports", "ecommerce", "online_store", "debts", "printing"],
+  pipeline_b2b: ["pos", "products", "stock", "reports", "wholesale", "debts", "printing", "multi_users"],
+  mixte: MODULE_IDS, // tous les modules
+};
+
+/**
+ * Retourne les modules pertinents pour un type de business.
+ * Fallback: tous les modules (mixte).
+ */
+export function getRelevantModules(businessType: string): ModuleId[] {
+  return BUSINESS_TYPE_MODULES[businessType as BusinessType] ?? MODULE_IDS;
+}
+
+/**
+ * Construit le JSON des modules pour un type de business.
+ * Seuls les modules pertinents sont enabled=true, les autres enabled=false.
+ * locked=false pour tous (le superadmin peut locker plus tard).
+ */
+export function buildModulesForBusinessType(businessType: string): Record<ModuleId, { enabled: boolean; locked: boolean }> {
+  const relevant = new Set(getRelevantModules(businessType));
+  const result = {} as Record<ModuleId, { enabled: boolean; locked: boolean }>;
+  for (const id of MODULE_IDS) {
+    result[id] = {
+      enabled: relevant.has(id),
+      locked: false,
+    };
+  }
+  return result;
+}

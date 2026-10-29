@@ -76,17 +76,24 @@ export function patchGlobalFetch() {
     const response = await originalFetch.call(this, input, init);
 
     // --- Intercepteur 401 : session expirée ---
-    // Si un appel API protégé retourne 401 (JWT expiré/invalide), on déconnecte
-    // l'utilisateur (clear localStorage) et on le renvoie vers le landing.
-    // On EXCLUT /api/auth/login et /api/auth/register : un 401 là-bas signifie
-    // "mauvais mot de passe", pas "session expirée" — le composant gère l'erreur.
+    // ATTENTION : on NE clear PAS localStorage ni redirige automatiquement.
+    // L'ancien comportement (clear + redirect sur tout 401) causait une cascade
+    // d'échecs : un seul 401 sur une route superadmin effaçait le token, et
+    // TOUS les appels suivants échouaient avec "Authentification requise".
+    // Désormais, on laisse le composant gérer l'erreur (il affiche son propre
+    // message d'erreur). Le logout manuel reste disponible via le bouton
+    // Déconnexion.
+    // On exclut aussi les routes d'auth (login/register) qui retournent 401
+    // pour "mauvais mot de passe" — pas une session expirée.
     if (response.status === 401 && isApiCall) {
       const urlStr = typeof input === "string" ? input : (input as Request).url;
       if (
         !urlStr.includes("/api/auth/login") &&
-        !urlStr.includes("/api/auth/register")
+        !urlStr.includes("/api/auth/register") &&
+        !urlStr.includes("/api/superadmin/")
       ) {
-        // Évite les boucles si déjà sur le landing
+        // Pour les routes NON-auth NON-superadmin : on logout seulement si
+        // on n'est pas déjà sur le landing (évite les boucles).
         if (window.location.pathname !== "/") {
           try {
             localStorage.removeItem("yonukom_token");
@@ -98,6 +105,9 @@ export function patchGlobalFetch() {
           window.location.href = "/";
         }
       }
+      // Pour /api/superadmin/* : on NE clear PAS le token. Le composant
+      // gère l'erreur (affiche "Erreur lors du chargement"). Le superadmin
+      // garde sa session et peut réessayer.
     }
 
     return response;
