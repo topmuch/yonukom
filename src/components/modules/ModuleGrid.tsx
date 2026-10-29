@@ -11,7 +11,7 @@ interface ModuleWithState {
   icon: any;
   premium: boolean;
   defaultEnabled: boolean;
-  applicableBusinessTypes: string[];
+  applicableBusinessTypes: readonly string[];
   enabled: boolean;
   locked: boolean;
 }
