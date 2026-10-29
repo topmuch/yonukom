@@ -73,13 +73,17 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       } catch {
         /* ignore */
       }
-      // Reset du config store aussi (sinon isOnboarded reste true en mémoire)
-      try {
-        const { useConfigStore } = require("@/stores/use-config-store");
-        useConfigStore.getState().resetConfig();
-      } catch {
-        /* ignore — peut échouer si config store pas encore chargé */
-      }
+      // Reset du config store aussi (sinon isOnboarded reste true en mémoire).
+      // Import dynamique (fire-and-forget) — ESM-compatible (pas de require()
+      // CommonJS qui casse sous Turbopack) et évite toute dépendance circulaire
+      // au chargement du module. Le localStorage est déjà nettoyé ci-dessus,
+      // donc même si resetConfig s'exécute un tick plus tard, la déconnexion
+      // reste cohérente.
+      import("@/stores/use-config-store")
+        .then(({ useConfigStore }) => useConfigStore.getState().resetConfig())
+        .catch(() => {
+          /* ignore — non-bloquant */
+        });
     }
   },
 

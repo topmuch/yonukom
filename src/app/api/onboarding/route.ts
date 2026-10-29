@@ -54,6 +54,24 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    // Mettre à jour le tenant.businessType pour cohérence superadmin
+    // (sinon tous les tenants self-inscrits apparaissent comme "retail_shop"
+    // dans le dashboard superadmin). Map le type d'onboarding → TenantBusinessType.
+    if (existingBusiness.tenantId) {
+      const onboardingType = (businessType.type as string) || "mixte";
+      const tenantBusinessType: string =
+        onboardingType === "pipeline_b2b" ? "wholesaler"
+        : onboardingType === "ecommerce_social" ? "ecommerce_social"
+        : onboardingType === "restaurant" ? "restaurant"
+        : "mixte";
+      await db.tenant.update({
+        where: { id: existingBusiness.tenantId },
+        data: { businessType: tenantBusinessType },
+      }).catch(() => {
+        // Non-bloquant — la mise à jour du business suffit pour l'app marchand
+      });
+    }
+
     // Journal d'audit : onboarding terminé
     await db.auditLog.create({
       data: {

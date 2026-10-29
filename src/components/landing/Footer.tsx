@@ -5,8 +5,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Separator } from "@/components/ui/separator";
 import {
   MessageCircle,
-  Facebook,
-  Instagram,
   Mail,
   MapPin,
   ArrowUp,
@@ -47,8 +45,6 @@ const footerSections = [
 
 const socialLinks = [
   { icon: MessageCircle, href: "https://wa.me/221783821822", label: "WhatsApp" },
-  { icon: Facebook, href: "#", label: "Facebook" },
-  { icon: Instagram, href: "#", label: "Instagram" },
 ];
 
 export function Footer() {

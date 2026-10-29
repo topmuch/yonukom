@@ -39,6 +39,7 @@ import {
 import { motion } from "framer-motion";
 import { Input } from "@/components/ui/input";
 import { useBusinessLogo } from "@/lib/business-logo";
+import type { UserRole } from "@/types";
 
 export type TabId =
   | "home"
@@ -240,6 +241,70 @@ const ALL_TABS: TabConfig[] = [
   },
 ];
 
+// ============================================================
+// ROLE-BASED TAB FILTERING (Anti-Fraud — Navigation Layer)
+// ------------------------------------------------------------
+// The config-based filter (pipeline_b2b / ecommerce_social) decides
+// which business modules are visible. This role-based filter decides
+// which tabs each user role can navigate to.
+//
+// ⚠️ RÈGLE ANTI-FRADE :
+//   - Un vendeur ne voit PAS les onglets liés au stock, achats,
+//     marges/prix d'achat, comptabilité, statistiques, équipe, caisse
+//     (clôture réservée patron/gérant). Il ne doit pas non plus voir
+//     les dettes, factures, pipeline B2B, ni l'IA Analytics.
+//   - Un gérant gère le stock, les achats, la compta, la caisse, les
+//     stats — mais NE gère PAS l'équipe (canManageUsers = patron only).
+//   - Le patron et le superadmin voient tout.
+//
+// This filter is defense-in-depth at the NAVIGATION layer. Server-side
+// permission checks (PermissionGuard, hasPermission, ROLE_PERMISSIONS)
+// remain authoritative for actions inside each tab.
+// ============================================================
+
+/** Tabs a vendeur can access. Everything else is hidden from them. */
+const VENDEUR_ALLOWED_TABS: ReadonlySet<TabId> = new Set<TabId>([
+  "home",
+  "pos",
+  "customers",
+  "orders",
+  "online-orders",
+  "history",
+  "notifications",
+  "settings",
+]);
+
+/**
+ * Returns whether a given role can navigate to a given tab.
+ *
+ * - superadmin / patron → all tabs
+ * - gerant              → all tabs except "team" (canManageUsers is patron-only)
+ * - vendeur             → only VENDEUR_ALLOWED_TABS (see above)
+ *
+ * Default-deny for unknown roles.
+ */
+export function canAccessTab(role: UserRole | string | undefined, tabId: TabId): boolean {
+  const r = (role || "vendeur") as UserRole;
+
+  // Patron & superadmin see everything
+  if (r === "patron" || r === "superadmin") {
+    return true;
+  }
+
+  // Gerant: everything except team management (canManageUsers = false)
+  if (r === "gerant") {
+    return tabId !== "team";
+  }
+
+  // Vendeur: explicit allowlist
+  if (r === "vendeur") {
+    return VENDEUR_ALLOWED_TABS.has(tabId);
+  }
+
+  // Default-deny for unknown roles
+  return false;
+}
+
 interface AppShellProps {
   /** Currently active tab */
   activeTab: TabId;
@@ -287,18 +352,26 @@ export function AppShell({ activeTab, onTabChange, children }: AppShellProps) {
   // Mode plein écran pour le POS — masque le sidebar et occupe toute la largeur
   const isFullscreen = activeTab === "pos";
 
-  // Dynamic tabs based on active modules
+  // Dynamic tabs based on active modules (config) AND user role.
+  // The config filter decides which business modules are visible
+  // (pipeline_b2b / ecommerce_social); the role filter hides tabs the
+  // current user is not allowed to navigate to (anti-fraud nav layer).
   const tabs = useMemo(() => {
     const isB2B = config?.pipeline_b2b ?? false;
     const isEcom = config?.ecommerce_social ?? false;
+    const role = user?.role || "vendeur";
+
+    let configFiltered: TabConfig[];
     if (isB2B && !isEcom) {
-      return ALL_TABS.filter((t) => t.id !== "orders");
+      configFiltered = ALL_TABS.filter((t) => t.id !== "orders");
+    } else if (isB2B && isEcom) {
+      configFiltered = ALL_TABS;
+    } else {
+      configFiltered = ALL_TABS.filter((t) => t.id !== "pipeline");
     }
-    if (isB2B && isEcom) {
-      return ALL_TABS;
-    }
-    return ALL_TABS.filter((t) => t.id !== "pipeline");
-  }, [config?.pipeline_b2b, config?.ecommerce_social]);
+
+    return configFiltered.filter((t) => canAccessTab(role, t.id));
+  }, [config?.pipeline_b2b, config?.ecommerce_social, user?.role]);
 
   const activeTabConfig =
     tabs.find((t) => t.id === activeTab) ?? ALL_TABS[0];
@@ -384,11 +457,18 @@ export function AppShell({ activeTab, onTabChange, children }: AppShellProps) {
 
           <div className="flex items-center gap-2">
             <button
+              type="button"
+              onClick={() => onTabChange("notifications")}
               className="w-9 h-9 rounded-lg bg-muted border border-primary/15 hover:bg-primary/5 hover:border-primary/30 flex items-center justify-center text-muted-foreground hover:text-primary transition-colors relative"
-              aria-label="Notifications"
+              aria-label="Voir les notifications"
+              title="Notifications WhatsApp"
             >
               <Bell className="w-4 h-4" />
-              <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-amber-400 ring-2 ring-background" />
+              {pendingOnlineCount > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-amber-500 text-white text-[9px] font-bold flex items-center justify-center ring-2 ring-background">
+                  {pendingOnlineCount > 9 ? "9+" : pendingOnlineCount}
+                </span>
+              )}
             </button>
             <RoleBadge />
             <ConnectivityDot />

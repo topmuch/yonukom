@@ -340,7 +340,6 @@ function SignupScreen({
   const [businessName, setBusinessName] = useState("");
 
   // Step 2 fields
-  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -350,7 +349,7 @@ function SignupScreen({
   const canSubmitStep1 = Boolean(name && email && businessName);
   const passwordsMatch = password.length > 0 && password === confirmPassword;
   const canSubmitStep2 =
-    Boolean(identifier) && password.length >= 6 && passwordsMatch;
+    password.length >= 6 && passwordsMatch;
 
   const handleStep1Submit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -384,7 +383,6 @@ function SignupScreen({
           email,
           phone,
           businessName,
-          identifier,
           password,
         }),
       });
@@ -508,23 +506,6 @@ function SignupScreen({
               </form>
             ) : (
               <form onSubmit={handleStep2Submit} className="space-y-4">
-                <div className="space-y-2">
-                  <label className="text-xs font-medium" htmlFor="signup-identifier">Identifiant</label>
-                  <input
-                    id="signup-identifier"
-                    type="text"
-                    placeholder="ibrahima.fall"
-                    value={identifier}
-                    onChange={(e) => setIdentifier(e.target.value)}
-                    className="w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
-                    required
-                    autoComplete="username"
-                  />
-                  <p className="text-[10px] text-muted-foreground">
-                    Utilisé pour vous connecter avec votre email.
-                  </p>
-                </div>
-
                 <div className="space-y-2">
                   <label className="text-xs font-medium" htmlFor="signup-password">Mot de passe</label>
                   <div className="relative">

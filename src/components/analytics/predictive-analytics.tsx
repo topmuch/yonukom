@@ -260,7 +260,7 @@ export function PredictiveAnalytics() {
           <div>
             <h2 className="text-lg font-bold">Analytics prédictifs</h2>
             <p className="text-xs text-muted-foreground">
-              Modèle statistique basé sur {predictData.anomalies.length >= 0 ? "90 jours" : ""} d&apos;historique
+              Modèle statistique basé sur 90 jours d&apos;historique
             </p>
           </div>
         </div>

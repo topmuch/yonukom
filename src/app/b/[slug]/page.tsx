@@ -7,7 +7,7 @@ import {
   ShoppingBag, Plus, Minus, Trash2, X, CheckCircle2, Store,
   Phone, MapPin, Truck, Package, Loader2, ShoppingCart, Search,
   ChevronRight, ChevronLeft, Star, Shield, Clock,
-  RefreshCw, Headphones, Facebook, Instagram, Mail, Heart,
+  RefreshCw, Headphones, Facebook, Mail, Heart,
   Sun, Moon, MessageCircle, Copy, Share2, Send, Sparkles, Tag,
   ClipboardCheck, Check,
 } from "lucide-react";
@@ -669,11 +669,10 @@ export default function PublicStorePage() {
               )}
               <p className="text-xs text-slate-400 mb-3">Votre boutique en ligne. Commandez en quelques clics.</p>
               <div className="flex items-center gap-2">
-                <a href="#" className="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 flex items-center justify-center transition-colors"><Facebook className="w-4 h-4" /></a>
-                <a href="#" className="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 flex items-center justify-center transition-colors"><Instagram className="w-4 h-4" /></a>
                 {store?.ownerPhone && (
                   <a href={waFloatingUrl || "#"} target="_blank" rel="noopener noreferrer" className="w-8 h-8 rounded-lg bg-[#25D366] hover:bg-[#1EBE58] flex items-center justify-center transition-colors text-white"><MessageCircle className="w-4 h-4" /></a>
                 )}
+                <a href="mailto:contact@yonukom.sn" className="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 flex items-center justify-center transition-colors text-slate-300"><Mail className="w-4 h-4" /></a>
               </div>
             </div>
             <div>
