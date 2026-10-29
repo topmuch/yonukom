@@ -418,15 +418,7 @@ export default function PublicStorePage() {
           </div>
         </div>
 
-        {/* Search mobile */}
-        <div className="sm:hidden px-4 pb-2.5">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Rechercher..."
-              className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:border-slate-300 dark:focus:border-slate-600 focus:bg-white dark:focus:bg-slate-700 transition-colors" />
-          </div>
-        </div>
+        {/* Recherche masquée sur mobile (visibile uniquement sm+ via le bloc ci-dessus) */}
       </header>
 
       {/* ===== BANNIÈRE ===== */}
@@ -437,8 +429,14 @@ export default function PublicStorePage() {
       )}
 
       {/* ===== HERO SLIDER ===== */}
+      {/* Ratio de référence 1983×793 pour tous les slides.
+          Mobile : hauteur fixe h-56 (rognage centré, comme actuellement —
+          l'utilisateur confirme que le mobile s'affiche bien).
+          Desktop (sm+) : aspect-[1983/793] → l'image s'affiche ENTIÈRE
+          sans rognage (corrige le problème d'affichage web où h-80 fixe
+          rognait trop l'image horizontalement). */}
       {sliderImages.length > 0 && (
-      <section className="relative overflow-hidden h-56 sm:h-72 lg:h-80">
+      <section className="relative overflow-hidden h-56 sm:h-auto sm:aspect-[1983/793] bg-slate-100 dark:bg-slate-800">
         <AnimatePresence mode="wait">
           <motion.div key={currentSlide} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.6 }} className="absolute inset-0">
             <img src={sliderImages[currentSlide]} alt={`Slide ${currentSlide + 1}`} className="w-full h-full object-cover" />
