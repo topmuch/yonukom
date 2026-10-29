@@ -110,7 +110,7 @@ export interface ModuleConfig {
 
 // --- CONFIG PAR DÉFAUT SELON TYPE ---
 
-export const DEFAULT_CONFIGS: Record<BusinessType, Partial<ModuleConfig>> = {
+export const DEFAULT_CONFIGS: Partial<Record<BusinessType, Partial<ModuleConfig>>> = {
   ecommerce_social: {
     ecommerce_social: true,
     pipeline_b2b: false,

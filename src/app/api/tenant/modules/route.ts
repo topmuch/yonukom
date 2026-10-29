@@ -4,9 +4,8 @@ import { getTokenFromRequest } from "@/lib/auth";
 import {
   normalizeModules,
   toggleModule,
-  type ModuleId,
 } from "@/lib/modules/module-utils";
-import { MODULE_IDS } from "@/lib/modules/module-config";
+import { MODULE_IDS, type ModuleId } from "@/lib/modules/module-config";
 
 // ============================================================
 // YonuKom — API Modules du Tenant (côté client)
