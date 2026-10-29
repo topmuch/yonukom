@@ -24,6 +24,44 @@ export function StoreSettingsEditor() {
   });
   const [sliderImages, setSliderImages] = useState<string[]>([]);
   const [uploadingSlide, setUploadingSlide] = useState(false);
+  const [uploadingBanner, setUploadingBanner] = useState(false);
+
+  /**
+   * Upload une image vers /api/upload (compression sharp côté serveur → WebP).
+   * Retourne l'URL publique (/api/uploads/{businessId}/{file}.webp) ou null
+   * en cas d'échec. Affiche un toast en cas d'erreur.
+   *
+   * Remplace l'ancienne approche base64 (FileReader) qui :
+   *  - limitait à 2 Mo (les photos téléphone étaient rejetées)
+   *  - stockait des Mo de base64 dans la colonne storeSliderImages
+   *  - cassait la sauvegarde/relecture au-delà de ~2 Mo
+   */
+  const uploadImage = useCallback(async (file: File): Promise<string | null> => {
+    if (!businessId) { toast.error("Session expirée — reconnectez-vous"); return null; }
+    if (file.size > 5 * 1024 * 1024) { toast.error("Image trop grande (max 5 Mo)"); return null; }
+    const token = typeof window !== "undefined" ? localStorage.getItem("yonukom_token") : null;
+    const fd = new FormData();
+    fd.append("file", file);
+    fd.append("businessId", businessId);
+    try {
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        credentials: "include",
+        body: fd,
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        toast.error(d.error || "Échec de l'upload");
+        return null;
+      }
+      const data = await res.json();
+      return (data.url as string) || null;
+    } catch {
+      toast.error("Erreur réseau lors de l'upload");
+      return null;
+    }
+  }, [businessId]);
 
   const fetchSettings = useCallback(async () => {
     if (!businessId) { setLoading(false); return; }
@@ -155,17 +193,24 @@ export function StoreSettingsEditor() {
             </div>
           ) : (
             <label className="flex items-center justify-center gap-2 px-4 py-4 rounded-xl border-2 border-dashed border-slate-200 hover:border-slate-300 cursor-pointer transition-colors">
-              <input type="file" accept="image/*" className="hidden"
-                onChange={(e) => {
+              <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" className="hidden"
+                onChange={async (e) => {
                   const file = e.target.files?.[0];
                   if (!file) return;
-                  if (file.size > 2 * 1024 * 1024) { toast.error("Image trop grande (max 2MB)"); return; }
-                  const reader = new FileReader();
-                  reader.onload = () => setForm({ ...form, storeBannerUrl: reader.result as string });
-                  reader.readAsDataURL(file);
+                  setUploadingBanner(true);
+                  const url = await uploadImage(file);
+                  setUploadingBanner(false);
+                  e.target.value = ""; // permet de re-sélectionner le même fichier
+                  if (url) {
+                    setForm({ ...form, storeBannerUrl: url });
+                    toast.success("Bannière ajoutée");
+                  }
                 }} />
-              <Plus className="w-4 h-4 text-slate-400" />
-              <span className="text-xs text-slate-500">Ajouter une bannière</span>
+              {uploadingBanner ? (
+                <><Loader2 className="w-4 h-4 animate-spin text-slate-400" /> <span className="text-xs text-slate-500">Upload...</span></>
+              ) : (
+                <><Plus className="w-4 h-4 text-slate-400" /> <span className="text-xs text-slate-500">Ajouter une bannière</span></>
+              )}
             </label>
           )}
         </div>
@@ -278,22 +323,19 @@ export function StoreSettingsEditor() {
             <label className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl border-2 border-dashed border-slate-200 hover:border-slate-300 cursor-pointer transition-colors">
               <input
                 type="file"
-                accept="image/*"
+                accept="image/jpeg,image/png,image/webp,image/gif"
                 className="hidden"
                 onChange={async (e) => {
                   const file = e.target.files?.[0];
                   if (!file) return;
-                  if (file.size > 2 * 1024 * 1024) { toast.error("Image trop grande (max 2MB)"); return; }
                   setUploadingSlide(true);
-                  try {
-                    const reader = new FileReader();
-                    reader.onload = () => {
-                      setSliderImages([...sliderImages, reader.result as string]);
-                      setUploadingSlide(false);
-                    };
-                    reader.onerror = () => { toast.error("Erreur de lecture"); setUploadingSlide(false); };
-                    reader.readAsDataURL(file);
-                  } catch { setUploadingSlide(false); }
+                  const url = await uploadImage(file);
+                  setUploadingSlide(false);
+                  e.target.value = ""; // permet de re-sélectionner le même fichier
+                  if (url) {
+                    setSliderImages([...sliderImages, url]);
+                    toast.success("Image du slider ajoutée");
+                  }
                 }}
               />
               {uploadingSlide ? (

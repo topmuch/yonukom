@@ -11,11 +11,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import fs from "fs";
 import path from "path";
+import sharp from "sharp";
 import { getTokenFromRequest } from "@/lib/auth";
 
 // --- Configuration ---
-const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
-const MAX_FILE_BYTES = 2 * 1024 * 1024; // 2 MB
+const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+const MAX_FILE_BYTES = 5 * 1024 * 1024; // 5 MB (compression sharp appliquée ensuite)
+const COMPRESS_MAX_WIDTH = 1600; // largeur max après redimensionnement
+const COMPRESS_QUALITY = 80; // qualité WebP
 
 /**
  * Resolve the uploads root directory.
@@ -103,7 +106,7 @@ export async function POST(request: NextRequest) {
     // --- Validate size ---
     if (file.size > MAX_FILE_BYTES) {
       return NextResponse.json(
-        { error: "Fichier trop volumineux (max 2 Mo)" },
+        { error: `Fichier trop volumineux (max ${Math.round(MAX_FILE_BYTES / 1024 / 1024)} Mo)` },
         { status: 413 }
       );
     }
@@ -114,19 +117,45 @@ export async function POST(request: NextRequest) {
     const dir = path.join(uploadsRoot, safeBusinessDir);
     fs.mkdirSync(dir, { recursive: true });
 
-    const ext = extFromMime(file.type);
     const timestamp = Date.now();
     const randomSuffix = Math.random().toString(36).slice(2, 8);
     const baseName = file.name ? sanitizeFilename(file.name) : "image";
-    // Strip any existing extension from baseName before re-adding ours
+    // Strip any existing extension from baseName — on sauvegarde toujours en .webp
     const baseNameNoExt = baseName.replace(/\.[^.]+$/, "");
-    const filename = `${timestamp}-${randomSuffix}-${baseNameNoExt}.${ext}`;
+    const filename = `${timestamp}-${randomSuffix}-${baseNameNoExt}.webp`;
     const fullPath = path.join(dir, filename);
 
-    // --- Write file to disk ---
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
-    fs.writeFileSync(fullPath, buffer);
+    // --- Compression + optimisation via sharp ---
+    // Toutes les images (jpg/png/webp/gif) sont converties en WebP :
+    //  - redimensionnées à largeur max 1600px (sans agrandissement)
+    //  - qualité 80 (bon compromis qualité/taille)
+    //  - rotation automatique selon EXIF (photos phone en portrait)
+    // Cela réduit drastiquement la taille stockée et standardise le format.
+    try {
+      const bytes = await file.arrayBuffer();
+      const inputBuffer = Buffer.from(bytes);
+      const compressed = await sharp(inputBuffer)
+        .rotate() // respecte l'orientation EXIF
+        .resize({
+          width: COMPRESS_MAX_WIDTH,
+          withoutEnlargement: true,
+        })
+        .webp({ quality: COMPRESS_QUALITY })
+        .toBuffer();
+      fs.writeFileSync(fullPath, compressed);
+    } catch (compressErr) {
+      // Si sharp échoue (format exotique), fallback : écriture brute du fichier
+      // original avec son extension d'origine.
+      console.error("[Upload] sharp compression failed, falling back to raw:", compressErr);
+      const bytes = await file.arrayBuffer();
+      const buffer = Buffer.from(bytes);
+      const fallbackExt = extFromMime(file.type);
+      const fallbackFilename = `${timestamp}-${randomSuffix}-${baseNameNoExt}.${fallbackExt}`;
+      const fallbackPath = path.join(dir, fallbackFilename);
+      fs.writeFileSync(fallbackPath, buffer);
+      const fallbackUrl = `/api/uploads/${safeBusinessDir}/${fallbackFilename}`;
+      return NextResponse.json({ url: fallbackUrl }, { status: 201 });
+    }
 
     // Public URL served by /api/uploads/[...path]/route.ts
     const url = `/api/uploads/${safeBusinessDir}/${filename}`;

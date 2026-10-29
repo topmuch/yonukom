@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, MessageCircle, Send } from "lucide-react";
 
@@ -9,6 +10,7 @@ const WHATSAPP_MESSAGE =
   "Bonjour YonuKom 👋\n\nJe souhaite avoir plus d'informations sur votre logiciel de gestion commerciale. Est-il adapté à mon activité ?";
 
 export function FloatingWhatsApp() {
+  const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [visible, setVisible] = useState(false);
 
@@ -17,6 +19,13 @@ export function FloatingWhatsApp() {
     const t = setTimeout(() => setVisible(true), 1500);
     return () => clearTimeout(t);
   }, []);
+
+  // ⚠️ Ne PAS afficher le bouton WhatsApp superadmin (YonuKom support) sur les
+  // boutiques publiques des clients (/b/[slug]) — chaque boutique a son propre
+  // bouton WhatsApp client (store.name + ownerPhone) rendu dans la page.
+  // On le garde uniquement sur le site YonuKom (landing, dashboard, etc.).
+  const isPublicStore = pathname?.startsWith("/b/");
+  if (isPublicStore) return null;
 
   const waUrl = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(WHATSAPP_MESSAGE)}`;
 
