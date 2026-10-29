@@ -59,6 +59,7 @@ import { PredictiveAnalytics } from "@/components/analytics/predictive-analytics
 import { AccountingDashboard } from "@/components/accounting/accounting-dashboard";
 import { StatsDashboard } from "@/components/stats/stats-dashboard";
 import { TicketCustomization } from "@/components/settings/ticket-customization";
+import { ModulesSettings } from "@/components/modules/modules-settings";
 import { DashboardAnalytics } from "@/components/dashboard/dashboard-analytics";
 import { IntelligenceFeed } from "@/components/intelligence/intelligence-feed";
 import { TrendChart } from "@/components/intelligence/trend-chart";
@@ -92,6 +93,7 @@ import {
   Rocket,
   Ticket as TicketIcon,
   Store,
+  Puzzle,
 } from "lucide-react";
 
 // --- Page Views ---
@@ -1068,7 +1070,7 @@ function PipelineTab() {
 
 function SettingsTab({ onLogout }: { onLogout: () => void }) {
   const user = useAuthStore((s) => s.user);
-  const [activeSection, setActiveSection] = useState<"profile" | "audit" | "ticket" | "store">("profile");
+  const [activeSection, setActiveSection] = useState<"profile" | "audit" | "ticket" | "store" | "modules">("profile");
 
   return (
     <div className="px-4 py-6 space-y-4">
@@ -1091,6 +1093,7 @@ function SettingsTab({ onLogout }: { onLogout: () => void }) {
           <Button variant={activeSection === "profile" ? "default" : "outline"} size="sm" className="text-xs gap-1" onClick={() => setActiveSection("profile")}><Building2 className="w-3.5 h-3.5" />Profil</Button>
           <Button variant={activeSection === "store" ? "default" : "outline"} size="sm" className="text-xs gap-1" onClick={() => setActiveSection("store")}><Store className="w-3.5 h-3.5" />Boutique</Button>
           <Button variant={activeSection === "ticket" ? "default" : "outline"} size="sm" className="text-xs gap-1" onClick={() => setActiveSection("ticket")}><TicketIcon className="w-3.5 h-3.5" />Ticket</Button>
+          <Button variant={activeSection === "modules" ? "default" : "outline"} size="sm" className="text-xs gap-1" onClick={() => setActiveSection("modules")}><Puzzle className="w-3.5 h-3.5" />Modules</Button>
           <PermissionGuard permission="canViewAuditLog" fallback={null}>
             <Button variant={activeSection === "audit" ? "default" : "outline"} size="sm" className="text-xs gap-1" onClick={() => setActiveSection("audit")}><Shield className="w-3.5 h-3.5" />Audit</Button>
           </PermissionGuard>
@@ -1099,6 +1102,7 @@ function SettingsTab({ onLogout }: { onLogout: () => void }) {
       {activeSection === "profile" && <BusinessProfileEditor />}
       {activeSection === "store" && <StoreSettingsEditor />}
       {activeSection === "ticket" && <TicketCustomization />}
+      {activeSection === "modules" && <ModulesSettings />}
       {activeSection === "audit" && (<PermissionGuard permission="canViewAuditLog" showLocked lockedMessage="Seul le Gérant ou Patron peut voir le journal d'audit."><AuditLogViewer /></PermissionGuard>)}
     </div>
   );

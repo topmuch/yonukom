@@ -567,6 +567,15 @@ model Tenant {
   allowDelivery     Boolean   @default(true)
   deliveryFee       Int       @default(0) // en FCFA
 
+  /// Configuration des modules activables/désactivables (JSON).
+  /// Structure : { "<moduleId>": { "enabled": bool, "locked": bool } }
+  /// - enabled : le module est actif pour ce tenant
+  /// - locked : le superadmin a verrouillé le module (le client ne peut pas le désactiver)
+  /// Null au départ → le code applicatif (lib/modules/module-utils.ts) utilise
+  /// les defaultEnabled de MODULES_CONFIG. Voir DEFAULT_MODULES_JSON pour le
+  /// JSON par défaut complet.
+  modules           Json?
+
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
