@@ -10,6 +10,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { getDefaultCategories } from "@/config/default-categories";
 
 export async function POST(request: NextRequest) {
   try {
@@ -73,6 +74,44 @@ export async function POST(request: NextRequest) {
       }).catch(() => {
         // Non-bloquant — la mise à jour du business suffit pour l'app marchand
       });
+    }
+
+    // --- Pré-remplir les catégories par défaut selon le métier ---
+    // Le marchand démarre avec un catalogue structuré (ex: salon → Tresses,
+    // Tissage, Soins…). Idempotent : ne crée que les catégories qui n'existent
+    // pas déjà (par nom + businessId, via la contrainte @@unique).
+    try {
+      const existingCats = await db.category.findMany({
+        where: { businessId },
+        select: { name: true },
+      });
+      const existingNames = new Set(existingCats.map((c) => c.name));
+      const defaults = getDefaultCategories(
+        (businessType.type as string) || "mixte"
+      );
+      const toCreate = defaults.filter((d) => !existingNames.has(d.name));
+      // createMany n'est pas supporté de façon fiable sur SQLite ici → on crée
+      // les catégories individuellement (max ~5, perf négligeable).
+      for (let i = 0; i < toCreate.length; i++) {
+        try {
+          await db.category.create({
+            data: {
+              businessId,
+              name: toCreate[i].name,
+              color: toCreate[i].color,
+              sortOrder: i,
+              isActive: true,
+            },
+          });
+        } catch {
+          // Ignore les doublons (contrainte @@unique [businessId, name]) —
+          // rend l'opération idempotente si l'onboarding est rejoué.
+        }
+      }
+    } catch (catErr) {
+      console.error("[Onboarding] category creation failed:", catErr);
+      // Non-bloquant — l'échec de la création des catégories ne doit pas
+      // casser l'onboarding. Le marchand pourra créer ses catégories manuellement.
     }
 
     // Journal d'audit : onboarding terminé

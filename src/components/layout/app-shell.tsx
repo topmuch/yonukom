@@ -25,6 +25,7 @@ import {
   Bell,
   X,
   History,
+  CalendarClock,
   LogOut,
   FileText,
   Users,
@@ -50,6 +51,7 @@ export type TabId =
   | "customers"
   | "orders"
   | "online-orders"
+  | "appointments"
   | "history"
   | "pipeline"
   | "invoices"
@@ -141,6 +143,14 @@ const ALL_TABS: TabConfig[] = [
     gradient: "from-cyan-500 to-blue-500",
     accent: "bg-cyan-500",
     color: "#06B6D4",
+  },
+  {
+    id: "appointments",
+    label: "RDV",
+    icon: CalendarClock,
+    gradient: "from-violet-500 to-purple-500",
+    accent: "bg-violet-500",
+    color: "#8B5CF6",
   },
   {
     id: "history",
@@ -269,6 +279,7 @@ const VENDEUR_ALLOWED_TABS: ReadonlySet<TabId> = new Set<TabId>([
   "customers",
   "orders",
   "online-orders",
+  "appointments",
   "history",
   "notifications",
   "settings",
@@ -370,8 +381,10 @@ export function AppShell({ activeTab, onTabChange, children }: AppShellProps) {
       configFiltered = ALL_TABS.filter((t) => t.id !== "pipeline");
     }
 
-    return configFiltered.filter((t) => canAccessTab(role, t.id));
-  }, [config?.pipeline_b2b, config?.ecommerce_social, user?.role]);
+    return configFiltered
+      .filter((t) => t.id !== "appointments" || (config?.appointments ?? false))
+      .filter((t) => canAccessTab(role, t.id));
+  }, [config?.pipeline_b2b, config?.ecommerce_social, config?.appointments, user?.role]);
 
   const activeTabConfig =
     tabs.find((t) => t.id === activeTab) ?? ALL_TABS[0];
@@ -589,7 +602,7 @@ export function AppShell({ activeTab, onTabChange, children }: AppShellProps) {
           <p className="px-3 pt-1 pb-1 text-[10px] font-semibold text-white/50 uppercase tracking-wider">
             Principal
           </p>
-          {tabs.filter(t => ["home", "pos", "products", "categories", "stock", "customers", "caisse", "orders", "online-orders"].includes(t.id)).map((tab) => {
+          {tabs.filter(t => ["home", "pos", "products", "categories", "stock", "customers", "caisse", "orders", "online-orders", "appointments"].includes(t.id)).map((tab) => {
             const isActive = activeTab === tab.id;
             const Icon = tab.icon;
             return (

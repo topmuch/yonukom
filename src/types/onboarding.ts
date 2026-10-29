@@ -72,6 +72,8 @@ export interface ModuleConfig {
   ecommerce_social: boolean;
   pipeline_b2b: boolean;
   restaurant: boolean;
+  /** Module Rendez-vous / Planning (salons, instituts — services avec durée) */
+  appointments: boolean;
 
   // Sous-configuration
   payments: {

@@ -64,6 +64,7 @@ model Business {
   categories        Category[]
   debts             Debt[]
   promos            Promo[]
+  appointments      Appointment[]
 
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
@@ -188,6 +189,7 @@ model Product {
   stockMovements    StockMovement[]
   purchaseItems     PurchaseItem[]
   reviews           Review[]
+  appointments      Appointment[]
 
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
@@ -293,6 +295,7 @@ model Customer {
   orders          Order[]
   invoices        Invoice[]
   debts           Debt[]
+  appointments    Appointment[]
 
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
@@ -1152,4 +1155,47 @@ model AnalyticsEvent {
   @@index([type])
   @@index([createdAt])
   @@index([sessionId])
+}
+
+// ============================================================
+// RENDEZ-VOUS / PLANNING (Salons, instituts, services avec durée)
+// ============================================================
+
+/// Rendez-vous client pour un service (coiffure, soin…).
+/// Lié au Business. Le service référencé est un Product (itemType=SERVICE)
+/// avec sa durée — mais on snapshot le nom + la durée au cas où le service
+/// serait modifié/supprimé ultérieurement.
+model Appointment {
+  id            String   @id @default(cuid())
+  businessId    String
+  business      Business @relation(fields: [businessId], references: [id])
+
+  /// Client optionnellement lié (si client enregistré)
+  customerId    String?
+  customer      Customer? @relation(fields: [customerId], references: [id])
+  /// Nom + téléphone saisis librement (snapshot, même si client lié)
+  customerName  String
+  customerPhone String?
+
+  /// Service réservé (Product avec itemType=SERVICE). Optionnel (RDV générique).
+  serviceId     String?
+  service       Product?  @relation(fields: [serviceId], references: [id])
+  /// Snapshot du nom du service (au cas où le Product serait supprimé)
+  serviceName   String
+  /// Durée du RDV en minutes (défaut depuis le service, modifiable)
+  durationMin   Int      @default(30)
+
+  /// Début du créneau (date + heure)
+  startTime     DateTime
+  /// Statut : pending (en attente) | confirmed (confirmé) | completed (terminé) | cancelled (annulé)
+  status        String   @default("pending")
+  notes         String?
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([businessId])
+  @@index([startTime])
+  @@index([status])
+  @@index([customerId])
 }

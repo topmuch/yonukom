@@ -86,10 +86,13 @@ export function generateModuleConfig(params: {
   const B2B_TYPES: BusinessType[] = ["wholesaler", "pipeline_b2b"];
   const RESTO_TYPES: BusinessType[] = ["fast_food", "restaurant"];
 
-  const moduleFlags: Pick<ModuleConfig, "ecommerce_social" | "pipeline_b2b" | "restaurant"> = {
+  const moduleFlags: Pick<ModuleConfig, "ecommerce_social" | "pipeline_b2b" | "restaurant" | "appointments"> = {
     ecommerce_social: ECOM_TYPES.includes(businessType) || businessType === "mixte",
     pipeline_b2b: B2B_TYPES.includes(businessType) || businessType === "mixte",
     restaurant: RESTO_TYPES.includes(businessType) || businessType === "mixte",
+    // Module RDV/Planning activé pour les métiers de services (salon, cosmétiques)
+    // + mixte. Les salons/coiffure/instituts gèrent des rendez-vous avec durée.
+    appointments: businessType === "salon" || businessType === "cosmetics" || businessType === "mixte",
   };
 
   return {
