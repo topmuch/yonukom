@@ -21,6 +21,7 @@ const PUBLIC_ROUTES = [
   "/api/onboarding", // POST crée le compte (avant login)
   "/api/uploads", // GET sert les images uploadées (publique pour les reçus/tickets)
   "/api/public/", // Routes publiques de la boutique en ligne (store, orders)
+  "/api/admin/recover", // ONE-TIME password recovery (token-protected)
 ];
 
 // --- Routes dont le contenu est public mais qui doivent accepter un token optionnel ---
