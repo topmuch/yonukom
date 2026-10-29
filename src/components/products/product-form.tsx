@@ -58,6 +58,10 @@ export interface ProductFormData {
   unitType: string;
   minStockAlert: number;
   imageUrl?: string;
+  /** Discriminant Produit vs Service (voir enum Prisma ItemType) */
+  itemType?: "PRODUCT" | "SERVICE";
+  /** Durée estimée en minutes (services uniquement) */
+  duration?: number | null;
 }
 
 // Catégorie affichable (récupérée depuis /api/categories)
@@ -211,6 +215,16 @@ export function ProductForm({ product, open, onOpenChange, onSave }: ProductForm
   const [quantity, setQuantity] = useState(product ? String(product.quantity) : "0");
   const [productType, setProductType] = useState(product?.productType ?? "standard");
   const [unitType, setUnitType] = useState(product?.unitType ?? "piece");
+  // --- Produit vs Service (toggle) ---
+  // itemType discrimine un article avec stock (PRODUCT) d'une prestation
+  // sans stock (SERVICE). Les services n'ont pas de prix d'achat / quantité /
+  // seuil d'alerte — ils ont une durée estimée à la place.
+  const [itemType, setItemType] = useState<"PRODUCT" | "SERVICE">(
+    (product as any)?.itemType === "SERVICE" ? "SERVICE" : "PRODUCT"
+  );
+  const [duration, setDuration] = useState(
+    product ? String((product as any)?.duration ?? "") : ""
+  );
   const [minStockAlert, setMinStockAlert] = useState(product ? String(product.minStockAlert ?? 5) : "5");
   const [imageUrl, setImageUrl] = useState<string | undefined>(
     product?.imageUrl ?? undefined
@@ -360,6 +374,8 @@ export function ProductForm({ product, open, onOpenChange, onSave }: ProductForm
     e.preventDefault();
     if (!name.trim() || !salePrice) return;
 
+    const isService = itemType === "SERVICE";
+
     onSave({
       id: product?.id,
       name: name.trim(),
@@ -368,12 +384,16 @@ export function ProductForm({ product, open, onOpenChange, onSave }: ProductForm
       category: categoryName,
       categoryId: categoryId || null,
       salePrice: parseInt(salePrice) || 0,
-      purchasePrice: parseInt(purchasePrice) || 0,
-      quantity: parseInt(quantity) || 0,
-      productType,
+      // Pour les services : pas de prix d'achat / stock / seuil (forcés à 0).
+      // Le POS ne déduira pas le stock pour un itemType=SERVICE.
+      purchasePrice: isService ? 0 : parseInt(purchasePrice) || 0,
+      quantity: isService ? 0 : parseInt(quantity) || 0,
+      productType: isService ? "service" : productType,
       unitType,
-      minStockAlert: parseInt(minStockAlert) || 5,
+      minStockAlert: isService ? 0 : parseInt(minStockAlert) || 5,
       imageUrl,
+      itemType,
+      duration: isService ? (parseInt(duration) || null) : null,
     });
 
     onOpenChange(false);
@@ -383,16 +403,50 @@ export function ProductForm({ product, open, onOpenChange, onSave }: ProductForm
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md max-h-[88vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{isEdit ? "Modifier le produit" : "Nouveau produit"}</DialogTitle>
+          <DialogTitle>
+            {isEdit
+              ? `Modifier le ${itemType === "SERVICE" ? "service" : "produit"}`
+              : `Nouveau ${itemType === "SERVICE" ? "service" : "produit"}`}
+          </DialogTitle>
           <DialogDescription className="sr-only">
-            {isEdit ? "Modifier les informations du produit" : "Créer un nouveau produit"}
+            {isEdit
+              ? `Modifier les informations du ${itemType === "SERVICE" ? "service" : "produit"}`
+              : `Créer un nouveau ${itemType === "SERVICE" ? "service" : "produit"}`}
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* --- Toggle Produit / Service --- */}
+          {/* Un SERVICE n'a pas de stock (coiffure, soin…) — le POS ne déduira
+              rien. Un PRODUCT a un stock physique classique. */}
+          <div className="grid grid-cols-2 gap-1 p-1 bg-muted rounded-lg">
+            <button
+              type="button"
+              onClick={() => setItemType("PRODUCT")}
+              className={`px-3 py-2 rounded-md text-xs font-semibold transition-colors ${
+                itemType === "PRODUCT"
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              📦 Produit (avec stock)
+            </button>
+            <button
+              type="button"
+              onClick={() => setItemType("SERVICE")}
+              className={`px-3 py-2 rounded-md text-xs font-semibold transition-colors ${
+                itemType === "SERVICE"
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              💇 Service (sans stock)
+            </button>
+          </div>
+
           {/* --- Image upload --- */}
           <div className="space-y-1.5">
-            <Label>Photo du produit</Label>
+            <Label>Photo {itemType === "SERVICE" ? "du service" : "du produit"}</Label>
             <div className="flex items-center gap-3">
               {/* Preview / Drop zone */}
               {imageUrl ? (
@@ -400,7 +454,7 @@ export function ProductForm({ product, open, onOpenChange, onSave }: ProductForm
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={imageUrl}
-                    alt={name || "Aperçu produit"}
+                    alt={name || "Aperçu"}
                     className="w-full h-full object-cover"
                   />
                   <button
@@ -571,80 +625,99 @@ export function ProductForm({ product, open, onOpenChange, onSave }: ProductForm
                 required
               />
             </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="prod-purchase">Prix d&apos;achat (FCFA)</Label>
-              <Input
-                id="prod-purchase"
-                type="number"
-                min="0"
-                value={purchasePrice}
-                onChange={(e) => setPurchasePrice(e.target.value)}
-                placeholder="800"
-              />
-            </div>
+            {itemType === "PRODUCT" ? (
+              <div className="space-y-1.5">
+                <Label htmlFor="prod-purchase">Prix d&apos;achat (FCFA)</Label>
+                <Input
+                  id="prod-purchase"
+                  type="number"
+                  min="0"
+                  value={purchasePrice}
+                  onChange={(e) => setPurchasePrice(e.target.value)}
+                  placeholder="800"
+                />
+              </div>
+            ) : (
+              <div className="space-y-1.5">
+                <Label htmlFor="prod-duration">Durée estimée (min)</Label>
+                <Input
+                  id="prod-duration"
+                  type="number"
+                  min="0"
+                  value={duration}
+                  onChange={(e) => setDuration(e.target.value)}
+                  placeholder="30"
+                />
+                <p className="text-[10px] text-muted-foreground">Pour affichage (optionnel)</p>
+              </div>
+            )}
           </div>
 
-          <Separator />
+          {itemType === "PRODUCT" && (
+            <>
+              <Separator />
 
-          {/* Stock */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label htmlFor="prod-qty">Quantité en stock</Label>
-              <Input
-                id="prod-qty"
-                type="number"
-                min="0"
-                value={quantity}
-                onChange={(e) => setQuantity(e.target.value)}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="prod-alert">Alerte stock bas</Label>
-              <Input
-                id="prod-alert"
-                type="number"
-                min="0"
-                value={minStockAlert}
-                onChange={(e) => setMinStockAlert(e.target.value)}
-              />
-            </div>
-          </div>
+              {/* Stock */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="prod-qty">Quantité en stock</Label>
+                  <Input
+                    id="prod-qty"
+                    type="number"
+                    min="0"
+                    value={quantity}
+                    onChange={(e) => setQuantity(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="prod-alert">Alerte stock bas</Label>
+                  <Input
+                    id="prod-alert"
+                    type="number"
+                    min="0"
+                    value={minStockAlert}
+                    onChange={(e) => setMinStockAlert(e.target.value)}
+                  />
+                </div>
+              </div>
 
-          <Separator />
+              <Separator />
 
-          {/* Type */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label>Type de produit</Label>
-              <Select value={productType} onValueChange={setProductType}>
-                <SelectTrigger className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {PRODUCT_TYPES.map((t) => (
-                    <SelectItem key={t.value} value={t.value}>
-                      {t.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Unité</Label>
-              <Select value={unitType} onValueChange={setUnitType}>
-                <SelectTrigger className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {UNIT_TYPES.map((u) => (
-                    <SelectItem key={u.value} value={u.value}>
-                      {u.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+              {/* Type */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label>Type de produit</Label>
+                  <Select value={productType} onValueChange={setProductType}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {PRODUCT_TYPES.map((t) => (
+                        <SelectItem key={t.value} value={t.value}>
+                          {t.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Unité</Label>
+                  <Select value={unitType} onValueChange={setUnitType}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {UNIT_TYPES.map((u) => (
+                        <SelectItem key={u.value} value={u.value}>
+                          {u.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </>
+          )}
 
           {/* Submit */}
           <div className="flex gap-3 pt-2">

@@ -59,6 +59,8 @@ export async function POST(request: NextRequest) {
       minStockAlert,
       productType,
       unitType,
+      itemType,
+      duration,
     } = body as {
       name?: string;
       businessId?: string;
@@ -72,6 +74,8 @@ export async function POST(request: NextRequest) {
       minStockAlert?: number | string;
       productType?: string;
       unitType?: string;
+      itemType?: "PRODUCT" | "SERVICE";
+      duration?: number | string | null;
     };
 
     if (!name || !businessId || businessId === "demo" || salePrice === undefined || salePrice === null) {
@@ -81,20 +85,26 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const isService = itemType === "SERVICE";
+
     const product = await db.product.create({
       data: {
         name: String(name).trim(),
         businessId: String(businessId),
         salePrice: Number(salePrice) || 0,
-        purchasePrice: Number(purchasePrice) || 0,
+        purchasePrice: isService ? 0 : Number(purchasePrice) || 0,
         sku: sku ? String(sku).trim() : null,
         category: category ? String(category) : null,
         description: description ? String(description) : null,
         imageUrl: imageUrl ? String(imageUrl) : null,
-        quantity: Number(quantity) || 0,
-        minStockAlert: Number(minStockAlert) || 5,
-        productType: productType || "standard",
+        // Les services n'ont pas de stock physique
+        quantity: isService ? 0 : Number(quantity) || 0,
+        reservedQuantity: 0,
+        minStockAlert: isService ? 0 : Number(minStockAlert) || 5,
+        productType: isService ? "service" : productType || "standard",
         unitType: unitType || "piece",
+        itemType: isService ? "SERVICE" : "PRODUCT",
+        duration: isService ? (duration ? Number(duration) || null : null) : null,
         isActive: true,
       },
     });

@@ -106,14 +106,29 @@ model User {
 // PRODUITS & STOCK
 // ==========================================
 
+/// Discriminant Produit vs Service.
+/// - PRODUCT : article avec stock physique (boutique, épicerie, cosmétiques…)
+/// - SERVICE : prestation sans stock déduit (coiffure, soin, main-d'œuvre…)
+/// Les services peuvent être ajoutés au panier sans déduction de stock.
+enum ItemType {
+  PRODUCT
+  SERVICE
+}
+
 /// Produit avec distinction CRITIQUE entre stock physique et stock réservé.
-/// 
+///
 /// ⚠️ LOGIQUE MÉTIER IMPORTANTE :
 /// - quantity = Stock PHYSIQUE (ce qui est réellement en magasin)
 /// - reservedQuantity = Stock RÉSERVÉ (commandes validées en devis mais pas encore livrées)
 /// - Stock DISPONIBLE = quantity - reservedQuantity
 /// - Un devis validé DÉDUIT du stock disponible mais PAS du stock physique
 /// - Une livraison DÉDUIT du stock physique et libère la réservation
+///
+/// Le modèle Product est UNIFIÉ : il représente aussi bien un Produit
+/// (itemType=PRODUCT, avec stock) qu'un Service (itemType=SERVICE, sans
+/// stock — quantity/reservedQuantity/purchasePrice restent à 0/null mais
+/// ne sont pas utilisés pour les services). Le champ `duration` (minutes)
+/// est spécifique aux services pour l'affichage.
 model Product {
   id                String   @id @default(cuid())
   name              String   // Nom du produit (ex: "Thiébou Rouge", "Sac riz 25kg")
@@ -144,10 +159,19 @@ model Product {
   // --- TYPE DE PRODUIT ---
   /// "standard" = produit normal
   /// "plate_restaurant" = plat fini (restaurant) — vente déduit 1 unité
-  /// "service" = prestation (pas de stock déduit)
+  /// "service" = prestation (pas de stock déduit) [LÉGACY — préférer itemType=SERVICE]
   productType       String   @default("standard")
   /// "piece" | "kg" | "litre" | "plat"
   unitType          String   @default("piece")
+
+  // --- PRODUIT vs SERVICE (discriminant propre) ---
+  /// PRODUCT = article avec stock physique (boutique, épicerie, cosmétiques…)
+  /// SERVICE = prestation sans stock (coiffure, soin, main-d'œuvre…).
+  /// Le POS doit vérifier ce champ pour savoir s'il déduit le stock.
+  itemType          ItemType @default(PRODUCT)
+  /// Durée estimée en minutes (services uniquement, pour affichage).
+  /// Null pour les produits physiques.
+  duration          Int?
 
   isActive          Boolean  @default(true)
 
@@ -170,6 +194,7 @@ model Product {
 
   @@index([categoryId])
   @@index([isFeatured])
+  @@index([itemType])
 }
 
 /// Catégorie de produit créée par le commerçant (remplace le select hardcoded).

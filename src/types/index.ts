@@ -91,12 +91,33 @@ export interface PermissionSet {
 
 // --- TYPES DE BUSINESS ---
 
-export type BusinessType = "ecommerce_social" | "pipeline_b2b" | "restaurant" | "mixte";
+export type BusinessType =
+  // --- 8 nouveaux métiers (onboarding V3) ---
+  | "retail_shop"
+  | "fast_food"
+  | "restaurant"
+  | "salon"
+  | "cosmetics"
+  | "wholesaler"
+  | "tiktok_seller"
+  | "mobile_vendor"
+  // --- Legacy (rétro-compatibilité configs existantes) ---
+  | "ecommerce_social"
+  | "pipeline_b2b"
+  | "mixte";
 
 export const BUSINESS_TYPE_LABELS: Record<BusinessType, string> = {
+  retail_shop: "Boutique / Épicerie",
+  fast_food: "Fast-food / Snack",
+  restaurant: "Restaurant / Maquis",
+  salon: "Salon de Coiffure / Esthétique",
+  cosmetics: "Cosmétiques / Beauté",
+  wholesaler: "Grossiste / Distributeur",
+  tiktok_seller: "Vendeur en ligne / TikTok",
+  mobile_vendor: "Vente ambulante / Mobile",
+  // Legacy
   ecommerce_social: "E-Commerce Social (TikTok/Live)",
   pipeline_b2b: "Pipeline B2B (Grossiste)",
-  restaurant: "Restaurant / Traiteur",
   mixte: "Mixte (plusieurs activités)",
 };
 
@@ -212,7 +233,17 @@ export type SuperadminPage = "overview" | "tenants" | "tenant-detail" | "subscri
 export type SubscriptionPlan = "starter" | "pro" | "enterprise";
 export type SubscriptionStatus = "active" | "suspended" | "expired" | "past_due" | "cancelled";
 export type SubscriptionBillingPeriod = "monthly" | "annual";
-export type TenantBusinessType = "retail_shop" | "restaurant" | "wholesaler" | "tiktok_seller" | "ecommerce_social" | "mixte";
+export type TenantBusinessType =
+  | "retail_shop"
+  | "restaurant"
+  | "wholesaler"
+  | "tiktok_seller"
+  | "ecommerce_social"
+  | "mixte"
+  | "fast_food"
+  | "salon"
+  | "cosmetics"
+  | "mobile_vendor";
 
 export const SUBSCRIPTION_PLAN_LABELS: Record<SubscriptionPlan, string> = {
   starter: "Starter",
@@ -247,12 +278,16 @@ export const SUBSCRIPTION_STATUS_LABELS: Record<SubscriptionStatus, string> = {
 };
 
 export const TENANT_TYPE_LABELS: Record<TenantBusinessType, string> = {
-  retail_shop: "Boutique",
-  restaurant: "Restaurant",
+  retail_shop: "Boutique / Épicerie",
+  restaurant: "Restaurant / Maquis",
   wholesaler: "Grossiste",
   tiktok_seller: "Vendeur TikTok",
   ecommerce_social: "E-Commerce Social",
   mixte: "Mixte",
+  fast_food: "Fast-food / Snack",
+  salon: "Salon / Esthétique",
+  cosmetics: "Cosmétiques / Beauté",
+  mobile_vendor: "Vente ambulante",
 };
 
 export interface TenantInfo {

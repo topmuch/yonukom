@@ -73,11 +73,23 @@ export function generateModuleConfig(params: {
 }): ModuleConfig {
   const { businessType } = params;
 
-  // Activation des modules selon le type de business
+  // Activation des modules selon le type de business.
+  // Les 8 nouveaux métiers sont mappés aux 3 modules existants :
+  //  - ecommerce_social (POS vente) : retail_shop, salon, cosmetics, tiktok_seller, mobile_vendor
+  //  - pipeline_b2b (devis/BL/facture B2B) : wholesaler
+  //  - restaurant (plats finis, perte) : fast_food, restaurant
+  // "mixte" active tout. Legacy : ecommerce_social/pipeline_b2b gardent leur mapping.
+  const ECOM_TYPES: BusinessType[] = [
+    "retail_shop", "salon", "cosmetics", "tiktok_seller", "mobile_vendor",
+    "ecommerce_social",
+  ];
+  const B2B_TYPES: BusinessType[] = ["wholesaler", "pipeline_b2b"];
+  const RESTO_TYPES: BusinessType[] = ["fast_food", "restaurant"];
+
   const moduleFlags: Pick<ModuleConfig, "ecommerce_social" | "pipeline_b2b" | "restaurant"> = {
-    ecommerce_social: businessType === "ecommerce_social" || businessType === "mixte",
-    pipeline_b2b: businessType === "pipeline_b2b" || businessType === "mixte",
-    restaurant: businessType === "restaurant" || businessType === "mixte",
+    ecommerce_social: ECOM_TYPES.includes(businessType) || businessType === "mixte",
+    pipeline_b2b: B2B_TYPES.includes(businessType) || businessType === "mixte",
+    restaurant: RESTO_TYPES.includes(businessType) || businessType === "mixte",
   };
 
   return {

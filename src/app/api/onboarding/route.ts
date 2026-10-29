@@ -59,11 +59,14 @@ export async function POST(request: NextRequest) {
     // dans le dashboard superadmin). Map le type d'onboarding → TenantBusinessType.
     if (existingBusiness.tenantId) {
       const onboardingType = (businessType.type as string) || "mixte";
+      // Les 8 nouveaux métiers (retail_shop, fast_food, restaurant, salon,
+      // cosmetics, wholesaler, tiktok_seller, mobile_vendor) + les legacy
+      // (ecommerce_social, mixte) sont des TenantBusinessType valides →
+      // mapping direct. Seul "pipeline_b2b" (legacy) nécessite une traduction
+      // vers "wholesaler".
       const tenantBusinessType: string =
         onboardingType === "pipeline_b2b" ? "wholesaler"
-        : onboardingType === "ecommerce_social" ? "ecommerce_social"
-        : onboardingType === "restaurant" ? "restaurant"
-        : "mixte";
+        : onboardingType;
       await db.tenant.update({
         where: { id: existingBusiness.tenantId },
         data: { businessType: tenantBusinessType },
