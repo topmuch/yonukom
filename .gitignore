@@ -57,3 +57,7 @@ server.log
 /.uploads/
 # Z.ai Code sandbox infra (not part of the app)
 /.zscripts/
+
+# Z.ai Code tool outputs (not app code)
+/tool-results/
+/agent-ctx/
