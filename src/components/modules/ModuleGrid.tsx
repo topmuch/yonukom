@@ -32,12 +32,11 @@ export function ModuleGrid({ modules, onToggle, businessType, isAdmin }: ModuleG
     ? modules
     : businessType
     ? modules.filter((m) => {
-        // Module applicable si 'all' dans ses types OU correspond au businessType
+        const types = m.applicableBusinessTypes as readonly string[];
         return (
-          m.applicableBusinessTypes.includes("all") ||
-          m.applicableBusinessTypes.includes(businessType) ||
+          types.includes("all") ||
+          types.includes(businessType) ||
           businessType === "mixte" ||
-          // Si le superadmin a activé un module non-applicable, le client le voit quand même
           m.enabled
         );
       })

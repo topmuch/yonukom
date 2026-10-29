@@ -116,9 +116,10 @@ export function ModulesSettings() {
   // Si le superadmin a activé un module non-applicable, il reste visible.
   const modulesWithState = getModulesWithState(modules);
   const visibleModules = modulesWithState.filter((m) => {
+    const types = m.applicableBusinessTypes as readonly string[];
     return (
-      m.applicableBusinessTypes.includes("all") ||
-      m.applicableBusinessTypes.includes(businessType) ||
+      types.includes("all") ||
+      types.includes(businessType) ||
       businessType === "mixte" ||
       m.enabled
     );

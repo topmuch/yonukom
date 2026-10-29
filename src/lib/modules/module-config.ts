@@ -212,10 +212,11 @@ export function isModuleApplicable(
 ): boolean {
   const config = MODULES_CONFIG[moduleId];
   if (!config) return false;
+  const types = config.applicableBusinessTypes as readonly string[];
   return (
-    config.applicableBusinessTypes.includes("all") ||
-    config.applicableBusinessTypes.includes(businessType as ApplicableBusinessType) ||
-    businessType === "mixte" // mixte = tous les modules
+    types.includes("all") ||
+    types.includes(businessType) ||
+    businessType === "mixte"
   );
 }
 
