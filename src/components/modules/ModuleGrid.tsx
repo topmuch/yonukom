@@ -2,18 +2,50 @@
 
 import { ModuleCard } from "./ModuleCard";
 import { motion } from "framer-motion";
-import type { ModuleDefinition } from "@/lib/modules/module-config";
-import type { ModuleId } from "@/lib/modules/module-config";
+import { MODULES_CONFIG, isModuleApplicable, type ModuleId } from "@/lib/modules/module-config";
 
-interface ModuleGridProps {
-  modules: Array<ModuleDefinition & { enabled: boolean; locked: boolean }>;
-  onToggle: (moduleId: ModuleId, enabled: boolean) => void;
+interface ModuleWithState {
+  id: string;
+  name: string;
+  description: string;
+  icon: any;
+  premium: boolean;
+  defaultEnabled: boolean;
+  applicableBusinessTypes: string[];
+  enabled: boolean;
+  locked: boolean;
 }
 
-export function ModuleGrid({ modules, onToggle }: ModuleGridProps) {
+interface ModuleGridProps {
+  modules: ModuleWithState[];
+  onToggle: (moduleId: ModuleId, enabled: boolean) => void;
+  /** businessType du tenant — filtre les modules visibles côté client */
+  businessType?: string;
+  /** true = superadmin → affiche TOUS les modules sans filtre */
+  isAdmin?: boolean;
+}
+
+export function ModuleGrid({ modules, onToggle, businessType, isAdmin }: ModuleGridProps) {
+  // RÈGLE 1 : Filtrer par applicableBusinessTypes côté client.
+  // RÈGLE 3 : Le superadmin (isAdmin=true) voit TOUT sans filtre.
+  const visibleModules = isAdmin
+    ? modules
+    : businessType
+    ? modules.filter((m) => {
+        // Module applicable si 'all' dans ses types OU correspond au businessType
+        return (
+          m.applicableBusinessTypes.includes("all") ||
+          m.applicableBusinessTypes.includes(businessType) ||
+          businessType === "mixte" ||
+          // Si le superadmin a activé un module non-applicable, le client le voit quand même
+          m.enabled
+        );
+      })
+    : modules;
+
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-      {modules.map((mod, idx) => {
+      {visibleModules.map((mod, idx) => {
         const Icon = mod.icon;
         return (
           <motion.div

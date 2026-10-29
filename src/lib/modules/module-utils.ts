@@ -1,28 +1,28 @@
 // ============================================================
-// YonuKom — Fonctions utilitaires pour les modules
+// YonuKom — Fonctions utilitaires pour les modules (V3)
 // Vérifier/activer/désactiver/verrouiller les modules d'un tenant.
 // ============================================================
 
-import { MODULES_CONFIG, buildDefaultModules, type ModuleId } from "./module-config";
+import { MODULES_CONFIG, MODULE_IDS, type ModuleId } from "./module-config";
 
 export type ModulesJson = Record<string, { enabled: boolean; locked: boolean }>;
 
 /**
  * Normalise le JSON des modules d'un tenant.
- * Si null/undefined → retourne les valeurs par défaut (buildDefaultModules).
- * Si incomplet → complète avec les valeurs par défaut pour les modules manquants.
+ * Si null/undefined → retourne un objet vide (les modules absents
+ * sont considérés comme non-applicables/non-affichés).
+ * Si incomplet → garde uniquement les modules qui existent dans MODULES_CONFIG.
  */
 export function normalizeModules(raw: unknown): ModulesJson {
-  const defaults = buildDefaultModules();
-  if (!raw || typeof raw !== "object") return defaults;
+  if (!raw || typeof raw !== "object") return {};
   const parsed = raw as Record<string, unknown>;
-  const result: ModulesJson = { ...defaults };
-  for (const key of Object.keys(defaults)) {
+  const result: ModulesJson = {};
+  for (const key of MODULE_IDS) {
     const entry = parsed[key];
     if (entry && typeof entry === "object") {
       const e = entry as { enabled?: boolean; locked?: boolean };
       result[key] = {
-        enabled: typeof e.enabled === "boolean" ? e.enabled : defaults[key as ModuleId].enabled,
+        enabled: typeof e.enabled === "boolean" ? e.enabled : false,
         locked: typeof e.locked === "boolean" ? e.locked : false,
       };
     }
@@ -32,7 +32,7 @@ export function normalizeModules(raw: unknown): ModulesJson {
 
 /**
  * Vérifie si un module est activé pour un tenant.
- * Si le module n'est pas dans le JSON, utilise defaultEnabled de MODULES_CONFIG.
+ * Si le module n'est pas dans le JSON → false (non-configuré).
  */
 export function isModuleEnabled(modules: unknown, moduleId: ModuleId): boolean {
   const normalized = normalizeModules(modules);
@@ -49,7 +49,6 @@ export function isModuleLocked(modules: unknown, moduleId: ModuleId): boolean {
 
 /**
  * Active/désactive un module.
- * Ne modifie PAS le flag locked (utilisé par le client qui ne peut que toggler enabled).
  */
 export function toggleModule(
   modules: unknown,
@@ -68,7 +67,6 @@ export function toggleModule(
 
 /**
  * Verrouille/déverrouille un module (superadmin uniquement).
- * Un module verrouillé ne peut pas être désactivé par le client.
  */
 export function lockModule(
   modules: unknown,
@@ -91,10 +89,10 @@ export function lockModule(
  */
 export function getModulesWithState(modules: unknown) {
   const normalized = normalizeModules(modules);
-  return Object.entries(MODULES_CONFIG).map(([id, config]) => ({
-    ...config,
+  return MODULE_IDS.map((id) => ({
+    ...MODULES_CONFIG[id],
     id: id as ModuleId,
-    enabled: normalized[id]?.enabled ?? config.defaultEnabled,
+    enabled: normalized[id]?.enabled ?? MODULES_CONFIG[id].defaultEnabled,
     locked: normalized[id]?.locked ?? false,
   }));
 }

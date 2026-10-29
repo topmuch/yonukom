@@ -1,7 +1,10 @@
 // ============================================================
-// YonuKom — Configuration centrale des modules activables
-// Chaque module peut être activé/désactivé par le tenant ou le superadmin.
-// Le superadmin peut "locker" un module (inclus dans l'abonnement).
+// YonuKom — Configuration centrale des modules activables (V3)
+// Architecture hiérarchique : Superadmin > BusinessType > Client
+//
+// RÈGLE 1 : Pertinence Contextuelle — chaque module a applicableBusinessTypes
+// RÈGLE 2 : Autonomie du Client — toggler uniquement ses modules pertinents
+// RÈGLE 3 : Suprématie Superadmin — voit tout, peut override/lock
 // ============================================================
 
 import {
@@ -19,8 +22,22 @@ import {
   Brain,
   MessageCircle,
   Printer,
+  CalendarClock,
   type LucideIcon,
 } from "lucide-react";
+
+// --- Les BusinessType du système (doit matcher types/index.ts) ---
+export type ApplicableBusinessType =
+  | "all"
+  | "retail_shop"
+  | "fast_food"
+  | "restaurant"
+  | "salon"
+  | "cosmetics"
+  | "wholesaler"
+  | "tiktok_seller"
+  | "mobile_vendor"
+  | "mixte";
 
 export interface ModuleDefinition {
   id: string;
@@ -29,9 +46,12 @@ export interface ModuleDefinition {
   icon: LucideIcon;
   premium: boolean;
   defaultEnabled: boolean;
+  /** Métiers pour lesquels ce module est pertinent. 'all' = tous les métiers. */
+  applicableBusinessTypes: ApplicableBusinessType[];
 }
 
 export const MODULES_CONFIG = {
+  // === Modules Transverses (tous les métiers) ===
   pos: {
     id: "pos",
     name: "Point de Vente",
@@ -39,102 +59,43 @@ export const MODULES_CONFIG = {
     icon: ShoppingCart,
     premium: false,
     defaultEnabled: true,
+    applicableBusinessTypes: ["all"],
   },
   products: {
     id: "products",
-    name: "Gestion des Produits",
-    description: "Catalogue de produits avec prix et catégories",
+    name: "Catalogue Produits",
+    description: "Gestion des produits/services avec prix et catégories",
     icon: Package,
     premium: false,
     defaultEnabled: true,
+    applicableBusinessTypes: ["all"],
   },
   stock: {
     id: "stock",
     name: "Gestion du Stock",
-    description: "Suivi des quantités et alertes de rupture",
+    description: "Suivi des quantités, alertes de rupture, mouvements",
     icon: Warehouse,
     premium: false,
     defaultEnabled: true,
+    applicableBusinessTypes: ["all"],
   },
   reports: {
     id: "reports",
     name: "Rapports de Ventes",
-    description: "CA journalier, mensuel et annuel",
+    description: "CA journalier, mensuel, annuel, top produits",
     icon: BarChart3,
     premium: false,
     defaultEnabled: true,
-  },
-  ecommerce: {
-    id: "ecommerce",
-    name: "Vente en Ligne (TikTok/WhatsApp)",
-    description: "Génération de liens de paiement et suivi des commandes sociales",
-    icon: Smartphone,
-    premium: true,
-    defaultEnabled: false,
-  },
-  online_store: {
-    id: "online_store",
-    name: "Boutique en Ligne Publique",
-    description: "Page web publique pour vos clients (yonukom.com/votre-boutique)",
-    icon: Globe,
-    premium: true,
-    defaultEnabled: false,
-  },
-  wholesale: {
-    id: "wholesale",
-    name: "Grossiste B2B",
-    description: "Devis, factures, bons de livraison et acomptes",
-    icon: Truck,
-    premium: true,
-    defaultEnabled: false,
-  },
-  restaurant: {
-    id: "restaurant",
-    name: "Restaurant / Fast-food",
-    description: "Gestion des plats du jour et déclarations de pertes",
-    icon: Utensils,
-    premium: false,
-    defaultEnabled: false,
-  },
-  services: {
-    id: "services",
-    name: "Services (Coiffeur, Salon)",
-    description: "Vente de prestations sans gestion de stock",
-    icon: Scissors,
-    premium: false,
-    defaultEnabled: false,
+    applicableBusinessTypes: ["all"],
   },
   debts: {
     id: "debts",
     name: "Dettes Clients",
-    description: "Carnet de crédits et suivi des paiements",
+    description: "Carnet de crédits et suivi des remboursements",
     icon: CreditCard,
     premium: false,
     defaultEnabled: false,
-  },
-  multi_users: {
-    id: "multi_users",
-    name: "Multi-utilisateurs",
-    description: "Gestion des rôles (vendeur, gérant, comptable)",
-    icon: Users,
-    premium: true,
-    defaultEnabled: false,
-  },
-  analytics_pro: {
-    id: "analytics_pro",
-    name: "Analytics Pro (IA)",
-    description: "Prédictions de ventes, alertes intelligentes, tendances",
-    icon: Brain,
-    premium: true,
-    defaultEnabled: false,
-  },
-  whatsapp_auto: {
-    id: "whatsapp_auto",
-    name: "WhatsApp Automatique",
-    description: "Envoi automatique de messages et liens de paiement",
-    icon: MessageCircle,
-    premium: true,
-    defaultEnabled: false,
+    applicableBusinessTypes: ["all"],
   },
   printing: {
     id: "printing",
@@ -143,78 +104,158 @@ export const MODULES_CONFIG = {
     icon: Printer,
     premium: false,
     defaultEnabled: true,
+    applicableBusinessTypes: ["all"],
+  },
+  multi_users: {
+    id: "multi_users",
+    name: "Multi-utilisateurs",
+    description: "Gestion des rôles (vendeur, gérant, comptable)",
+    icon: Users,
+    premium: true,
+    defaultEnabled: false,
+    applicableBusinessTypes: ["all"],
+  },
+
+  // === Modules Restaurant / Fast-food ===
+  restaurant: {
+    id: "restaurant",
+    name: "Plats du Jour & Pertes",
+    description: "Gestion des plats finis, déclarations de pertes, cuisine",
+    icon: Utensils,
+    premium: false,
+    defaultEnabled: true,
+    applicableBusinessTypes: ["restaurant", "fast_food"],
+  },
+
+  // === Modules Salon / Coiffure / Esthétique ===
+  services: {
+    id: "services",
+    name: "Services & Prestations",
+    description: "Vente de prestations sans stock (coiffure, soin, manucure)",
+    icon: Scissors,
+    premium: false,
+    defaultEnabled: true,
+    applicableBusinessTypes: ["salon", "cosmetics"],
+  },
+  salon_booking: {
+    id: "salon_booking",
+    name: "Calendrier & Rendez-vous",
+    description: "Planning de RDV, créneaux, durée des prestations",
+    icon: CalendarClock,
+    premium: false,
+    defaultEnabled: true,
+    applicableBusinessTypes: ["salon", "cosmetics"],
+  },
+
+  // === Modules Grossiste / B2B ===
+  wholesale: {
+    id: "wholesale",
+    name: "Devis & Factures B2B",
+    description: "Pipeline devis → BL → facture, acomptes, stock réservé",
+    icon: Truck,
+    premium: true,
+    defaultEnabled: true,
+    applicableBusinessTypes: ["wholesaler"],
+  },
+
+  // === Modules E-Commerce / Vente en Ligne ===
+  ecommerce: {
+    id: "ecommerce",
+    name: "Vente TikTok / WhatsApp",
+    description: "Liens de paiement, suivi des commandes sociales, live selling",
+    icon: Smartphone,
+    premium: true,
+    defaultEnabled: false,
+    applicableBusinessTypes: ["retail_shop", "cosmetics", "tiktok_seller", "mobile_vendor"],
+  },
+  online_store: {
+    id: "online_store",
+    name: "Boutique en Ligne Publique",
+    description: "Page web publique pour vos clients (yonukom.com/b/votre-boutique)",
+    icon: Globe,
+    premium: true,
+    defaultEnabled: false,
+    applicableBusinessTypes: ["retail_shop", "cosmetics", "tiktok_seller", "mobile_vendor", "restaurant", "fast_food", "salon"],
+  },
+
+  // === Modules Premium (tous métiers, payants) ===
+  analytics_pro: {
+    id: "analytics_pro",
+    name: "Analytics Pro (IA)",
+    description: "Prédictions de ventes, alertes intelligentes, tendances",
+    icon: Brain,
+    premium: true,
+    defaultEnabled: false,
+    applicableBusinessTypes: ["all"],
+  },
+  whatsapp_auto: {
+    id: "whatsapp_auto",
+    name: "WhatsApp Automatique",
+    description: "Envoi automatique de reçus, rappels de dette, alerts stock",
+    icon: MessageCircle,
+    premium: true,
+    defaultEnabled: false,
+    applicableBusinessTypes: ["all"],
   },
 } as const;
 
 export type ModuleId = keyof typeof MODULES_CONFIG;
-
-/** Liste ordonnée des IDs de modules (pour itérer) */
 export const MODULE_IDS = Object.keys(MODULES_CONFIG) as ModuleId[];
 
 /**
- * Construit l'objet JSON des modules avec les valeurs par défaut
- * (defaultEnabled + locked:false pour chaque module).
- * Utilisé quand un tenant n'a pas encore de `modules` (null en DB).
+ * Vérifie si un module est applicable à un type de business.
+ * 'all' dans applicableBusinessTypes = applicable à tous les métiers.
  */
-export function buildDefaultModules(): Record<
-  ModuleId,
-  { enabled: boolean; locked: boolean }
-> {
-  const result = {} as Record<ModuleId, { enabled: boolean; locked: boolean }>;
+export function isModuleApplicable(
+  moduleId: ModuleId,
+  businessType: string
+): boolean {
+  const config = MODULES_CONFIG[moduleId];
+  if (!config) return false;
+  return (
+    config.applicableBusinessTypes.includes("all") ||
+    config.applicableBusinessTypes.includes(businessType as ApplicableBusinessType) ||
+    businessType === "mixte" // mixte = tous les modules
+  );
+}
+
+/**
+ * RÈGLE 1 + RÈGLE 2 : Génère le JSON initial des modules pour un tenant
+ * en filtrant MODULES_CONFIG selon le businessType choisi à l'onboarding.
+ * Seuls les modules applicables au métier sont inclus (enabled=defaultEnabled).
+ * Les modules non-applicables sont ABSENTS du JSON (pas juste disabled).
+ */
+export function generateInitialModules(
+  businessType: string
+): Record<string, { enabled: boolean; locked: boolean }> {
+  const result: Record<string, { enabled: boolean; locked: boolean }> = {};
   for (const id of MODULE_IDS) {
-    result[id] = {
-      enabled: MODULES_CONFIG[id].defaultEnabled,
-      locked: false,
-    };
+    if (isModuleApplicable(id, businessType)) {
+      result[id] = {
+        enabled: MODULES_CONFIG[id].defaultEnabled,
+        locked: false,
+      };
+    }
   }
   return result;
 }
 
-/**
- * Mapping BusinessType → modules pertinents pour ce métier.
- * Un restaurant ne voit pas les modules salon, un salon ne voit pas
- * les modules restaurant/wholesale, etc.
- * Après onboarding, seuls ces modules sont activés + visibles chez le client.
- * Le superadmin peut override (activer n'importe quel module).
- */
-import type { BusinessType } from "@/types";
+// --- Alias pour rétro-compatibilité ---
+export function buildDefaultModules() {
+  return generateInitialModules("mixte");
+}
 
-export const BUSINESS_TYPE_MODULES: Partial<Record<BusinessType, ModuleId[]>> = {
-  retail_shop: ["pos", "products", "stock", "reports", "debts", "printing", "multi_users"],
-  fast_food: ["pos", "products", "stock", "reports", "restaurant", "debts", "printing", "multi_users"],
-  restaurant: ["pos", "products", "stock", "reports", "restaurant", "debts", "printing", "multi_users"],
-  salon: ["pos", "products", "stock", "reports", "services", "debts", "printing", "multi_users"],
-  cosmetics: ["pos", "products", "stock", "reports", "services", "debts", "printing", "multi_users"],
-  wholesaler: ["pos", "products", "stock", "reports", "wholesale", "debts", "printing", "multi_users"],
-  tiktok_seller: ["pos", "products", "stock", "reports", "ecommerce", "online_store", "debts", "printing"],
-  mobile_vendor: ["pos", "products", "stock", "reports", "ecommerce", "debts", "printing"],
-  // Legacy
-  ecommerce_social: ["pos", "products", "stock", "reports", "ecommerce", "online_store", "debts", "printing"],
-  pipeline_b2b: ["pos", "products", "stock", "reports", "wholesale", "debts", "printing", "multi_users"],
-  mixte: MODULE_IDS, // tous les modules
-};
+export function buildModulesForBusinessType(businessType: string) {
+  return generateInitialModules(businessType);
+}
 
-/**
- * Retourne les modules pertinents pour un type de business.
- * Fallback: tous les modules (mixte).
- */
 export function getRelevantModules(businessType: string): ModuleId[] {
-  return BUSINESS_TYPE_MODULES[businessType as BusinessType] ?? MODULE_IDS;
+  return MODULE_IDS.filter((id) => isModuleApplicable(id, businessType));
 }
 
-/**
- * Construit le JSON des modules pour un type de business.
- * Seuls les modules pertinents sont enabled=true, les autres enabled=false.
- * locked=false pour tous (le superadmin peut locker plus tard).
- */
-export function buildModulesForBusinessType(businessType: string): Record<ModuleId, { enabled: boolean; locked: boolean }> {
-  const relevant = new Set(getRelevantModules(businessType));
-  const result = {} as Record<ModuleId, { enabled: boolean; locked: boolean }>;
-  for (const id of MODULE_IDS) {
-    result[id] = {
-      enabled: relevant.has(id),
-      locked: false,
-    };
-  }
-  return result;
-}
+// --- Rétro-compat : BUSINESS_TYPE_MODULES (utilisé par app-shell TAB_MODULE_MAP) ---
+export const BUSINESS_TYPE_MODULES: Record<string, ModuleId[]> = Object.fromEntries(
+  ["retail_shop", "fast_food", "restaurant", "salon", "cosmetics", "wholesaler", "tiktok_seller", "mobile_vendor", "mixte"].map(
+    (bt) => [bt, getRelevantModules(bt)]
+  )
+);

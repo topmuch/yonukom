@@ -8,14 +8,12 @@ import { toast } from "sonner";
 import { useAuthStore } from "@/stores/use-auth-store";
 import { useModulesStore } from "@/stores/use-modules-store";
 import { ModuleGrid } from "./ModuleGrid";
-import { getModulesWithState, type ModulesJson } from "@/lib/modules/module-utils";
-import { MODULES_CONFIG, getRelevantModules, type ModuleId } from "@/lib/modules/module-config";
+import { getModulesWithState, normalizeModules, type ModulesJson } from "@/lib/modules/module-utils";
+import type { ModuleId } from "@/lib/modules/module-config";
 
 // ============================================================
 // YonuKom — Paramètres des Modules (côté client / tenant)
-// Affiché dans l'onglet Paramètres → section "Modules".
-// Le client peut activer/désactiver les modules non-verrouillés.
-// Les modules verrouillés (locked) sont grisés avec un badge.
+// RÈGLE 2 : le client ne voit/toggle que les modules de SON métier.
 // ============================================================
 
 export function ModulesSettings() {
@@ -35,7 +33,6 @@ export function ModulesSettings() {
     try {
       const token = typeof window !== "undefined" ? localStorage.getItem("yonukom_token") : null;
       const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
-      // Récupérer les modules + le profil business (pour le type)
       const [modsRes, profileRes] = await Promise.all([
         fetch(`/api/tenant/modules?businessId=${encodeURIComponent(businessId)}`, { headers, credentials: "include" }),
         fetch(`/api/business/profile?businessId=${encodeURIComponent(businessId)}`, { headers, credentials: "include" }),
@@ -46,7 +43,6 @@ export function ModulesSettings() {
       }
       if (profileRes.ok) {
         const profile = await profileRes.json();
-        // Le type du business détermine quels modules sont pertinents
         if (profile.type) setBusinessType(profile.type);
       }
     } catch {
@@ -62,7 +58,6 @@ export function ModulesSettings() {
 
   const handleToggle = async (moduleId: ModuleId, enabled: boolean) => {
     if (!businessId || !modules) return;
-    // Optimistic UI : update immédiat
     setModules((prev) =>
       prev ? { ...prev, [moduleId]: { ...prev[moduleId], enabled } } : prev
     );
@@ -83,12 +78,10 @@ export function ModulesSettings() {
         throw new Error(data.error || "Échec");
       }
       const data = await res.json();
-      setModules(data.modules); // sync avec le serveur
-      // Rafraîchir le store partagé (pour que la nav + ModuleGuard se mettent à jour)
+      setModules(data.modules);
       useModulesStore.getState().fetchModules(businessId);
       toast.success(`${enabled ? "Module activé" : "Module désactivé"}`);
     } catch (err: any) {
-      // Revert optimistic update
       setModules((prev) =>
         prev ? { ...prev, [moduleId]: { ...prev[moduleId], enabled: !enabled } } : prev
       );
@@ -119,22 +112,23 @@ export function ModulesSettings() {
     );
   }
 
+  // RÈGLE 1 : ne montrer que les modules applicables au métier du client.
+  // Si le superadmin a activé un module non-applicable, il reste visible.
   const modulesWithState = getModulesWithState(modules);
-  // Ne montrer que les modules pertinents au métier du client.
-  // Un restaurant ne voit pas les modules salon, un salon ne voit pas
-  // wholesale, etc. Le superadmin peut activer des modules non-pertinents
-  // via sa page dédiée — dans ce cas ils apparaissent ici aussi.
-  const relevantModuleIds = new Set(getRelevantModules(businessType));
-  const visibleModules = modulesWithState.filter(
-    (m) => relevantModuleIds.has(m.id) || m.enabled
-  );
+  const visibleModules = modulesWithState.filter((m) => {
+    return (
+      m.applicableBusinessTypes.includes("all") ||
+      m.applicableBusinessTypes.includes(businessType) ||
+      businessType === "mixte" ||
+      m.enabled
+    );
+  });
   const enabledCount = visibleModules.filter((m) => m.enabled).length;
   const lockedCount = visibleModules.filter((m) => m.locked).length;
 
   return (
     <Card>
       <CardContent className="p-4 sm:p-5 space-y-4">
-        {/* Header */}
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <Puzzle className="w-5 h-5 text-primary" />
@@ -153,14 +147,17 @@ export function ModulesSettings() {
         </div>
 
         <p className="text-xs text-muted-foreground -mt-2">
-          Activez ou désactivez les modules selon vos besoins. Les modules{" "}
-          <span className="font-medium text-amber-700">Premium</span> nécessitent un
-          abonnement supérieur. Les modules <span className="font-medium text-slate-700">Verrouillés</span>{" "}
-          sont inclus dans votre offre et ne peuvent pas être désactivés.
+          Activez ou désactivez les modules selon vos besoins (parmi ceux dédiés
+          à votre métier). Les modules <span className="font-medium text-amber-700">Premium</span>{" "}
+          nécessitent un abonnement supérieur.
         </p>
 
-        {/* Grille de modules */}
-        <ModuleGrid modules={visibleModules} onToggle={handleToggle} />
+        <ModuleGrid
+          modules={visibleModules}
+          onToggle={handleToggle}
+          businessType={businessType}
+          isAdmin={false}
+        />
       </CardContent>
     </Card>
   );
