@@ -34,7 +34,7 @@ export function ModulesSettings() {
     setLoading(true);
     try {
       const token = typeof window !== "undefined" ? localStorage.getItem("yonukom_token") : null;
-      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+      const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
       // Récupérer les modules + le profil business (pour le type)
       const [modsRes, profileRes] = await Promise.all([
         fetch(`/api/tenant/modules?businessId=${encodeURIComponent(businessId)}`, { headers, credentials: "include" }),
