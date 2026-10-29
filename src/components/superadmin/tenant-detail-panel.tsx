@@ -225,6 +225,28 @@ export function TenantDetailPanel({
             </div>
           </motion.div>
 
+          <Separator />
+
+          {/* Modules — gestion par le superadmin */}
+          <motion.div
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.3, delay: 0.06 }}
+            className="space-y-3"
+          >
+            <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+              <Puzzle className="h-4 w-4 text-violet-600" />
+              Modules
+            </div>
+            <p className="text-[11px] text-muted-foreground ml-6">
+              Activez/désactivez les modules pour ce tenant. Verrouillez pour
+              empêcher le client de les modifier.
+            </p>
+            <div className="ml-6 max-h-[400px] overflow-y-auto">
+              <SuperadminModulesManager tenantId={tenant.id} />
+            </div>
+          </motion.div>
+
           {/* Businesses list */}
           {businesses.length > 0 && (
             <>
@@ -395,28 +417,6 @@ export function TenantDetailPanel({
               <Separator />
             </>
           )}
-
-          {/* Modules — gestion par le superadmin */}
-          <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.3, delay: 0.28 }}
-            className="space-y-3"
-          >
-            <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
-              <Puzzle className="h-4 w-4 text-violet-600" />
-              Modules
-            </div>
-            <p className="text-[11px] text-muted-foreground ml-6">
-              Activez/désactivez les modules pour ce tenant. Verrouillez (🔒) pour
-              empêcher le client de les modifier (inclus dans l&apos;abonnement).
-            </p>
-            <div className="ml-6">
-              <SuperadminModulesManager tenantId={tenant.id} />
-            </div>
-          </motion.div>
-
-          <Separator />
 
           {/* Inscrit le */}
           <motion.div
