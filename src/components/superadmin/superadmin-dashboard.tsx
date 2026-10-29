@@ -16,6 +16,7 @@ import {
   CreditCard,
   Settings as SettingsIcon,
   ScrollText,
+  Puzzle,
   TrendingUp,
   Search,
   Plus,
@@ -84,6 +85,7 @@ import { useAuthStore } from "@/stores/use-auth-store";
 import { TenantTable } from "@/components/superadmin/tenant-table";
 import { SubscriptionStatusBadge } from "@/components/superadmin/subscription-status-badge";
 import { TenantDetailPanel } from "@/components/superadmin/tenant-detail-panel";
+import { SuperadminModulesPage } from "@/components/superadmin/superadmin-modules-page";
 import { ImpersonationBanner } from "@/components/superadmin/impersonation-banner";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
 import { formatFCFA, formatFCFAShort } from "@/lib/fcfa";
@@ -111,6 +113,7 @@ const NAV_ITEMS: { page: SuperadminPage; icon: typeof BarChart3; label: string }
   { page: "analytics", icon: TrendingUp, label: "Analytics" },
   { page: "messages", icon: Mail, label: "Messages" },
   { page: "logs", icon: ScrollText, label: "Logs" },
+  { page: "modules", icon: Puzzle, label: "Modules" },
   { page: "settings", icon: SettingsIcon, label: "Paramètres" },
 ];
 
@@ -419,6 +422,7 @@ export function SuperadminDashboard() {
                 {activePage === "messages" && <MessagesPage />}
                 {activePage === "logs" && <LogsPage />}
                 {activePage === "settings" && <SettingsPage />}
+                {activePage === "modules" && <SuperadminModulesPage />}
               </motion.div>
             </AnimatePresence>
           </div>
