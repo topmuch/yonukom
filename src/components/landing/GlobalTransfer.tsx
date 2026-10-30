@@ -74,14 +74,21 @@ export function GlobalTransfer({ onSignup }: GlobalTransferProps) {
               <div className="absolute inset-16 rounded-full border border-[#E91E63]/10" />
               <div className="absolute inset-24 rounded-full border border-[#E91E63]/10" />
 
-              {/* Center globe icon */}
+              {/* Center real image (replaces globe icon) */}
               <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
                 <motion.div
-                  animate={{ rotate: 360 }}
-                  transition={{ duration: 30, repeat: Infinity, ease: "linear" }}
-                  className="w-20 h-20 rounded-full bg-gradient-to-br from-[#E91E63] to-[#AD1457] flex items-center justify-center shadow-2xl shadow-[#E91E63]/30"
+                  initial={{ opacity: 0, scale: 0.6 }}
+                  whileInView={{ opacity: 1, scale: 1 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.5, type: "spring" }}
+                  className="w-32 h-32 sm:w-36 sm:h-36 rounded-full overflow-hidden border-4 border-white shadow-2xl shadow-[#E91E63]/40 ring-4 ring-[#E91E63]/30"
                 >
-                  <Globe className="w-10 h-10 text-white" />
+                  <img
+                    src="/landing/argent-transfer.png"
+                    alt="Transfert d'argent mobile en Afrique de l'Ouest avec YonuKom"
+                    className="w-full h-full object-cover"
+                    loading="lazy"
+                  />
                 </motion.div>
               </div>
 

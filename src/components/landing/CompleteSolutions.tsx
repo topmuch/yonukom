@@ -2,7 +2,7 @@
 
 import { motion } from "framer-motion";
 import { Card, CardContent } from "@/components/ui/card";
-import { Store, Smartphone, ArrowRight, CheckCircle2 } from "lucide-react";
+import { ArrowRight, CheckCircle2 } from "lucide-react";
 
 interface CompleteSolutionsProps {
   onSignup?: () => void;
@@ -10,7 +10,8 @@ interface CompleteSolutionsProps {
 
 const solutions = [
   {
-    icon: Store,
+    image: "/landing/caisse-physique.png",
+    alt: "Caisse tactile et gestion de boutique physique avec YonuKom",
     badge: "Pour les boutiques physiques",
     title: "Caisse & gestion physique",
     description:
@@ -27,7 +28,8 @@ const solutions = [
     accent: "from-[#E91E63] to-[#AD1457]",
   },
   {
-    icon: Smartphone,
+    image: "/landing/vente-mobile.png",
+    alt: "Vente mobile et commerce sur les réseaux sociaux avec YonuKom",
     badge: "Pour les vendeurs en ligne",
     title: "Vente mobile & réseaux",
     description:
@@ -77,7 +79,6 @@ export function CompleteSolutions({ onSignup }: CompleteSolutionsProps) {
 
         <div className="grid md:grid-cols-2 gap-6 lg:gap-8 max-w-5xl mx-auto">
           {solutions.map((sol, i) => {
-            const Icon = sol.icon;
             return (
               <motion.div
                 key={i}
@@ -86,32 +87,32 @@ export function CompleteSolutions({ onSignup }: CompleteSolutionsProps) {
                 viewport={{ once: true, margin: "-50px" }}
                 transition={{ duration: 0.5, delay: i * 0.15 }}
               >
-                <Card className="group h-full relative overflow-hidden border border-slate-200/60 hover:border-transparent hover:shadow-[0_24px_48px_-16px_rgba(51,139,226,0.25)] hover:-translate-y-1 transition-all duration-300">
+                <Card className="group h-full relative overflow-hidden border border-slate-200/60 hover:border-transparent hover:shadow-[0_24px_48px_-16px_rgba(233,30,99,0.25)] hover:-translate-y-1 transition-all duration-300">
                   {/* Top gradient accent */}
                   <div
-                    className={`absolute top-0 inset-x-0 h-1 bg-gradient-to-r ${sol.accent}`}
+                    className={`absolute top-0 inset-x-0 h-1 bg-gradient-to-r ${sol.accent} z-10`}
                   />
 
-                  <CardContent className="p-7 sm:p-8 space-y-5">
-                    {/* Badge + Icon */}
-                    <div className="flex items-start justify-between">
-                      <div
-                        className={`w-14 h-14 rounded-2xl ${sol.bg} flex items-center justify-center`}
-                        style={{ color: sol.color }}
-                      >
-                        <Icon className="w-7 h-7" />
-                      </div>
-                      <span
-                        className="text-[10px] font-semibold uppercase tracking-wider px-2.5 py-1 rounded-full"
-                        style={{
-                          background: `${sol.color}10`,
-                          color: sol.color,
-                        }}
-                      >
-                        {sol.badge}
-                      </span>
-                    </div>
+                  {/* Real image banner replacing the icon */}
+                  <div className="relative h-44 sm:h-48 w-full overflow-hidden">
+                    <img
+                      src={sol.image}
+                      alt={sol.alt}
+                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                      loading="lazy"
+                    />
+                    {/* Subtle gradient overlay for badge legibility */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
+                    {/* Badge overlaid on image */}
+                    <span
+                      className="absolute top-3 right-3 text-[10px] font-semibold uppercase tracking-wider px-2.5 py-1 rounded-full backdrop-blur-md bg-white/85"
+                      style={{ color: sol.color }}
+                    >
+                      {sol.badge}
+                    </span>
+                  </div>
 
+                  <CardContent className="p-7 sm:p-8 space-y-5">
                     <div>
                       <h3 className="text-xl sm:text-2xl font-bold text-slate-900">
                         {sol.title}

@@ -1,16 +1,12 @@
 "use client";
 
 import { motion } from "framer-motion";
-import {
-  UserPlus,
-  Wallet,
-  CheckCircle2,
-  ArrowRight,
-} from "lucide-react";
+import { ArrowRight } from "lucide-react";
 
 const steps = [
   {
-    icon: UserPlus,
+    image: "/landing/step1-compte.png",
+    alt: "Création de compte business YonuKom sur ordinateur",
     step: "01",
     title: "Créez votre compte",
     description:
@@ -18,7 +14,8 @@ const steps = [
     color: "#E91E63",
   },
   {
-    icon: Wallet,
+    image: "/landing/step2-encaissez.png",
+    alt: "Encaissement d'un paiement mobile money en boutique avec YonuKom",
     step: "02",
     title: "Encaissez vos ventes",
     description:
@@ -26,7 +23,8 @@ const steps = [
     color: "#10B981",
   },
   {
-    icon: CheckCircle2,
+    image: "/landing/step3-pilotez.png",
+    alt: "Pilotage d'activité avec rapports et statistiques YonuKom sur tablette",
     step: "03",
     title: "Pilotez votre activité",
     description:
@@ -83,7 +81,6 @@ export function HowItWorks({ onSignup }: HowItWorksProps) {
           </div>
 
           {steps.map((step, i) => {
-            const Icon = step.icon;
             return (
               <motion.div
                 key={i}
@@ -93,16 +90,18 @@ export function HowItWorks({ onSignup }: HowItWorksProps) {
                 transition={{ duration: 0.5, delay: i * 0.15 }}
                 className="relative flex flex-col items-center text-center"
               >
-                {/* Icon tile */}
+                {/* Real image tile (replaces icon) */}
                 <div className="relative z-10 mb-6">
                   <div
-                    className="w-24 h-24 rounded-3xl flex items-center justify-center shadow-lg border-4 border-[#FFF1F5]"
-                    style={{
-                      background: `${step.color}15`,
-                      color: step.color,
-                    }}
+                    className="w-24 h-24 rounded-3xl overflow-hidden shadow-lg border-4 border-[#FFF1F5] ring-1"
+                    style={{ borderColor: step.color + "30" }}
                   >
-                    <Icon className="w-10 h-10" />
+                    <img
+                      src={step.image}
+                      alt={step.alt}
+                      className="w-full h-full object-cover"
+                      loading="lazy"
+                    />
                   </div>
                   {/* Step number badge */}
                   <div
