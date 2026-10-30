@@ -71,10 +71,10 @@ const PAYMENT_COLORS: Record<string, string> = {
 };
 
 // Vibrant palette used for daily revenue bars (rotating, day of week)
-const DAILY_BAR_COLORS = ["#338BE2", "#4ECDC4", "#FF6B6B", "#FFE66D", "#A78BFA", "#10B981", "#F59E0B"];
+const DAILY_BAR_COLORS = ["#E91E63", "#4ECDC4", "#FF6B6B", "#FFE66D", "#A78BFA", "#10B981", "#F59E0B"];
 
 // Palette for top products progress bars
-const TOP_PRODUCT_COLORS = ["#338BE2", "#4ECDC4", "#A78BFA", "#FF6B6B", "#F59E0B", "#10B981", "#6366F1", "#FF6600"];
+const TOP_PRODUCT_COLORS = ["#E91E63", "#4ECDC4", "#A78BFA", "#FF6B6B", "#F59E0B", "#10B981", "#6366F1", "#FF6600"];
 
 const PAYMENT_LABELS: Record<string, string> = {
   wave: "Wave",
@@ -286,7 +286,7 @@ export function DashboardAnalytics() {
                   <AreaChart data={dailyRevenue} margin={{ top: 5, right: 5, left: -15, bottom: 5 }}>
                     <defs>
                       <linearGradient id="ykRevenueGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#338BE2" stopOpacity={0.45} />
+                        <stop offset="0%" stopColor="#E91E63" stopOpacity={0.45} />
                         <stop offset="60%" stopColor="#4ECDC4" stopOpacity={0.25} />
                         <stop offset="100%" stopColor="#4ECDC4" stopOpacity={0.05} />
                       </linearGradient>
@@ -319,7 +319,7 @@ export function DashboardAnalytics() {
                     <Area
                       type="monotone"
                       dataKey="revenue"
-                      stroke="#338BE2"
+                      stroke="#E91E63"
                       strokeWidth={2.5}
                       fill="url(#ykRevenueGradient)"
                       dot={{ r: 3, fill: "#4ECDC4", strokeWidth: 0 }}

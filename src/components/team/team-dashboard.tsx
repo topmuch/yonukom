@@ -133,7 +133,7 @@ const PAYROLL_TYPE_LABELS: Record<string, string> = {
 };
 
 const PAYROLL_TYPE_STYLES: Record<string, string> = {
-  advance: "bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300",
+  advance: "bg-pink-100 text-pink-700 dark:bg-pink-950 dark:text-pink-300",
   deduction: "bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300",
   salary:
     "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300",

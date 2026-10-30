@@ -371,7 +371,7 @@ export function PredictiveAnalytics() {
                       x2="0"
                       y2="1"
                     >
-                      <stop offset="0%" stopColor="#338BE2" stopOpacity={0.5} />
+                      <stop offset="0%" stopColor="#E91E63" stopOpacity={0.5} />
                       <stop
                         offset="60%"
                         stopColor="#4ECDC4"
@@ -429,7 +429,7 @@ export function PredictiveAnalytics() {
                   <Area
                     type="monotone"
                     dataKey="revenue"
-                    stroke="#338BE2"
+                    stroke="#E91E63"
                     strokeWidth={2.5}
                     fill="url(#ykForecastGradient)"
                     dot={false}

@@ -68,7 +68,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
-  themeColor: "#338BE2", // Bleu vibrant YonuKom
+  themeColor: "#E91E63", // Rose vibrant YonuKom (inspiration Boutiko)
 };
 
 export default function RootLayout({

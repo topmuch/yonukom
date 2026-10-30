@@ -48,7 +48,7 @@ function QRCodeVisual() {
         className="block"
       />
       <div className="mt-3 flex items-center justify-center gap-1.5">
-        <QrCode className="w-3.5 h-3.5 text-[#338BE2]" />
+        <QrCode className="w-3.5 h-3.5 text-[#E91E63]" />
         <span className="text-[10px] font-semibold text-slate-600 uppercase tracking-wider">
           Scannez pour installer
         </span>
@@ -59,14 +59,14 @@ function QRCodeVisual() {
 
 export function FinalCTA({ onSignup }: FinalCTAProps) {
   return (
-    <section className="py-20 sm:py-24 lg:py-28 relative overflow-hidden bg-[#F6F9FE]">
+    <section className="py-20 sm:py-24 lg:py-28 relative overflow-hidden bg-[#FFF1F5]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: "-100px" }}
           transition={{ duration: 0.6 }}
-          className="relative rounded-3xl overflow-hidden bg-gradient-to-br from-[#338BE2] via-[#2074C6] to-[#1A5FAB] shadow-[0_32px_64px_-16px_rgba(51,139,226,0.5)]"
+          className="relative rounded-3xl overflow-hidden bg-gradient-to-br from-[#E91E63] via-[#AD1457] to-[#1A5FAB] shadow-[0_32px_64px_-16px_rgba(51,139,226,0.5)]"
         >
           {/* Decorative pattern */}
           <div

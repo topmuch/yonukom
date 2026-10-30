@@ -897,7 +897,7 @@ function HomeTab({ onTabChange, onLogout }: { onTabChange: (tab: TabId) => void;
       label: isB2B ? "Devis du jour" : "Commandes",
       value: `${kpis.orderCount}`,
       icon: isB2B ? FileText : Receipt,
-      gradient: "from-blue-500 to-indigo-600",
+      gradient: "from-pink-500 to-pink-600",
     },
     {
       label: "Panier moyen",

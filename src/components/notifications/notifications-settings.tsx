@@ -91,7 +91,7 @@ const STATUS_STYLES: Record<string, string> = {
   pending:
     "bg-yellow-100 text-yellow-700 dark:bg-yellow-950 dark:text-yellow-300",
   sent: "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300",
-  clicked: "bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300",
+  clicked: "bg-pink-100 text-pink-700 dark:bg-pink-950 dark:text-pink-300",
   failed: "bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300",
 };
 

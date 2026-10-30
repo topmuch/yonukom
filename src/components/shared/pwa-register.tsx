@@ -98,11 +98,11 @@ export function PwaRegister() {
           transition={{ type: "spring", stiffness: 300, damping: 25 }}
           className="fixed bottom-4 left-4 right-4 z-[100] sm:left-auto sm:right-4 sm:w-96 pointer-events-auto"
         >
-          <div className="rounded-xl bg-white shadow-2xl border border-[#338BE2]/20 overflow-hidden">
+          <div className="rounded-xl bg-white shadow-2xl border border-[#E91E63]/20 overflow-hidden">
             {/* Gradient top strip */}
-            <div className="h-1 bg-gradient-to-r from-[#338BE2] via-cyan-400 to-yk-emerald" />
+            <div className="h-1 bg-gradient-to-r from-[#E91E63] via-cyan-400 to-yk-emerald" />
             <div className="p-3 flex items-center gap-3">
-              <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-[#338BE2] to-cyan-500 flex items-center justify-center shrink-0">
+              <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-[#E91E63] to-cyan-500 flex items-center justify-center shrink-0">
                 <RefreshCw className="w-4 h-4 text-white" />
               </div>
               <div className="flex-1 min-w-0">
@@ -113,7 +113,7 @@ export function PwaRegister() {
               </div>
               <Button
                 size="sm"
-                className="h-7 text-xs gap-1 shrink-0 bg-gradient-to-r from-[#338BE2] to-cyan-500 hover:from-[#338BE2]/90 hover:to-cyan-500/90 border-0"
+                className="h-7 text-xs gap-1 shrink-0 bg-gradient-to-r from-[#E91E63] to-cyan-500 hover:from-[#E91E63]/90 hover:to-cyan-500/90 border-0"
                 onClick={handleUpdate}
               >
                 Mettre à jour

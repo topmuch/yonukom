@@ -787,7 +787,7 @@ export function CreateOrderDialog({
                   statusChoice === "paid"
                     ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30"
                     : statusChoice === "delivered"
-                    ? "bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/30"
+                    ? "bg-pink-500/10 text-pink-700 dark:text-pink-400 border-pink-500/30"
                     : statusChoice === "unpaid"
                     ? "bg-rose-500/10 text-rose-700 dark:text-rose-400 border-rose-500/30"
                     : "bg-yellow-500/10 text-yellow-700 dark:text-yellow-400 border-yellow-500/30"

@@ -108,7 +108,7 @@ const STATUS_CONFIG: Record<
   sent: {
     label: "Envoyée",
     className:
-      "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-900",
+      "bg-pink-100 text-pink-700 border-pink-200 dark:bg-pink-950 dark:text-pink-300 dark:border-pink-900",
   },
   paid: {
     label: "Payée",

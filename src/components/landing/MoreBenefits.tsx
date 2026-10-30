@@ -44,7 +44,7 @@ const bullets = [
 
 export function MoreBenefits({ onSignup }: MoreBenefitsProps) {
   return (
-    <section className="py-20 sm:py-24 lg:py-28 bg-[#F6F9FE] relative overflow-hidden">
+    <section className="py-20 sm:py-24 lg:py-28 bg-[#FFF1F5] relative overflow-hidden">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
           {/* LEFT: Text */}
@@ -55,16 +55,16 @@ export function MoreBenefits({ onSignup }: MoreBenefitsProps) {
             transition={{ duration: 0.6 }}
             className="space-y-6 order-2 lg:order-1"
           >
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#338BE2]/10 border border-[#338BE2]/20">
-              <Zap className="w-3.5 h-3.5 text-[#338BE2]" />
-              <span className="text-xs font-semibold text-[#338BE2] uppercase tracking-wider">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#E91E63]/10 border border-[#E91E63]/20">
+              <Zap className="w-3.5 h-3.5 text-[#E91E63]" />
+              <span className="text-xs font-semibold text-[#E91E63] uppercase tracking-wider">
                 Automatisation
               </span>
             </div>
 
             <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-slate-900 tracking-tight leading-[1.1]">
               Gagnez du temps avec{" "}
-              <span className="bg-gradient-to-r from-[#338BE2] to-[#5BA5EA] bg-clip-text text-transparent">
+              <span className="bg-gradient-to-r from-[#E91E63] to-[#F06292] bg-clip-text text-transparent">
                 l&apos;automatisation
               </span>
             </h2>
@@ -87,7 +87,7 @@ export function MoreBenefits({ onSignup }: MoreBenefitsProps) {
                     transition={{ delay: 0.2 + i * 0.1 }}
                     className="flex items-start gap-3"
                   >
-                    <div className="w-10 h-10 rounded-xl bg-white border border-slate-200 shadow-sm flex items-center justify-center text-[#338BE2] shrink-0">
+                    <div className="w-10 h-10 rounded-xl bg-white border border-slate-200 shadow-sm flex items-center justify-center text-[#E91E63] shrink-0">
                       <Icon className="w-5 h-5" />
                     </div>
                     <div>
@@ -107,7 +107,7 @@ export function MoreBenefits({ onSignup }: MoreBenefitsProps) {
               <button
                 type="button"
                 onClick={onSignup}
-                className="inline-flex items-center gap-2 px-6 h-12 rounded-xl bg-[#338BE2] hover:bg-[#2074C6] text-white font-semibold shadow-lg shadow-[#338BE2]/25 transition-all"
+                className="inline-flex items-center gap-2 px-6 h-12 rounded-xl bg-[#E91E63] hover:bg-[#AD1457] text-white font-semibold shadow-lg shadow-[#E91E63]/25 transition-all"
               >
                 Automatiser ma gestion
                 <ArrowRight className="w-4 h-4" />
@@ -123,7 +123,7 @@ export function MoreBenefits({ onSignup }: MoreBenefitsProps) {
             transition={{ duration: 0.6, delay: 0.1 }}
             className="relative order-1 lg:order-2"
           >
-            <div className="absolute inset-0 -m-6 bg-gradient-to-br from-[#10B981]/10 via-[#338BE2]/10 to-transparent rounded-3xl" />
+            <div className="absolute inset-0 -m-6 bg-gradient-to-br from-[#10B981]/10 via-[#E91E63]/10 to-transparent rounded-3xl" />
 
             {/* Card stack */}
             <div className="relative">
@@ -134,19 +134,19 @@ export function MoreBenefits({ onSignup }: MoreBenefitsProps) {
                 className="absolute -top-6 -right-3 sm:-right-6 w-44 bg-white rounded-2xl shadow-xl border border-slate-100 p-4 z-10"
               >
                 <div className="flex items-center gap-2 mb-2">
-                  <div className="w-8 h-8 rounded-lg bg-[#338BE2]/10 flex items-center justify-center">
-                    <Mail className="w-4 h-4 text-[#338BE2]" />
+                  <div className="w-8 h-8 rounded-lg bg-[#E91E63]/10 flex items-center justify-center">
+                    <Mail className="w-4 h-4 text-[#E91E63]" />
                   </div>
                   <p className="text-xs font-bold text-slate-900">Rapport du jour</p>
                 </div>
                 <p className="text-[10px] text-slate-500">Envoyé à 19:00</p>
                 <div className="mt-2 h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
-                  <div className="h-full w-3/4 bg-gradient-to-r from-[#338BE2] to-[#5BA5EA]" />
+                  <div className="h-full w-3/4 bg-gradient-to-r from-[#E91E63] to-[#F06292]" />
                 </div>
               </motion.div>
 
               {/* Main card — automation flow */}
-              <div className="bg-white rounded-3xl shadow-2xl shadow-[#338BE2]/15 border border-slate-200/50 p-6 sm:p-8">
+              <div className="bg-white rounded-3xl shadow-2xl shadow-[#E91E63]/15 border border-slate-200/50 p-6 sm:p-8">
                 <div className="flex items-center justify-between mb-6">
                   <div>
                     <p className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold">
@@ -163,10 +163,10 @@ export function MoreBenefits({ onSignup }: MoreBenefitsProps) {
 
                 <div className="space-y-3">
                   {[
-                    { icon: Clock, label: "Rapport quotidien", time: "19:00", color: "#338BE2" },
+                    { icon: Clock, label: "Rapport quotidien", time: "19:00", color: "#E91E63" },
                     { icon: Bell, label: "Alerte stock bas", time: "Temps réel", color: "#F59E0B" },
                     { icon: CalendarClock, label: "Relance crédits", time: "Lun. 9h", color: "#10B981" },
-                    { icon: RefreshCw, label: "Sync cloud", time: "Auto", color: "#B7BEDA" },
+                    { icon: RefreshCw, label: "Sync cloud", time: "Auto", color: "#F8BBD0" },
                   ].map((item, i) => {
                     const Icon = item.icon;
                     return (

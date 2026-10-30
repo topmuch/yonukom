@@ -44,15 +44,15 @@ export function Hero({ onSignup }: HeroProps) {
   }, [nextSlide]);
 
   return (
-    <section className="relative min-h-screen flex items-center overflow-hidden bg-[#F6F9FE] pt-24 sm:pt-28 pb-16 sm:pb-20">
+    <section className="relative min-h-screen flex items-center overflow-hidden bg-[#FFF1F5] pt-24 sm:pt-28 pb-16 sm:pb-20">
       {/* Subtle blue gradient backdrop */}
-      <div className="absolute inset-0 bg-gradient-to-br from-[#F6F9FE] via-white to-[#EAF1FC]" />
+      <div className="absolute inset-0 bg-gradient-to-br from-[#FFF1F5] via-white to-[#FCE4EC]" />
 
       {/* Dot pattern */}
       <div
         className="absolute inset-0 opacity-[0.05]"
         style={{
-          backgroundImage: `radial-gradient(circle at 1px 1px, #338BE2 1px, transparent 0)`,
+          backgroundImage: `radial-gradient(circle at 1px 1px, #E91E63 1px, transparent 0)`,
           backgroundSize: "32px 32px",
         }}
       />
@@ -93,10 +93,10 @@ export function Hero({ onSignup }: HeroProps) {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5 }}
             >
-              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/80 backdrop-blur border border-[#338BE2]/20 shadow-sm">
+              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/80 backdrop-blur border border-[#E91E63]/20 shadow-sm">
                 <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#338BE2] opacity-75" />
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-[#338BE2]" />
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#E91E63] opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-[#E91E63]" />
                 </span>
                 <span className="text-xs font-semibold text-slate-700">
                   Paiements & caisse nouvelle génération
@@ -113,7 +113,7 @@ export function Hero({ onSignup }: HeroProps) {
             >
               Gérez votre{" "}
               <span className="relative inline-block">
-                <span className="bg-gradient-to-r from-[#338BE2] to-[#5BA5EA] bg-clip-text text-transparent">
+                <span className="bg-gradient-to-r from-[#E91E63] to-[#F06292] bg-clip-text text-transparent">
                   commerce
                 </span>
                 <svg
@@ -127,7 +127,7 @@ export function Hero({ onSignup }: HeroProps) {
                     animate={{ pathLength: 1 }}
                     transition={{ duration: 1, delay: 0.7 }}
                     d="M2 9C50 4 150 1 298 4"
-                    stroke="#338BE2"
+                    stroke="#E91E63"
                     strokeWidth="3"
                     strokeLinecap="round"
                   />
@@ -157,7 +157,7 @@ export function Hero({ onSignup }: HeroProps) {
             >
               <Button
                 size="lg"
-                className="bg-[#338BE2] hover:bg-[#2074C6] text-white font-semibold text-base gap-2 shadow-xl shadow-[#338BE2]/30 px-7 h-14 rounded-xl"
+                className="bg-[#E91E63] hover:bg-[#AD1457] text-white font-semibold text-base gap-2 shadow-xl shadow-[#E91E63]/30 px-7 h-14 rounded-xl"
                 onClick={onSignup}
               >
                 <Sparkles className="w-5 h-5" />
@@ -166,7 +166,7 @@ export function Hero({ onSignup }: HeroProps) {
               <Button
                 variant="outline"
                 size="lg"
-                className="bg-white/70 backdrop-blur border-slate-200 text-slate-700 hover:bg-white hover:border-[#338BE2]/30 hover:text-[#338BE2] font-semibold text-base gap-2 h-14 rounded-xl"
+                className="bg-white/70 backdrop-blur border-slate-200 text-slate-700 hover:bg-white hover:border-[#E91E63]/30 hover:text-[#E91E63] font-semibold text-base gap-2 h-14 rounded-xl"
                 onClick={onSignup}
               >
                 <Play className="w-4 h-4" />
@@ -183,7 +183,7 @@ export function Hero({ onSignup }: HeroProps) {
             >
               <div className="flex items-center gap-2">
                 <div className="flex -space-x-2">
-                  {["#338BE2", "#5BA5EA", "#B7BEDA", "#10B981"].map((c, i) => (
+                  {["#E91E63", "#F06292", "#F8BBD0", "#10B981"].map((c, i) => (
                     <div
                       key={i}
                       className="w-8 h-8 rounded-full border-2 border-white shadow-sm"
@@ -222,7 +222,7 @@ export function Hero({ onSignup }: HeroProps) {
             className="relative flex justify-center lg:justify-end"
           >
             {/* Slide container — 9:16 vertical aspect ratio */}
-            <div className="relative w-full max-w-[420px] aspect-[9/16] rounded-3xl overflow-hidden shadow-2xl shadow-[#338BE2]/25 border border-white/60 bg-white">
+            <div className="relative w-full max-w-[420px] aspect-[9/16] rounded-3xl overflow-hidden shadow-2xl shadow-[#E91E63]/25 border border-white/60 bg-white">
               {/* Slide images with slide-down transition (new image enters from top, old exits to bottom) */}
               <AnimatePresence mode="popLayout">
                 <motion.img
@@ -256,7 +256,7 @@ export function Hero({ onSignup }: HeroProps) {
                     animate={{
                       width: i === currentSlide ? 28 : 8,
                       backgroundColor:
-                        i === currentSlide ? "#338BE2" : "#CBD5E1",
+                        i === currentSlide ? "#E91E63" : "#CBD5E1",
                     }}
                     transition={{ duration: 0.3 }}
                     className="block h-2 rounded-full"
@@ -270,7 +270,7 @@ export function Hero({ onSignup }: HeroProps) {
               initial={{ opacity: 0, scale: 0.6 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.4, delay: 1.2 }}
-              className="absolute top-4 right-4 sm:top-6 sm:-right-3 bg-white/95 backdrop-blur rounded-xl shadow-lg shadow-[#338BE2]/10 p-2 border border-slate-100"
+              className="absolute top-4 right-4 sm:top-6 sm:-right-3 bg-white/95 backdrop-blur rounded-xl shadow-lg shadow-[#E91E63]/10 p-2 border border-slate-100"
             >
               <div className="flex items-center gap-1.5">
                 <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
@@ -285,7 +285,7 @@ export function Hero({ onSignup }: HeroProps) {
               initial={{ opacity: 0, scale: 0.8, x: -20, y: 20 }}
               animate={{ opacity: 1, scale: 1, x: 0, y: 0 }}
               transition={{ duration: 0.5, delay: 1.5 }}
-              className="absolute bottom-4 left-4 sm:-left-6 bg-white rounded-2xl shadow-xl shadow-[#338BE2]/15 p-3 border border-slate-100 w-[170px]"
+              className="absolute bottom-4 left-4 sm:-left-6 bg-white rounded-2xl shadow-xl shadow-[#E91E63]/15 p-3 border border-slate-100 w-[170px]"
             >
               <div className="flex items-center gap-2.5">
                 <div className="w-9 h-9 rounded-xl bg-emerald-100 flex items-center justify-center shrink-0">

@@ -10,7 +10,7 @@ export function BigStat() {
       <div
         className="absolute inset-0 opacity-[0.04] pointer-events-none"
         style={{
-          backgroundImage: `radial-gradient(circle at 1px 1px, #338BE2 1px, transparent 0)`,
+          backgroundImage: `radial-gradient(circle at 1px 1px, #E91E63 1px, transparent 0)`,
           backgroundSize: "32px 32px",
         }}
       />
@@ -28,7 +28,7 @@ export function BigStat() {
           whileInView={{ opacity: 1, scale: 1 }}
           viewport={{ once: true, margin: "-100px" }}
           transition={{ duration: 0.6 }}
-          className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-[#338BE2] to-[#2074C6] shadow-lg shadow-[#338BE2]/25 mb-8"
+          className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-[#E91E63] to-[#AD1457] shadow-lg shadow-[#E91E63]/25 mb-8"
         >
           <Users className="w-8 h-8 text-white" />
         </motion.div>
@@ -41,7 +41,7 @@ export function BigStat() {
           className="text-4xl sm:text-5xl lg:text-6xl xl:text-7xl font-extrabold text-slate-900 tracking-tight leading-[1.05]"
         >
           Plus de{" "}
-          <span className="bg-gradient-to-r from-[#338BE2] to-[#5BA5EA] bg-clip-text text-transparent">
+          <span className="bg-gradient-to-r from-[#E91E63] to-[#F06292] bg-clip-text text-transparent">
             640K utilisateurs
           </span>{" "}
           utilisent YonuKom

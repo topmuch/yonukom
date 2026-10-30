@@ -96,14 +96,14 @@ export function Footer() {
             <div className="space-y-2 pt-2">
               <a
                 href="mailto:contact@2mails.com"
-                className="flex items-center gap-2 text-sm text-slate-400 hover:text-[#5BA5EA] transition-colors"
+                className="flex items-center gap-2 text-sm text-slate-400 hover:text-[#F06292] transition-colors"
               >
                 <Mail className="w-4 h-4" />
                 contact@2mails.com
               </a>
               <a
                 href="tel:+221783821822"
-                className="flex items-center gap-2 text-sm text-slate-400 hover:text-[#5BA5EA] transition-colors"
+                className="flex items-center gap-2 text-sm text-slate-400 hover:text-[#F06292] transition-colors"
               >
                 <Phone className="w-4 h-4" />
                 +221 78 382 18 22
@@ -122,7 +122,7 @@ export function Footer() {
                     key={social.label}
                     href={social.href}
                     aria-label={social.label}
-                    className="w-9 h-9 rounded-xl bg-white/5 hover:bg-[#338BE2] border border-white/10 hover:border-[#338BE2] flex items-center justify-center transition-all text-slate-400 hover:text-white"
+                    className="w-9 h-9 rounded-xl bg-white/5 hover:bg-[#E91E63] border border-white/10 hover:border-[#E91E63] flex items-center justify-center transition-all text-slate-400 hover:text-white"
                   >
                     <Icon className="w-4 h-4" />
                   </a>
@@ -142,7 +142,7 @@ export function Footer() {
                   <li key={link.label}>
                     <a
                       href={link.href}
-                      className="text-sm text-slate-400 hover:text-[#5BA5EA] transition-colors"
+                      className="text-sm text-slate-400 hover:text-[#F06292] transition-colors"
                     >
                       {link.label}
                     </a>
@@ -167,7 +167,7 @@ export function Footer() {
             <motion.button
               whileHover={{ y: -2 }}
               onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-              className="w-8 h-8 rounded-lg bg-white/5 hover:bg-[#338BE2] border border-white/10 hover:border-[#338BE2] flex items-center justify-center text-slate-400 hover:text-white transition-all"
+              className="w-8 h-8 rounded-lg bg-white/5 hover:bg-[#E91E63] border border-white/10 hover:border-[#E91E63] flex items-center justify-center text-slate-400 hover:text-white transition-all"
               aria-label="Retour en haut"
               type="button"
             >
@@ -189,8 +189,8 @@ export function Footer() {
           >
             <div className="max-w-5xl mx-auto bg-white rounded-2xl shadow-2xl border border-slate-200 p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center gap-4">
               <div className="flex items-start gap-3 flex-1">
-                <div className="w-10 h-10 rounded-xl bg-[#338BE2]/10 flex items-center justify-center shrink-0">
-                  <ShieldCheck className="w-5 h-5 text-[#338BE2]" />
+                <div className="w-10 h-10 rounded-xl bg-[#E91E63]/10 flex items-center justify-center shrink-0">
+                  <ShieldCheck className="w-5 h-5 text-[#E91E63]" />
                 </div>
                 <div>
                   <p className="text-sm font-semibold text-slate-900">
@@ -213,7 +213,7 @@ export function Footer() {
                 <button
                   type="button"
                   onClick={dismissCookie}
-                  className="flex-1 sm:flex-initial px-4 h-10 rounded-xl text-sm font-semibold text-white bg-[#338BE2] hover:bg-[#2074C6] transition-colors"
+                  className="flex-1 sm:flex-initial px-4 h-10 rounded-xl text-sm font-semibold text-white bg-[#E91E63] hover:bg-[#AD1457] transition-colors"
                 >
                   Accepter
                 </button>

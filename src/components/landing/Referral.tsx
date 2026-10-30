@@ -30,9 +30,9 @@ const steps = [
 
 export function Referral({ onSignup }: ReferralProps) {
   return (
-    <section className="py-20 sm:py-24 lg:py-28 bg-[#F6F9FE] relative overflow-hidden">
+    <section className="py-20 sm:py-24 lg:py-28 bg-[#FFF1F5] relative overflow-hidden">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="relative rounded-3xl overflow-hidden bg-gradient-to-br from-[#338BE2] via-[#2074C6] to-[#1A5FAB] shadow-[0_32px_64px_-16px_rgba(51,139,226,0.5)]">
+        <div className="relative rounded-3xl overflow-hidden bg-gradient-to-br from-[#E91E63] via-[#AD1457] to-[#1A5FAB] shadow-[0_32px_64px_-16px_rgba(51,139,226,0.5)]">
           {/* Decorative pattern */}
           <div
             className="absolute inset-0 opacity-10"
@@ -140,7 +140,7 @@ export function Referral({ onSignup }: ReferralProps) {
               <button
                 type="button"
                 onClick={onSignup}
-                className="inline-flex items-center gap-2 px-6 h-12 rounded-xl bg-white text-[#338BE2] hover:bg-white/95 hover:text-[#2074C6] font-bold shadow-xl shadow-black/10 transition-all"
+                className="inline-flex items-center gap-2 px-6 h-12 rounded-xl bg-white text-[#E91E63] hover:bg-white/95 hover:text-[#AD1457] font-bold shadow-xl shadow-black/10 transition-all"
               >
                 <Share2 className="w-4 h-4" />
                 Partager mon lien

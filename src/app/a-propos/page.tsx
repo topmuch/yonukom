@@ -18,7 +18,7 @@ const values = [
     title: "Simplicité avant tout",
     description:
       "Nous pensons qu'un bon outil doit disparaître au profit de votre métier. Chaque fonctionnalité YonuKom est conçue pour être comprise en moins de 30 secondes, même sans formation informatique. La caisse, le stock, les clients : tout est à portée d'un geste, sur mobile comme sur ordinateur.",
-    color: "#338BE2",
+    color: "#E91E63",
   },
   {
     icon: Shield,
@@ -75,15 +75,15 @@ export default function AboutPage() {
   return (
     <LegalPageLayout>
       {/* Hero */}
-      <section className="bg-gradient-to-br from-[#F6F9FE] via-white to-[#EBF2FE] pt-20 pb-16 sm:pt-24 sm:pb-20">
+      <section className="bg-gradient-to-br from-[#FFF1F5] via-white to-[#FCE4EC] pt-20 pb-16 sm:pt-24 sm:pb-20">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#338BE2]/10 text-[#338BE2] text-xs font-semibold uppercase tracking-wide mb-5">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#E91E63]/10 text-[#E91E63] text-xs font-semibold uppercase tracking-wide mb-5">
             À propos de YonuKom
           </span>
           <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-slate-900 mb-5 tracking-tight">
             La gestion de votre commerce,
             <br className="hidden sm:block" />
-            <span className="text-[#338BE2]"> enfin yomb.</span>
+            <span className="text-[#E91E63]"> enfin yomb.</span>
           </h1>
           <p className="text-slate-600 text-base sm:text-lg leading-relaxed max-w-2xl mx-auto">
             YonuKom est un logiciel de caisse et de gestion conçu à Dakar pour
@@ -100,7 +100,7 @@ export default function AboutPage() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
             {stats.map((stat) => (
               <div key={stat.label} className="text-center">
-                <p className="text-3xl sm:text-4xl font-bold text-[#338BE2] mb-1">
+                <p className="text-3xl sm:text-4xl font-bold text-[#E91E63] mb-1">
                   {stat.value}
                 </p>
                 <p className="text-xs sm:text-sm text-slate-500 font-medium">
@@ -113,7 +113,7 @@ export default function AboutPage() {
       </section>
 
       {/* Mission */}
-      <section className="py-20 sm:py-24 bg-[#F6F9FE]">
+      <section className="py-20 sm:py-24 bg-[#FFF1F5]">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
             <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 mb-4">
@@ -130,8 +130,8 @@ export default function AboutPage() {
 
           <div className="grid sm:grid-cols-2 gap-6">
             <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
-              <div className="w-10 h-10 rounded-xl bg-[#338BE2]/10 flex items-center justify-center mb-4">
-                <TrendingUp className="w-5 h-5 text-[#338BE2]" />
+              <div className="w-10 h-10 rounded-xl bg-[#E91E63]/10 flex items-center justify-center mb-4">
+                <TrendingUp className="w-5 h-5 text-[#E91E63]" />
               </div>
               <h3 className="text-lg font-bold text-slate-900 mb-2">
                 Pour les commerçants
@@ -165,7 +165,7 @@ export default function AboutPage() {
       <section className="py-20 sm:py-24 bg-white">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#338BE2]/10 text-[#338BE2] text-xs font-semibold uppercase tracking-wide mb-4">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#E91E63]/10 text-[#E91E63] text-xs font-semibold uppercase tracking-wide mb-4">
               Nos valeurs
             </span>
             <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 mb-3">
@@ -183,7 +183,7 @@ export default function AboutPage() {
               return (
                 <div
                   key={value.title}
-                  className="bg-white rounded-2xl p-6 border border-slate-200 hover:border-[#338BE2]/40 hover:shadow-md transition-all"
+                  className="bg-white rounded-2xl p-6 border border-slate-200 hover:border-[#E91E63]/40 hover:shadow-md transition-all"
                 >
                   <div
                     className="w-12 h-12 rounded-xl flex items-center justify-center mb-4"
@@ -208,7 +208,7 @@ export default function AboutPage() {
       </section>
 
       {/* Timeline */}
-      <section className="py-20 sm:py-24 bg-[#F6F9FE]">
+      <section className="py-20 sm:py-24 bg-[#FFF1F5]">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
             <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 mb-3">
@@ -221,7 +221,7 @@ export default function AboutPage() {
 
           <div className="relative">
             {/* Vertical line */}
-            <div className="absolute left-4 sm:left-1/2 top-0 bottom-0 w-px bg-[#338BE2]/20 -translate-x-1/2 sm:-translate-x-1/2" />
+            <div className="absolute left-4 sm:left-1/2 top-0 bottom-0 w-px bg-[#E91E63]/20 -translate-x-1/2 sm:-translate-x-1/2" />
 
             {timeline.map((item, idx) => (
               <div
@@ -231,7 +231,7 @@ export default function AboutPage() {
                 }`}
               >
                 {/* Dot */}
-                <div className="absolute left-4 sm:left-1/2 -translate-x-1/2 w-3 h-3 rounded-full bg-[#338BE2] ring-4 ring-white mt-2" />
+                <div className="absolute left-4 sm:left-1/2 -translate-x-1/2 w-3 h-3 rounded-full bg-[#E91E63] ring-4 ring-white mt-2" />
 
                 {/* Content */}
                 <div
@@ -241,7 +241,7 @@ export default function AboutPage() {
                       : "sm:pl-12"
                   }`}
                 >
-                  <span className="inline-block px-2.5 py-0.5 rounded-full bg-[#338BE2]/10 text-[#338BE2] text-xs font-semibold mb-2">
+                  <span className="inline-block px-2.5 py-0.5 rounded-full bg-[#E91E63]/10 text-[#E91E63] text-xs font-semibold mb-2">
                     {item.year}
                   </span>
                   <h3 className="text-lg font-bold text-slate-900 mb-2">
@@ -267,8 +267,8 @@ export default function AboutPage() {
           }}
         />
         <div className="relative max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-[#338BE2]/20 mb-6">
-            <Globe2 className="w-7 h-7 text-[#338BE2]" />
+          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-[#E91E63]/20 mb-6">
+            <Globe2 className="w-7 h-7 text-[#E91E63]" />
           </div>
           <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold mb-5 tracking-tight">
             Notre vision à 10 ans
@@ -293,7 +293,7 @@ export default function AboutPage() {
                 key={tag}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-sm text-slate-300"
               >
-                <CheckCircle2 className="w-3.5 h-3.5 text-[#338BE2]" />
+                <CheckCircle2 className="w-3.5 h-3.5 text-[#E91E63]" />
                 {tag}
               </span>
             ))}

@@ -582,7 +582,7 @@ export function CartPanelContent({
       <div className="px-4 pt-3 pb-2 shrink-0">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#338BE2] to-cyan-500 flex items-center justify-center shadow-md shadow-[#338BE2]/30">
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#E91E63] to-cyan-500 flex items-center justify-center shadow-md shadow-[#E91E63]/30">
               <ShoppingCart className="w-4 h-4 text-white" />
             </div>
             <div className="flex flex-col">
@@ -663,10 +663,10 @@ export function CartPanelContent({
               }}
             >
               <SelectTrigger
-                className="w-full h-10 bg-gradient-to-r from-[#338BE2]/5 to-cyan-500/5 border-[#338BE2]/20"
+                className="w-full h-10 bg-gradient-to-r from-[#E91E63]/5 to-cyan-500/5 border-[#E91E63]/20"
                 aria-label="Sélectionner un client"
               >
-                <User className="w-4 h-4 text-[#338BE2] mr-1 shrink-0" />
+                <User className="w-4 h-4 text-[#E91E63] mr-1 shrink-0" />
                 <SelectValue placeholder="Client comptoir" />
               </SelectTrigger>
               <SelectContent>
@@ -1072,7 +1072,7 @@ function SuccessPanel({ order, customer, onNewSale, onPrintReceipt }: SuccessPan
         <Button
           onClick={onPrintReceipt}
           size="lg"
-          className="w-full min-h-[48px] gap-2 bg-gradient-to-r from-[#338BE2] to-cyan-500 hover:from-[#338BE2]/90 hover:to-cyan-500/90 text-white shadow-md shadow-[#338BE2]/30 border-0"
+          className="w-full min-h-[48px] gap-2 bg-gradient-to-r from-[#E91E63] to-cyan-500 hover:from-[#E91E63]/90 hover:to-cyan-500/90 text-white shadow-md shadow-[#E91E63]/30 border-0"
         >
           <Printer className="w-5 h-5" />
           Imprimer le ticket

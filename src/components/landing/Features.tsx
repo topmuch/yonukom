@@ -19,8 +19,8 @@ const features: Feature[] = [
     title: "Paiement mobile",
     description:
       "Encaissez via Wave, Orange Money et Free Money en un geste. Compatible tous les opérateurs ouest-africains.",
-    color: "text-[#338BE2]",
-    bg: "bg-[#338BE2]/10",
+    color: "text-[#E91E63]",
+    bg: "bg-[#E91E63]/10",
     image:
       "/images/feature-payment.jpg",
     imageFallback: "https://picsum.photos/seed/payment-mobile/400/300",
@@ -52,8 +52,8 @@ const features: Feature[] = [
     title: "Sécurité avancée",
     description:
       "Chaque action est tracée. Journal d&apos;audit complet, rôles utilisateurs et protection anti-fraude intégrée.",
-    color: "text-[#B7BEDA]",
-    bg: "bg-[#B7BEDA]/20",
+    color: "text-[#F8BBD0]",
+    bg: "bg-[#F8BBD0]/20",
     image:
       "/images/feature-security.jpg",
     imageFallback: "https://picsum.photos/seed/security-shield/400/300",
@@ -116,7 +116,7 @@ export function Features({ onSignup }: FeaturesProps) {
   return (
     <section
       id="features"
-      className="py-20 sm:py-24 lg:py-28 bg-[#F6F9FE] relative"
+      className="py-20 sm:py-24 lg:py-28 bg-[#FFF1F5] relative"
     >
       {/* Decorative blob */}
       <div
@@ -136,15 +136,15 @@ export function Features({ onSignup }: FeaturesProps) {
           transition={{ duration: 0.5 }}
           className="text-center max-w-2xl mx-auto mb-12 sm:mb-16"
         >
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#338BE2]/10 border border-[#338BE2]/20 mb-4">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#338BE2]" />
-            <span className="text-xs font-semibold text-[#338BE2] uppercase tracking-wider">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#E91E63]/10 border border-[#E91E63]/20 mb-4">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#E91E63]" />
+            <span className="text-xs font-semibold text-[#E91E63] uppercase tracking-wider">
               Fonctionnalités
             </span>
           </div>
           <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-slate-900 tracking-tight leading-[1.1]">
             Tout en un seul{" "}
-            <span className="bg-gradient-to-r from-[#338BE2] to-[#5BA5EA] bg-clip-text text-transparent">
+            <span className="bg-gradient-to-r from-[#E91E63] to-[#F06292] bg-clip-text text-transparent">
               endroit
             </span>
           </h2>
@@ -192,7 +192,7 @@ export function Features({ onSignup }: FeaturesProps) {
 
                   <CardContent className="p-6 sm:p-7 space-y-4 relative">
                     
-                    <h3 className="text-lg font-bold text-slate-900 group-hover:text-[#338BE2] transition-colors">
+                    <h3 className="text-lg font-bold text-slate-900 group-hover:text-[#E91E63] transition-colors">
                       {feature.title}
                     </h3>
                     <p className="text-sm text-slate-500 leading-relaxed">

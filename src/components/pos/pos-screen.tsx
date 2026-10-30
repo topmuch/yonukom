@@ -211,8 +211,8 @@ export function PosScreen({ onNavigateToCash }: { onNavigateToCash?: () => void 
                   className={`
                     shrink-0 text-xs px-3 h-8 rounded-full transition-all min-w-[80px]
                     ${isActive
-                      ? "bg-gradient-to-r from-[#338BE2] to-cyan-500 text-white border-0 shadow-md shadow-[#338BE2]/20"
-                      : "hover:border-[#338BE2]/30 hover:text-[#338BE2]"
+                      ? "bg-gradient-to-r from-[#E91E63] to-cyan-500 text-white border-0 shadow-md shadow-[#E91E63]/20"
+                      : "hover:border-[#E91E63]/30 hover:text-[#E91E63]"
                     }
                   `}
                   style={activeStyle}

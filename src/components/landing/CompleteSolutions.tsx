@@ -22,9 +22,9 @@ const solutions = [
       "Rapports journaliers & mensuels",
       "Multi-utilisateurs avec rôles",
     ],
-    color: "#338BE2",
-    bg: "bg-[#338BE2]/10",
-    accent: "from-[#338BE2] to-[#2074C6]",
+    color: "#E91E63",
+    bg: "bg-[#E91E63]/10",
+    accent: "from-[#E91E63] to-[#AD1457]",
   },
   {
     icon: Smartphone,
@@ -57,15 +57,15 @@ export function CompleteSolutions({ onSignup }: CompleteSolutionsProps) {
           transition={{ duration: 0.5 }}
           className="text-center max-w-2xl mx-auto mb-14 sm:mb-16"
         >
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#338BE2]/10 border border-[#338BE2]/20 mb-4">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#338BE2]" />
-            <span className="text-xs font-semibold text-[#338BE2] uppercase tracking-wider">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#E91E63]/10 border border-[#E91E63]/20 mb-4">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#E91E63]" />
+            <span className="text-xs font-semibold text-[#E91E63] uppercase tracking-wider">
               Solutions
             </span>
           </div>
           <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-slate-900 tracking-tight leading-[1.1]">
             Solutions{" "}
-            <span className="bg-gradient-to-r from-[#338BE2] to-[#5BA5EA] bg-clip-text text-transparent">
+            <span className="bg-gradient-to-r from-[#E91E63] to-[#F06292] bg-clip-text text-transparent">
               complètes
             </span>
           </h2>

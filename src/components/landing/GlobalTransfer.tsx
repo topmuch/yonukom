@@ -9,11 +9,11 @@ interface GlobalTransferProps {
 
 // Generate a grid of avatars (color tiles with initials)
 const avatarColors = [
-  "#338BE2", "#10B981", "#F59E0B", "#B7BEDA",
-  "#5BA5EA", "#2074C6", "#059669", "#D97706",
-  "#338BE2", "#10B981", "#F59E0B", "#B7BEDA",
-  "#5BA5EA", "#2074C6", "#059669", "#D97706",
-  "#338BE2", "#10B981", "#F59E0B", "#B7BEDA",
+  "#E91E63", "#10B981", "#F59E0B", "#F8BBD0",
+  "#F06292", "#AD1457", "#059669", "#D97706",
+  "#E91E63", "#10B981", "#F59E0B", "#F8BBD0",
+  "#F06292", "#AD1457", "#059669", "#D97706",
+  "#E91E63", "#10B981", "#F59E0B", "#F8BBD0",
 ];
 
 const avatarInitials = [
@@ -39,15 +39,15 @@ export function GlobalTransfer({ onSignup }: GlobalTransferProps) {
           transition={{ duration: 0.5 }}
           className="text-center max-w-2xl mx-auto mb-14 sm:mb-16"
         >
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#338BE2]/10 border border-[#338BE2]/20 mb-4">
-            <Globe className="w-3.5 h-3.5 text-[#338BE2]" />
-            <span className="text-xs font-semibold text-[#338BE2] uppercase tracking-wider">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#E91E63]/10 border border-[#E91E63]/20 mb-4">
+            <Globe className="w-3.5 h-3.5 text-[#E91E63]" />
+            <span className="text-xs font-semibold text-[#E91E63] uppercase tracking-wider">
               Couverture internationale
             </span>
           </div>
           <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-slate-900 tracking-tight leading-[1.1]">
             Envoyez à travers{" "}
-            <span className="bg-gradient-to-r from-[#338BE2] to-[#5BA5EA] bg-clip-text text-transparent">
+            <span className="bg-gradient-to-r from-[#E91E63] to-[#F06292] bg-clip-text text-transparent">
               le monde
             </span>
           </h2>
@@ -69,17 +69,17 @@ export function GlobalTransfer({ onSignup }: GlobalTransferProps) {
             {/* Stylized "map" backdrop */}
             <div className="relative aspect-square max-w-md mx-auto">
               {/* Concentric circles */}
-              <div className="absolute inset-0 rounded-full border border-[#338BE2]/10" />
-              <div className="absolute inset-8 rounded-full border border-[#338BE2]/10" />
-              <div className="absolute inset-16 rounded-full border border-[#338BE2]/10" />
-              <div className="absolute inset-24 rounded-full border border-[#338BE2]/10" />
+              <div className="absolute inset-0 rounded-full border border-[#E91E63]/10" />
+              <div className="absolute inset-8 rounded-full border border-[#E91E63]/10" />
+              <div className="absolute inset-16 rounded-full border border-[#E91E63]/10" />
+              <div className="absolute inset-24 rounded-full border border-[#E91E63]/10" />
 
               {/* Center globe icon */}
               <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
                 <motion.div
                   animate={{ rotate: 360 }}
                   transition={{ duration: 30, repeat: Infinity, ease: "linear" }}
-                  className="w-20 h-20 rounded-full bg-gradient-to-br from-[#338BE2] to-[#2074C6] flex items-center justify-center shadow-2xl shadow-[#338BE2]/30"
+                  className="w-20 h-20 rounded-full bg-gradient-to-br from-[#E91E63] to-[#AD1457] flex items-center justify-center shadow-2xl shadow-[#E91E63]/30"
                 >
                   <Globe className="w-10 h-10 text-white" />
                 </motion.div>
@@ -114,7 +114,7 @@ export function GlobalTransfer({ onSignup }: GlobalTransferProps) {
               <motion.div
                 animate={{ scale: [1, 1.4, 1], opacity: [0.6, 0, 0.6] }}
                 transition={{ duration: 2.5, repeat: Infinity, ease: "easeOut" }}
-                className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-20 h-20 rounded-full bg-[#338BE2]/30"
+                className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-20 h-20 rounded-full bg-[#E91E63]/30"
               />
             </div>
           </motion.div>
@@ -152,9 +152,9 @@ export function GlobalTransfer({ onSignup }: GlobalTransferProps) {
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
                   transition={{ delay: 0.3 + i * 0.05 }}
-                  className="flex items-center gap-2 px-3 py-2 rounded-xl bg-[#F6F9FE] border border-slate-200/60"
+                  className="flex items-center gap-2 px-3 py-2 rounded-xl bg-[#FFF1F5] border border-slate-200/60"
                 >
-                  <span className="w-2 h-2 rounded-full bg-[#338BE2]" />
+                  <span className="w-2 h-2 rounded-full bg-[#E91E63]" />
                   <span className="text-sm font-medium text-slate-700">
                     {country}
                   </span>
@@ -166,7 +166,7 @@ export function GlobalTransfer({ onSignup }: GlobalTransferProps) {
               <button
                 type="button"
                 onClick={onSignup}
-                className="inline-flex items-center gap-2 px-6 h-12 rounded-xl bg-[#338BE2] hover:bg-[#2074C6] text-white font-semibold shadow-lg shadow-[#338BE2]/25 transition-all"
+                className="inline-flex items-center gap-2 px-6 h-12 rounded-xl bg-[#E91E63] hover:bg-[#AD1457] text-white font-semibold shadow-lg shadow-[#E91E63]/25 transition-all"
               >
                 Rejoindre la communauté
                 <ArrowRight className="w-4 h-4" />

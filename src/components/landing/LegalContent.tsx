@@ -32,9 +32,9 @@ export function LegalContent({
   return (
     <LegalPageLayout>
       {/* Hero */}
-      <section className="bg-gradient-to-br from-[#F6F9FE] via-white to-[#EBF2FE] pt-20 pb-12 sm:pt-24 sm:pb-16">
+      <section className="bg-gradient-to-br from-[#FFF1F5] via-white to-[#FCE4EC] pt-20 pb-12 sm:pt-24 sm:pb-16">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#338BE2]/10 text-[#338BE2] text-xs font-semibold uppercase tracking-wide mb-4">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#E91E63]/10 text-[#E91E63] text-xs font-semibold uppercase tracking-wide mb-4">
             <FileText className="w-3.5 h-3.5" />
             {badge}
           </span>
@@ -61,7 +61,7 @@ export function LegalContent({
                 className="scroll-mt-24"
               >
                 <h2 className="text-xl sm:text-2xl font-bold text-slate-900 mb-4 flex items-start gap-3">
-                  <span className="text-[#338BE2] text-sm font-mono mt-1.5 shrink-0">
+                  <span className="text-[#E91E63] text-sm font-mono mt-1.5 shrink-0">
                     {String(idx + 1).padStart(2, "0")}
                   </span>
                   <span>{section.title}</span>
@@ -83,7 +83,7 @@ export function LegalContent({
                         key={i}
                         className="flex items-start gap-2 text-slate-600 text-sm sm:text-base leading-relaxed"
                       >
-                        <span className="text-[#338BE2] mt-1 shrink-0">•</span>
+                        <span className="text-[#E91E63] mt-1 shrink-0">•</span>
                         <span>{item}</span>
                       </li>
                     ))}
@@ -116,14 +116,14 @@ export function LegalContent({
               contacter à{" "}
               <a
                 href="mailto:contact@2mails.com"
-                className="text-[#338BE2] hover:underline font-medium"
+                className="text-[#E91E63] hover:underline font-medium"
               >
                 contact@2mails.com
               </a>{" "}
               ou au{" "}
               <a
                 href="tel:+221783821822"
-                className="text-[#338BE2] hover:underline font-medium"
+                className="text-[#E91E63] hover:underline font-medium"
               >
                 78 382 18 22
               </a>

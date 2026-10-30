@@ -212,7 +212,7 @@ export function StatsDashboard() {
             <KpiCard
               label="Commandes"
               value={`${data.orderCount}`}
-              gradient="from-blue-500 to-indigo-600"
+              gradient="from-pink-500 to-pink-600"
               Icon={ShoppingCart}
               delay={0.05}
             />

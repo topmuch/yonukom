@@ -101,23 +101,23 @@ interface TabConfig {
 }
 
 // All possible tabs — filtered dynamically per business config
-// Each tab carries its own vibrant accent color (POS=blue, Stock=emerald, etc.)
+// Each tab carries its own vibrant accent color (POS=pink, Stock=emerald, etc.)
 const ALL_TABS: TabConfig[] = [
   {
     id: "home",
     label: "Accueil",
     icon: Home,
-    gradient: "from-blue-500 to-indigo-500",
-    accent: "bg-blue-500",
-    color: "#3B82F6",
+    gradient: "from-pink-500 to-rose-500",
+    accent: "bg-pink-500",
+    color: "#E91E63",
   },
   {
     id: "pos",
     label: "Vente",
     icon: ShoppingBag,
-    gradient: "from-[#338BE2] to-cyan-500",
-    accent: "bg-[#338BE2]",
-    color: "#338BE2",
+    gradient: "from-[#E91E63] to-cyan-500",
+    accent: "bg-[#E91E63]",
+    color: "#E91E63",
   },
   {
     id: "stock",
@@ -131,7 +131,7 @@ const ALL_TABS: TabConfig[] = [
     id: "products",
     label: "Produits",
     icon: Boxes,
-    gradient: "from-purple-500 to-indigo-500",
+    gradient: "from-purple-500 to-fuchsia-500",
     accent: "bg-purple-500",
     color: "#A855F7",
   },
@@ -163,7 +163,7 @@ const ALL_TABS: TabConfig[] = [
     id: "online-orders",
     label: "Cmds Online",
     icon: ShoppingBag,
-    gradient: "from-cyan-500 to-blue-500",
+    gradient: "from-cyan-500 to-teal-500",
     accent: "bg-cyan-500",
     color: "#06B6D4",
   },
@@ -196,7 +196,7 @@ const ALL_TABS: TabConfig[] = [
     id: "invoices",
     label: "Factures",
     icon: FileText,
-    gradient: "from-cyan-500 to-blue-500",
+    gradient: "from-cyan-500 to-teal-500",
     accent: "bg-cyan-500",
     color: "#06B6D4",
   },
@@ -220,9 +220,9 @@ const ALL_TABS: TabConfig[] = [
     id: "stats",
     label: "Statistiques",
     icon: BarChart3,
-    gradient: "from-indigo-500 to-blue-500",
-    accent: "bg-indigo-500",
-    color: "#6366F1",
+    gradient: "from-violet-500 to-fuchsia-500",
+    accent: "bg-violet-500",
+    color: "#8B5CF6",
   },
   {
     id: "team",
@@ -244,9 +244,9 @@ const ALL_TABS: TabConfig[] = [
     id: "analytics-ai",
     label: "IA Analytics",
     icon: BarChart3,
-    gradient: "from-indigo-500 to-violet-500",
-    accent: "bg-indigo-500",
-    color: "#6366F1",
+    gradient: "from-violet-500 to-fuchsia-500",
+    accent: "bg-violet-500",
+    color: "#8B5CF6",
   },
   {
     id: "accounting",
@@ -443,7 +443,7 @@ export function AppShell({ activeTab, onTabChange, children }: AppShellProps) {
                 className="h-9 w-9 rounded-xl object-contain bg-white border border-slate-200 shrink-0"
               />
             ) : (
-              <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-[#338BE2] to-[#2074C6] flex items-center justify-center shadow-md shrink-0">
+              <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-[#E91E63] to-[#AD1457] flex items-center justify-center shadow-md shrink-0">
                 <span className="text-white font-bold text-sm">
                   {businessInitial}
                 </span>
@@ -589,7 +589,7 @@ export function AppShell({ activeTab, onTabChange, children }: AppShellProps) {
       </nav>
 
       {/* ---- Desktop Sidebar (lg+) — BLUE with vibrant per-tab accents ---- */}
-      <aside className={`hidden fixed left-0 top-0 bottom-0 w-60 bg-gradient-to-b from-[#338BE2] to-[#2074C6] text-white shadow-[8px_0_24px_-12px_rgba(51,139,226,0.4)] flex-col z-40 ${isFullscreen ? "lg:hidden" : "lg:flex"}`}>
+      <aside className={`hidden fixed left-0 top-0 bottom-0 w-60 bg-gradient-to-b from-[#E91E63] to-[#AD1457] text-white shadow-[8px_0_24px_-12px_rgba(51,139,226,0.4)] flex-col z-40 ${isFullscreen ? "lg:hidden" : "lg:flex"}`}>
         {/* Logo header */}
         <div className="px-5 py-4 flex items-center gap-2.5 border-b border-white/15">
           {logoUrl ? (
@@ -600,7 +600,7 @@ export function AppShell({ activeTab, onTabChange, children }: AppShellProps) {
             />
           ) : (
             <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center shadow-md shrink-0">
-              <span className="text-[#338BE2] font-bold text-base">
+              <span className="text-[#E91E63] font-bold text-base">
                 {businessInitial}
               </span>
             </div>

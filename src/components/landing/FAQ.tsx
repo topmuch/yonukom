@@ -48,15 +48,15 @@ export function FAQ() {
           transition={{ duration: 0.5 }}
           className="text-center max-w-2xl mx-auto mb-14 sm:mb-16"
         >
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#338BE2]/10 border border-[#338BE2]/20 mb-4">
-            <HelpCircle className="w-3.5 h-3.5 text-[#338BE2]" />
-            <span className="text-xs font-semibold text-[#338BE2] uppercase tracking-wider">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#E91E63]/10 border border-[#E91E63]/20 mb-4">
+            <HelpCircle className="w-3.5 h-3.5 text-[#E91E63]" />
+            <span className="text-xs font-semibold text-[#E91E63] uppercase tracking-wider">
               FAQ
             </span>
           </div>
           <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-slate-900 tracking-tight leading-[1.1]">
             Questions{" "}
-            <span className="bg-gradient-to-r from-[#338BE2] to-[#5BA5EA] bg-clip-text text-transparent">
+            <span className="bg-gradient-to-r from-[#E91E63] to-[#F06292] bg-clip-text text-transparent">
               fréquentes
             </span>
           </h2>
@@ -78,11 +78,11 @@ export function FAQ() {
               <AccordionItem
                 key={i}
                 value={`faq-${i}`}
-                className="bg-white rounded-2xl border border-slate-200/60 px-5 sm:px-6 transition-all data-[state=open]:border-[#338BE2]/40 data-[state=open]:shadow-[0_8px_24px_-8px_rgba(51,139,226,0.2)]"
+                className="bg-white rounded-2xl border border-slate-200/60 px-5 sm:px-6 transition-all data-[state=open]:border-[#E91E63]/40 data-[state=open]:shadow-[0_8px_24px_-8px_rgba(51,139,226,0.2)]"
               >
-                <AccordionTrigger className="text-left text-base font-semibold text-slate-900 hover:text-[#338BE2] py-5 hover:no-underline [&[data-state=open]>svg]:text-[#338BE2] [&[data-state=open]>svg]:rotate-180">
+                <AccordionTrigger className="text-left text-base font-semibold text-slate-900 hover:text-[#E91E63] py-5 hover:no-underline [&[data-state=open]>svg]:text-[#E91E63] [&[data-state=open]>svg]:rotate-180">
                   <span className="flex items-center gap-3">
-                    <span className="w-7 h-7 rounded-lg bg-[#338BE2]/10 flex items-center justify-center text-[#338BE2] text-xs font-bold">
+                    <span className="w-7 h-7 rounded-lg bg-[#E91E63]/10 flex items-center justify-center text-[#E91E63] text-xs font-bold">
                       {String(i + 1).padStart(2, "0")}
                     </span>
                     {faq.q}

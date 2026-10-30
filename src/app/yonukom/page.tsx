@@ -36,23 +36,23 @@ export default function YonuKomPage() {
 
       <main className="flex-1 pt-14">
         {/* Hero de la page YonuKom */}
-        <section className="relative bg-gradient-to-br from-[#F6F9FE] via-white to-[#EAF1FC] py-20 sm:py-28 overflow-hidden">
+        <section className="relative bg-gradient-to-br from-[#FFF1F5] via-white to-[#FCE4EC] py-20 sm:py-28 overflow-hidden">
           <div
             className="absolute inset-0 opacity-[0.05]"
             style={{
-              backgroundImage: `radial-gradient(circle at 1px 1px, #338BE2 1px, transparent 0)`,
+              backgroundImage: `radial-gradient(circle at 1px 1px, #E91E63 1px, transparent 0)`,
               backgroundSize: "32px 32px",
             }}
           />
           <div className="relative max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#338BE2]/10 text-[#338BE2] text-xs font-semibold uppercase tracking-wide mb-5">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#E91E63]/10 text-[#E91E63] text-xs font-semibold uppercase tracking-wide mb-5">
               <Sparkles className="w-3.5 h-3.5" />
               Qu'est-ce que YonuKom ?
             </span>
             <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-slate-900 mb-6 tracking-tight leading-tight">
               Le logiciel de gestion commerciale
               <br className="hidden sm:block" />
-              <span className="text-[#338BE2]"> pensé pour l'Afrique de l'Ouest</span>
+              <span className="text-[#E91E63]"> pensé pour l'Afrique de l'Ouest</span>
             </h1>
             <p className="text-base sm:text-lg text-slate-600 leading-relaxed max-w-2xl mx-auto">
               YonuKom est une plateforme tout-en-un qui permet aux commerçants de
@@ -67,7 +67,7 @@ export default function YonuKomPage() {
         <section className="py-20 sm:py-24 bg-white">
           <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-12">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#338BE2]/10 text-[#338BE2] text-xs font-semibold uppercase tracking-wide mb-4">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#E91E63]/10 text-[#E91E63] text-xs font-semibold uppercase tracking-wide mb-4">
                 Le concept
               </span>
               <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 mb-3">
@@ -83,9 +83,9 @@ export default function YonuKomPage() {
             </div>
 
             <div className="grid sm:grid-cols-2 gap-6">
-              <div className="bg-gradient-to-br from-[#F6F9FE] to-white p-6 rounded-2xl border border-slate-200">
-                <div className="w-12 h-12 rounded-xl bg-[#338BE2]/10 flex items-center justify-center mb-4">
-                  <Smartphone className="w-6 h-6 text-[#338BE2]" />
+              <div className="bg-gradient-to-br from-[#FFF1F5] to-white p-6 rounded-2xl border border-slate-200">
+                <div className="w-12 h-12 rounded-xl bg-[#E91E63]/10 flex items-center justify-center mb-4">
+                  <Smartphone className="w-6 h-6 text-[#E91E63]" />
                 </div>
                 <h3 className="text-lg font-bold text-slate-900 mb-2">
                   Mobile-first, pas mobile-also
@@ -99,7 +99,7 @@ export default function YonuKomPage() {
                 </p>
               </div>
 
-              <div className="bg-gradient-to-br from-[#F6F9FE] to-white p-6 rounded-2xl border border-slate-200">
+              <div className="bg-gradient-to-br from-[#FFF1F5] to-white p-6 rounded-2xl border border-slate-200">
                 <div className="w-12 h-12 rounded-xl bg-emerald-100 flex items-center justify-center mb-4">
                   <WifiOff className="w-6 h-6 text-emerald-600" />
                 </div>
@@ -115,7 +115,7 @@ export default function YonuKomPage() {
                 </p>
               </div>
 
-              <div className="bg-gradient-to-br from-[#F6F9FE] to-white p-6 rounded-2xl border border-slate-200">
+              <div className="bg-gradient-to-br from-[#FFF1F5] to-white p-6 rounded-2xl border border-slate-200">
                 <div className="w-12 h-12 rounded-xl bg-amber-100 flex items-center justify-center mb-4">
                   <ShieldCheck className="w-6 h-6 text-amber-600" />
                 </div>
@@ -131,7 +131,7 @@ export default function YonuKomPage() {
                 </p>
               </div>
 
-              <div className="bg-gradient-to-br from-[#F6F9FE] to-white p-6 rounded-2xl border border-slate-200">
+              <div className="bg-gradient-to-br from-[#FFF1F5] to-white p-6 rounded-2xl border border-slate-200">
                 <div className="w-12 h-12 rounded-xl bg-rose-100 flex items-center justify-center mb-4">
                   <CreditCard className="w-6 h-6 text-rose-600" />
                 </div>
@@ -151,10 +151,10 @@ export default function YonuKomPage() {
         </section>
 
         {/* Comment ça marche */}
-        <section className="py-20 sm:py-24 bg-[#F6F9FE]">
+        <section className="py-20 sm:py-24 bg-[#FFF1F5]">
           <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-12">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#338BE2]/10 text-[#338BE2] text-xs font-semibold uppercase tracking-wide mb-4">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#E91E63]/10 text-[#E91E63] text-xs font-semibold uppercase tracking-wide mb-4">
                 Comment ça marche
               </span>
               <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 mb-3">
@@ -201,13 +201,13 @@ export default function YonuKomPage() {
                 const Icon = step.icon;
                 return (
                   <div key={step.num} className="flex gap-6 items-start">
-                    <div className="shrink-0 w-14 h-14 rounded-2xl bg-[#338BE2] text-white font-bold text-lg flex items-center justify-center shadow-lg shadow-[#338BE2]/25">
+                    <div className="shrink-0 w-14 h-14 rounded-2xl bg-[#E91E63] text-white font-bold text-lg flex items-center justify-center shadow-lg shadow-[#E91E63]/25">
                       {step.num}
                     </div>
                     <div className="flex-1 bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
                       <div className="flex items-center gap-3 mb-2">
-                        <div className="w-9 h-9 rounded-lg bg-[#338BE2]/10 flex items-center justify-center">
-                          <Icon className="w-5 h-5 text-[#338BE2]" />
+                        <div className="w-9 h-9 rounded-lg bg-[#E91E63]/10 flex items-center justify-center">
+                          <Icon className="w-5 h-5 text-[#E91E63]" />
                         </div>
                         <h3 className="text-lg font-bold text-slate-900">{step.title}</h3>
                       </div>
@@ -226,7 +226,7 @@ export default function YonuKomPage() {
         <section className="py-20 sm:py-24 bg-white">
           <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-12">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#338BE2]/10 text-[#338BE2] text-xs font-semibold uppercase tracking-wide mb-4">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#E91E63]/10 text-[#E91E63] text-xs font-semibold uppercase tracking-wide mb-4">
                 À qui s'adresse YonuKom
               </span>
               <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 mb-3">
@@ -246,7 +246,7 @@ export default function YonuKomPage() {
                   title: "Boutiques et retail",
                   description:
                     "Tièdopes, boutiques de quartier, supérettes, boutiques de mode, parapharmacies, boutiques cosmétiques. Gérez votre stock par catégorie, vos prix d'achat et de vente, vos clients fidèles, et vos ventes journalières.",
-                  color: "#338BE2",
+                  color: "#E91E63",
                 },
                 {
                   icon: Utensils,
@@ -288,7 +288,7 @@ export default function YonuKomPage() {
                 return (
                   <div
                     key={target.title}
-                    className="bg-white rounded-2xl p-6 border border-slate-200 hover:border-[#338BE2]/30 hover:shadow-md transition-all"
+                    className="bg-white rounded-2xl p-6 border border-slate-200 hover:border-[#E91E63]/30 hover:shadow-md transition-all"
                   >
                     <div
                       className="w-11 h-11 rounded-xl flex items-center justify-center mb-4"
@@ -313,10 +313,10 @@ export default function YonuKomPage() {
         </section>
 
         {/* Les avantages */}
-        <section className="py-20 sm:py-24 bg-[#F6F9FE]">
+        <section className="py-20 sm:py-24 bg-[#FFF1F5]">
           <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-12">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#338BE2]/10 text-[#338BE2] text-xs font-semibold uppercase tracking-wide mb-4">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#E91E63]/10 text-[#E91E63] text-xs font-semibold uppercase tracking-wide mb-4">
                 Les avantages
               </span>
               <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 mb-3">
@@ -385,8 +385,8 @@ export default function YonuKomPage() {
                     key={benefit.title}
                     className="bg-white rounded-2xl p-6 border border-slate-200 flex items-start gap-4"
                   >
-                    <div className="w-11 h-11 rounded-xl bg-[#338BE2]/10 flex items-center justify-center shrink-0">
-                      <Icon className="w-5 h-5 text-[#338BE2]" />
+                    <div className="w-11 h-11 rounded-xl bg-[#E91E63]/10 flex items-center justify-center shrink-0">
+                      <Icon className="w-5 h-5 text-[#E91E63]" />
                     </div>
                     <div className="flex-1">
                       <h3 className="text-base font-bold text-slate-900 mb-1.5 flex items-center gap-2">
@@ -426,7 +426,7 @@ export default function YonuKomPage() {
               <button
                 type="button"
                 onClick={goSignup}
-                className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-[#338BE2] hover:bg-[#2074C6] text-white font-semibold shadow-lg shadow-[#338BE2]/30 transition-colors"
+                className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-[#E91E63] hover:bg-[#AD1457] text-white font-semibold shadow-lg shadow-[#E91E63]/30 transition-colors"
               >
                 Commencer gratuitement
                 <ArrowRight className="w-4 h-4" />

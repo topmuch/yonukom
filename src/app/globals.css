@@ -60,26 +60,26 @@
 }
 
 /* ============================================================
-   YonuKom — Palette de couleurs (Premium Blue Theme)
-   Primaire : Bleu vibrant (#338BE2) — confiance & modernité
-   Accent : Lavande claire (#B7BEDA)
-   Fond : Bleu très clair (#F6F9FE) — réduit la fatigue visuelle
-   Texte : Bleu nuit (#1E293B)
+   YonuKom — Palette de couleurs (Premium Pink Theme — inspiration Boutiko)
+   Primaire : Rose vibrant (#E91E63) — énergie & modernité
+   Accent : Rose pâle (#F8BBD0)
+   Fond : Rose très clair (#FFF1F5) — réduit la fatigue visuelle
+   Texte : Prune nuit (#3D2438)
    ============================================================ */
 
 :root {
   --radius: 0.625rem;
 
-  /* YonuKom brand tokens (Premium Blue) */
-  --yk-deep: oklch(0.62 0.166 251);         /* #338BE2 Bleu vibrant principal */
-  --yk-deep-light: oklch(0.72 0.135 251);   /* #5BA5EA Bleu clair */
-  --yk-deep-dark: oklch(0.50 0.165 251);   /* #2074C6 Bleu foncé (hover) */
-  --yk-emerald: oklch(0.57 0.17 162);       /* #059669 Vert émeraude (validation) */
-  --yk-emerald-light: oklch(0.75 0.15 162); /* #6EE7B7 Vert émeraude clair */
-  --yk-amber: oklch(0.70 0.17 55);          /* #E5940 Orange/ambre pour alertes */
-  --yk-amber-light: oklch(0.90 0.10 55);    /* Orange clair */
-  --yk-lavender: oklch(0.79 0.043 256);     /* #B7BEDA Lavande claire */
-  --yk-surface: oklch(0.985 0.005 250);     /* #F6F9FE Bleu très clair (page bg) */
+  /* YonuKom brand tokens (Premium Pink — inspiration Boutiko) */
+  --yk-deep: oklch(0.62 0.22 350);           /* #E91E63 Rose vibrant principal */
+  --yk-deep-light: oklch(0.72 0.18 350);     /* #F06292 Rose clair */
+  --yk-deep-dark: oklch(0.50 0.22 350);      /* #AD1457 Rose foncé (hover) */
+  --yk-emerald: oklch(0.57 0.17 162);        /* #059669 Vert émeraude (validation) */
+  --yk-emerald-light: oklch(0.75 0.15 162);  /* #6EE7B7 Vert émeraude clair */
+  --yk-amber: oklch(0.70 0.17 55);           /* #E5940 Orange/ambre pour alertes */
+  --yk-amber-light: oklch(0.90 0.10 55);     /* Orange clair */
+  --yk-lavender: oklch(0.85 0.05 350);       /* #F8BBD0 Rose pâle (ex-lavande) */
+  --yk-surface: oklch(0.985 0.008 350);      /* #FFF1F5 Rose très clair (page bg) */
 
   /* Vibrant accent tokens — more colorful palette */
   --yk-coral: #FF6B6B;                       /* Corail chaleureux */
@@ -88,53 +88,53 @@
   --yk-grape: #A78BFA;                       /* Raisin lavande */
 
   /* shadcn/ui tokens mapped to YonuKom palette */
-  --background: oklch(0.985 0.005 250);      /* #F6F9FE Bleu très clair */
-  --foreground: oklch(0.278 0.033 257);      /* #1E293B Bleu nuit foncé */
+  --background: oklch(0.985 0.008 350);      /* #FFF1F5 Rose très clair */
+  --foreground: oklch(0.278 0.033 350);      /* #3D2438 Prune nuit foncé */
   --card: oklch(1 0 0);                      /* #FFFFFF Blanc pur pour les cartes */
-  --card-foreground: oklch(0.278 0.033 257);
+  --card-foreground: oklch(0.278 0.033 350);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.278 0.033 257);
-  --primary: oklch(0.62 0.166 251);          /* #338BE2 Bleu vibrant YonuKom */
-  --primary-foreground: oklch(1 0 0);        /* Blanc sur bleu */
+  --popover-foreground: oklch(0.278 0.033 350);
+  --primary: oklch(0.62 0.22 350);           /* #E91E63 Rose vibrant YonuKom */
+  --primary-foreground: oklch(1 0 0);        /* Blanc sur rose */
   --secondary: oklch(0.57 0.17 162);         /* Vert émeraude YonuKom */
   --secondary-foreground: oklch(1 0 0);
-  --muted: oklch(0.96 0.008 250);            /* Gris très clair teinté */
-  --muted-foreground: oklch(0.50 0.03 257);  /* Gris moyen */
-  --accent: oklch(0.79 0.043 256);           /* #B7BEDA Lavande pour accents */
-  --accent-foreground: oklch(0.278 0.033 257);
+  --muted: oklch(0.96 0.012 350);            /* Gris très clair teinté rose */
+  --muted-foreground: oklch(0.50 0.03 350);  /* Gris moyen */
+  --accent: oklch(0.85 0.05 350);            /* #F8BBD0 Rose pâle pour accents */
+  --accent-foreground: oklch(0.278 0.033 350);
   --destructive: oklch(0.577 0.245 27.325);  /* Rouge destructif */
-  --border: oklch(0.90 0.012 250);           /* Bordure subtile bleutée */
-  --input: oklch(0.90 0.012 250);
-  --ring: oklch(0.62 0.166 251);             /* Ring bleu vibrant */
+  --border: oklch(0.90 0.015 350);           /* Bordure subtile rosée */
+  --input: oklch(0.90 0.015 350);
+  --ring: oklch(0.62 0.22 350);              /* Ring rose vibrant */
 
   /* Charts */
-  --chart-1: oklch(0.62 0.166 251);   /* Bleu vibrant */
-  --chart-2: oklch(0.57 0.17 162);    /* Émeraude */
-  --chart-3: oklch(0.70 0.17 55);    /* Ambre */
-  --chart-4: oklch(0.65 0.20 330);    /* Rose */
-  --chart-5: oklch(0.79 0.043 256);   /* Lavande */
+  --chart-1: oklch(0.62 0.22 350);     /* Rose vibrant */
+  --chart-2: oklch(0.57 0.17 162);      /* Émeraude */
+  --chart-3: oklch(0.70 0.17 55);       /* Ambre */
+  --chart-4: oklch(0.65 0.20 330);      /* Magenta */
+  --chart-5: oklch(0.85 0.05 350);      /* Rose pâle */
 
-  /* Sidebar — bleu vibrant comme dans le dashboard image */
-  --sidebar: oklch(0.62 0.166 251);
+  /* Sidebar — rose vibrant comme dans le dashboard image */
+  --sidebar: oklch(0.62 0.22 350);
   --sidebar-foreground: oklch(1 0 0);
   --sidebar-primary: oklch(1 0 0);
-  --sidebar-primary-foreground: oklch(0.62 0.166 251);
-  --sidebar-accent: oklch(0.55 0.155 251);
+  --sidebar-primary-foreground: oklch(0.62 0.22 350);
+  --sidebar-accent: oklch(0.55 0.20 350);
   --sidebar-accent-foreground: oklch(1 0 0);
-  --sidebar-border: oklch(0.70 0.135 251);
+  --sidebar-border: oklch(0.70 0.18 350);
   --sidebar-ring: oklch(1 0 0);
 }
 
 .dark {
-  --yk-deep: oklch(0.68 0.150 251);
-  --yk-deep-light: oklch(0.78 0.120 251);
-  --yk-deep-dark: oklch(0.58 0.150 251);
+  --yk-deep: oklch(0.70 0.20 350);
+  --yk-deep-light: oklch(0.80 0.16 350);
+  --yk-deep-dark: oklch(0.60 0.20 350);
   --yk-emerald: oklch(0.65 0.17 162);
   --yk-emerald-light: oklch(0.80 0.14 162);
   --yk-amber: oklch(0.75 0.15 55);
   --yk-amber-light: oklch(0.85 0.10 55);
-  --yk-lavender: oklch(0.45 0.05 256);
-  --yk-surface: oklch(0.18 0.02 257);
+  --yk-lavender: oklch(0.45 0.06 350);
+  --yk-surface: oklch(0.18 0.02 350);
 
   /* Vibrant accents (dark variant — slightly brighter for contrast) */
   --yk-coral: #FF8585;
@@ -142,39 +142,39 @@
   --yk-sun: #FFEC85;
   --yk-grape: #B79BFB;
 
-  --background: oklch(0.21 0.03 257);        /* #0F172A Bleu nuit foncé */
-  --foreground: oklch(0.96 0.005 250);
-  --card: oklch(0.26 0.035 257);             /* Bleu nuit plus clair pour cartes */
-  --card-foreground: oklch(0.96 0.005 250);
-  --popover: oklch(0.26 0.035 257);
-  --popover-foreground: oklch(0.96 0.005 250);
-  --primary: oklch(0.68 0.150 251);          /* Bleu vibrant (un peu plus lumineux en dark) */
-  --primary-foreground: oklch(0.18 0.02 257);
+  --background: oklch(0.21 0.03 350);        /* #2A0E22 Prune nuit foncé */
+  --foreground: oklch(0.96 0.008 350);
+  --card: oklch(0.26 0.035 350);             /* Prune plus clair pour cartes */
+  --card-foreground: oklch(0.96 0.008 350);
+  --popover: oklch(0.26 0.035 350);
+  --popover-foreground: oklch(0.96 0.008 350);
+  --primary: oklch(0.70 0.20 350);           /* Rose vibrant (un peu plus lumineux en dark) */
+  --primary-foreground: oklch(0.18 0.02 350);
   --secondary: oklch(0.65 0.17 162);
   --secondary-foreground: oklch(0.98 0 0);
-  --muted: oklch(0.30 0.03 257);
-  --muted-foreground: oklch(0.72 0.02 250);
-  --accent: oklch(0.40 0.06 256);
-  --accent-foreground: oklch(0.96 0.005 250);
+  --muted: oklch(0.30 0.03 350);
+  --muted-foreground: oklch(0.72 0.02 350);
+  --accent: oklch(0.40 0.07 350);
+  --accent-foreground: oklch(0.96 0.008 350);
   --destructive: oklch(0.704 0.191 22.216);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.68 0.150 251);
+  --ring: oklch(0.70 0.20 350);
 
-  --chart-1: oklch(0.68 0.150 251);
+  --chart-1: oklch(0.70 0.20 350);
   --chart-2: oklch(0.65 0.17 162);
   --chart-3: oklch(0.75 0.15 55);
   --chart-4: oklch(0.65 0.20 330);
-  --chart-5: oklch(0.55 0.10 256);
+  --chart-5: oklch(0.55 0.10 350);
 
-  --sidebar: oklch(0.18 0.025 257);
-  --sidebar-foreground: oklch(0.96 0.005 250);
-  --sidebar-primary: oklch(0.68 0.150 251);
-  --sidebar-primary-foreground: oklch(0.18 0.02 257);
-  --sidebar-accent: oklch(0.25 0.04 257);
-  --sidebar-accent-foreground: oklch(0.96 0.005 250);
+  --sidebar: oklch(0.18 0.025 350);
+  --sidebar-foreground: oklch(0.96 0.008 350);
+  --sidebar-primary: oklch(0.70 0.20 350);
+  --sidebar-primary-foreground: oklch(0.18 0.02 350);
+  --sidebar-accent: oklch(0.25 0.05 350);
+  --sidebar-accent-foreground: oklch(0.96 0.008 350);
   --sidebar-border: oklch(1 0 0 / 8%);
-  --sidebar-ring: oklch(0.68 0.150 251);
+  --sidebar-ring: oklch(0.70 0.20 350);
 }
 
 @layer base {
@@ -204,11 +204,11 @@
   background: transparent;
 }
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: oklch(0.80 0.01 250);
+  background: oklch(0.80 0.01 350);
   border-radius: 3px;
 }
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: oklch(0.65 0.03 250);
+  background: oklch(0.65 0.03 350);
 }
 
 /* Animation pulse pour l'indicateur offline */
@@ -228,7 +228,7 @@
   background-image: linear-gradient(135deg, #FF6B6B 0%, #FFB4A2 50%, #FF8FA3 100%);
 }
 .bg-gradient-cool {
-  background-image: linear-gradient(135deg, #338BE2 0%, #4ECDC4 100%);
+  background-image: linear-gradient(135deg, #E91E63 0%, #FF6B6B 100%);
 }
 .bg-gradient-sunset {
   background-image: linear-gradient(135deg, #FF6B6B 0%, #A78BFA 100%);
@@ -251,7 +251,7 @@
   color: transparent;
 }
 .text-gradient-cool {
-  background-image: linear-gradient(135deg, #338BE2 0%, #4ECDC4 100%);
+  background-image: linear-gradient(135deg, #E91E63 0%, #FF6B6B 100%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -265,7 +265,7 @@
 }
 .card-gradient-cool {
   background-image:
-    linear-gradient(135deg, rgba(51, 139, 226, 0.06), rgba(78, 205, 196, 0.06)),
+    linear-gradient(135deg, rgba(233, 30, 99, 0.06), rgba(255, 107, 107, 0.06)),
     var(--card);
 }
 .card-gradient-sunset {

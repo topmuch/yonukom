@@ -177,7 +177,7 @@ export function SuperadminModulesPage() {
     return (
       <Card>
         <CardContent className="p-6 flex items-center justify-center">
-          <Loader2 className="w-5 h-5 text-[#338BE2] animate-spin" />
+          <Loader2 className="w-5 h-5 text-[#E91E63] animate-spin" />
           <span className="ml-2 text-sm text-muted-foreground">Chargement des tenants…</span>
         </CardContent>
       </Card>
@@ -228,8 +228,8 @@ export function SuperadminModulesPage() {
                 ) : (
                   <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
                 )}
-                <div className="w-8 h-8 rounded-lg bg-[#338BE2]/10 flex items-center justify-center shrink-0">
-                  <Building2 className="w-4 h-4 text-[#338BE2]" />
+                <div className="w-8 h-8 rounded-lg bg-[#E91E63]/10 flex items-center justify-center shrink-0">
+                  <Building2 className="w-4 h-4 text-[#E91E63]" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="font-semibold text-sm truncate">{tenant.name}</p>

@@ -137,15 +137,15 @@ export function Navbar({
                     onClick={(e) => handleNavClick(e, link.href)}
                     className={`relative px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
                       isActive
-                        ? "text-[#338BE2]"
-                        : "text-slate-600 hover:text-[#338BE2]"
+                        ? "text-[#E91E63]"
+                        : "text-slate-600 hover:text-[#E91E63]"
                     }`}
                   >
                     {link.label}
                     {isActive && (
                       <motion.span
                         layoutId="nav-underline-app"
-                        className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 w-6 h-0.5 rounded-full bg-[#338BE2]"
+                        className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 w-6 h-0.5 rounded-full bg-[#E91E63]"
                       />
                     )}
                   </button>
@@ -158,14 +158,14 @@ export function Navbar({
               <Button
                 variant="ghost"
                 size="sm"
-                className="text-slate-700 hover:text-[#338BE2] hover:bg-[#338BE2]/5 font-medium"
+                className="text-slate-700 hover:text-[#E91E63] hover:bg-[#E91E63]/5 font-medium"
                 onClick={onLogin}
               >
                 Se connecter
               </Button>
               <Button
                 size="sm"
-                className="bg-[#338BE2] hover:bg-[#2074C6] text-white font-semibold shadow-md shadow-[#338BE2]/25 gap-1.5 h-10 px-5 rounded-full"
+                className="bg-[#E91E63] hover:bg-[#AD1457] text-white font-semibold shadow-md shadow-[#E91E63]/25 gap-1.5 h-10 px-5 rounded-full"
                 onClick={onSignup}
               >
                 Commencer
@@ -187,7 +187,7 @@ export function Navbar({
               </SheetTrigger>
               <SheetContent
                 side="right"
-                className="w-[300px] sm:w-[340px] bg-white p-0 border-l border-[#338BE2]/10"
+                className="w-[300px] sm:w-[340px] bg-white p-0 border-l border-[#E91E63]/10"
               >
                 <SheetTitle className="sr-only">Menu de navigation</SheetTitle>
                 <div className="flex flex-col h-full">
@@ -223,8 +223,8 @@ export function Navbar({
                           onClick={(e) => handleNavClick(e, link.href)}
                           className={`flex items-center gap-3 w-full text-left py-3 px-4 text-base font-medium rounded-xl transition-all ${
                             isActive
-                              ? "bg-[#338BE2]/5 text-[#338BE2]"
-                              : "text-slate-700 hover:text-[#338BE2] hover:bg-[#338BE2]/5"
+                              ? "bg-[#E91E63]/5 text-[#E91E63]"
+                              : "text-slate-700 hover:text-[#E91E63] hover:bg-[#E91E63]/5"
                           }`}
                         >
                           {link.label}
@@ -246,7 +246,7 @@ export function Navbar({
                       Se connecter
                     </Button>
                     <Button
-                      className="w-full bg-[#338BE2] hover:bg-[#2074C6] text-white font-medium shadow-md shadow-[#338BE2]/25 gap-1.5"
+                      className="w-full bg-[#E91E63] hover:bg-[#AD1457] text-white font-medium shadow-md shadow-[#E91E63]/25 gap-1.5"
                       onClick={() => {
                         setMobileOpen(false);
                         onSignup?.();
@@ -273,7 +273,7 @@ export function Navbar({
       transition={{ duration: 0.5, ease: "easeOut" }}
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
         scrolled
-          ? "bg-white/85 backdrop-blur-xl shadow-[0_4px_24px_-8px_rgba(51,139,226,0.15)] border-b border-[#338BE2]/10 py-2"
+          ? "bg-white/85 backdrop-blur-xl shadow-[0_4px_24px_-8px_rgba(51,139,226,0.15)] border-b border-[#E91E63]/10 py-2"
           : "bg-transparent py-3"
       }`}
     >
@@ -300,15 +300,15 @@ export function Navbar({
                   onClick={(e) => handleNavClick(e, link.href)}
                   className={`relative px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
                     isActive
-                      ? "text-[#338BE2]"
-                      : "text-slate-600 hover:text-[#338BE2]"
+                      ? "text-[#E91E63]"
+                      : "text-slate-600 hover:text-[#E91E63]"
                   }`}
                 >
                   {link.label}
                   {isActive && (
                     <motion.span
                       layoutId="nav-underline-landing"
-                      className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 w-6 h-0.5 rounded-full bg-[#338BE2]"
+                      className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 w-6 h-0.5 rounded-full bg-[#E91E63]"
                     />
                   )}
                 </button>
@@ -321,14 +321,14 @@ export function Navbar({
             <Button
               variant="ghost"
               size="sm"
-              className="text-slate-700 hover:text-[#338BE2] hover:bg-[#338BE2]/5 font-medium"
+              className="text-slate-700 hover:text-[#E91E63] hover:bg-[#E91E63]/5 font-medium"
               onClick={onLogin}
             >
               Se connecter
             </Button>
             <Button
               size="sm"
-              className="bg-[#338BE2] hover:bg-[#2074C6] text-white font-semibold shadow-md shadow-[#338BE2]/25 gap-1.5 h-10 px-5 rounded-full"
+              className="bg-[#E91E63] hover:bg-[#AD1457] text-white font-semibold shadow-md shadow-[#E91E63]/25 gap-1.5 h-10 px-5 rounded-full"
               onClick={onSignup}
             >
               Commencer
@@ -350,7 +350,7 @@ export function Navbar({
             </SheetTrigger>
             <SheetContent
               side="right"
-              className="w-[300px] sm:w-[340px] bg-white p-0 border-l border-[#338BE2]/10"
+              className="w-[300px] sm:w-[340px] bg-white p-0 border-l border-[#E91E63]/10"
             >
               <SheetTitle className="sr-only">Menu de navigation</SheetTitle>
               <div className="flex flex-col h-full">
@@ -386,8 +386,8 @@ export function Navbar({
                         onClick={(e) => handleNavClick(e, link.href)}
                         className={`flex items-center gap-3 w-full text-left py-3 px-4 text-base font-medium rounded-xl transition-all ${
                           isActive
-                            ? "bg-[#338BE2]/5 text-[#338BE2]"
-                            : "text-slate-700 hover:text-[#338BE2] hover:bg-[#338BE2]/5"
+                            ? "bg-[#E91E63]/5 text-[#E91E63]"
+                            : "text-slate-700 hover:text-[#E91E63] hover:bg-[#E91E63]/5"
                         }`}
                       >
                         {link.label}
@@ -409,7 +409,7 @@ export function Navbar({
                     Se connecter
                   </Button>
                   <Button
-                    className="w-full bg-[#338BE2] hover:bg-[#2074C6] text-white font-medium shadow-md shadow-[#338BE2]/25 gap-1.5"
+                    className="w-full bg-[#E91E63] hover:bg-[#AD1457] text-white font-medium shadow-md shadow-[#E91E63]/25 gap-1.5"
                     onClick={() => {
                       setMobileOpen(false);
                       onSignup?.();

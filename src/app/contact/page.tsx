@@ -40,11 +40,11 @@ export default function ContactPage() {
 
   return (
     <LegalPageLayout>
-      <div className="bg-[#F6F9FE] pt-16 pb-20">
+      <div className="bg-[#FFF1F5] pt-16 pb-20">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Header */}
           <div className="text-center mb-12">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#338BE2]/10 text-[#338BE2] text-xs font-semibold uppercase tracking-wide mb-4">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#E91E63]/10 text-[#E91E63] text-xs font-semibold uppercase tracking-wide mb-4">
               Contact
             </span>
             <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-slate-900 mb-4 tracking-tight">
@@ -61,8 +61,8 @@ export default function ContactPage() {
             <div className="space-y-6">
               <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 space-y-5">
                 <div className="flex items-start gap-4">
-                  <div className="w-11 h-11 rounded-xl bg-[#338BE2]/10 flex items-center justify-center shrink-0">
-                    <MapPin className="w-5 h-5 text-[#338BE2]" />
+                  <div className="w-11 h-11 rounded-xl bg-[#E91E63]/10 flex items-center justify-center shrink-0">
+                    <MapPin className="w-5 h-5 text-[#E91E63]" />
                   </div>
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
@@ -84,7 +84,7 @@ export default function ContactPage() {
                     </p>
                     <a
                       href="tel:+221783821822"
-                      className="text-slate-800 font-medium mt-0.5 hover:text-[#338BE2] transition-colors"
+                      className="text-slate-800 font-medium mt-0.5 hover:text-[#E91E63] transition-colors"
                     >
                       78 382 18 22
                     </a>
@@ -100,7 +100,7 @@ export default function ContactPage() {
                     </p>
                     <a
                       href="mailto:contact@2mails.com"
-                      className="text-slate-800 font-medium mt-0.5 hover:text-[#338BE2] transition-colors"
+                      className="text-slate-800 font-medium mt-0.5 hover:text-[#E91E63] transition-colors"
                     >
                       contact@2mails.com
                     </a>
@@ -203,7 +203,7 @@ export default function ContactPage() {
                 <Button
                   type="submit"
                   disabled={loading}
-                  className="w-full bg-[#338BE2] hover:bg-[#2074C6] text-white gap-2"
+                  className="w-full bg-[#E91E63] hover:bg-[#AD1457] text-white gap-2"
                 >
                   {loading ? (
                     <>

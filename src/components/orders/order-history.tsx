@@ -132,7 +132,7 @@ const BUCKET_BADGE_CLASS: Record<string, string> = {
   partial: "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30",
   unpaid: "bg-rose-500/10 text-rose-700 dark:text-rose-400 border-rose-500/30",
   pending: "bg-yellow-500/10 text-yellow-700 dark:text-yellow-400 border-yellow-500/30",
-  delivered: "bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/30",
+  delivered: "bg-pink-500/10 text-pink-700 dark:text-pink-400 border-pink-500/30",
   cancelled: "bg-slate-500/10 text-slate-600 dark:text-slate-300 border-slate-500/30",
 };
 

@@ -20,7 +20,7 @@ const stats: Stat[] = [
     suffix: "K",
     decimals: 1,
     label: "Utilisateurs actifs",
-    color: "#338BE2",
+    color: "#E91E63",
   },
   {
     icon: ThumbsUp,

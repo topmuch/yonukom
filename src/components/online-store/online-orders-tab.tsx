@@ -46,7 +46,7 @@ interface OnlineOrder {
 
 const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
   PENDING: { label: "En attente", className: "bg-amber-100 text-amber-700 border-amber-300" },
-  CONFIRMED: { label: "Confirmée", className: "bg-blue-100 text-blue-700 border-blue-300" },
+  CONFIRMED: { label: "Confirmée", className: "bg-pink-100 text-pink-700 border-pink-300" },
   COMPLETED: { label: "Terminée", className: "bg-emerald-100 text-emerald-700 border-emerald-300" },
   CANCELLED: { label: "Annulée", className: "bg-rose-100 text-rose-700 border-rose-300" },
 };

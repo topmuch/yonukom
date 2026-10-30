@@ -136,14 +136,14 @@ function saFetch(url: string, options: RequestInit = {}): Promise<Response> {
 }
 
 // Blue accent color used in SVG charts (kept for charts; UI uses theme tokens)
-const BLUE = "#338BE2";
-const BLUE_DARK = "#2074C6";
-const BLUE_LIGHT = "#5BA5EA";
-const LAVENDER = "#B7BEDA";
+const BLUE = "#E91E63";
+const BLUE_DARK = "#AD1457";
+const BLUE_LIGHT = "#F06292";
+const LAVENDER = "#F8BBD0";
 const EMERALD = "#10B981";
 const AMBER = "#F59E0B";
 const ROSE = "#F43F5E";
-const SLATE = "#1E293B";
+const SLATE = "#3D2438";
 
 // ============================================================
 // MAIN COMPONENT
@@ -260,7 +260,7 @@ export function SuperadminDashboard() {
   const selectedTenant = tenants.find((t) => t.id === selectedTenantId) ?? null;
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#F6F9FE] dark:bg-background">
+    <div className="min-h-screen flex flex-col bg-[#FFF1F5] dark:bg-background">
       {/* Impersonation Banner */}
       {impersonation.isImpersonating && impersonation.tenantName && (
         <ImpersonationBanner
@@ -271,7 +271,7 @@ export function SuperadminDashboard() {
 
       <div className="flex flex-1">
         {/* Sidebar - Desktop (BLUE gradient, full height) */}
-        <aside className="hidden lg:flex w-64 flex-col fixed left-0 top-0 bottom-0 bg-gradient-to-b from-[#338BE2] to-[#2074C6] text-white shadow-[8px_0_24px_-12px_rgba(51,139,226,0.4)] z-40">
+        <aside className="hidden lg:flex w-64 flex-col fixed left-0 top-0 bottom-0 bg-gradient-to-b from-[#E91E63] to-[#AD1457] text-white shadow-[8px_0_24px_-12px_rgba(51,139,226,0.4)] z-40">
           <SidebarContent
             activePage={activePage}
             onNavigate={(page) => {
@@ -299,7 +299,7 @@ export function SuperadminDashboard() {
                 animate={{ x: 0 }}
                 exit={{ x: -300 }}
                 transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                className="fixed left-0 top-0 bottom-0 w-[280px] z-50 bg-gradient-to-b from-[#338BE2] to-[#2074C6] text-white shadow-2xl lg:hidden"
+                className="fixed left-0 top-0 bottom-0 w-[280px] z-50 bg-gradient-to-b from-[#E91E63] to-[#AD1457] text-white shadow-2xl lg:hidden"
               >
                 <SidebarContent
                   activePage={activePage}
@@ -318,7 +318,7 @@ export function SuperadminDashboard() {
         {/* Main Content — pushed right by sidebar */}
         <main className="flex-1 min-w-0 flex flex-col lg:ml-64">
           {/* Top bar — BLUE with search */}
-          <header className="hidden lg:flex sticky top-0 z-30 bg-gradient-to-r from-[#338BE2] to-[#2074C6] text-white items-center justify-between px-6 py-3 shadow-md">
+          <header className="hidden lg:flex sticky top-0 z-30 bg-gradient-to-r from-[#E91E63] to-[#AD1457] text-white items-center justify-between px-6 py-3 shadow-md">
             {/* Left: page title */}
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-lg bg-white/15 backdrop-blur flex items-center justify-center">
@@ -369,7 +369,7 @@ export function SuperadminDashboard() {
               >
                 <Bell className="w-4 h-4 text-white" />
                 {notifCount > 0 && (
-                  <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-amber-300 text-[#2074C6] text-[10px] font-bold flex items-center justify-center ring-2 ring-[#338BE2]">
+                  <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-amber-300 text-[#AD1457] text-[10px] font-bold flex items-center justify-center ring-2 ring-[#E91E63]">
                     {notifCount > 99 ? "99+" : notifCount}
                   </span>
                 )}
@@ -385,7 +385,7 @@ export function SuperadminDashboard() {
           </header>
 
           {/* Top bar (mobile) */}
-          <header className="lg:hidden sticky top-0 z-30 bg-gradient-to-r from-[#338BE2] to-[#2074C6] text-white flex items-center justify-between px-4 py-3 shadow-md">
+          <header className="lg:hidden sticky top-0 z-30 bg-gradient-to-r from-[#E91E63] to-[#AD1457] text-white flex items-center justify-between px-4 py-3 shadow-md">
             <button
               onClick={() => setSidebarOpen(true)}
               aria-label="Ouvrir le menu"
@@ -395,7 +395,7 @@ export function SuperadminDashboard() {
             </button>
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center">
-                <span className="text-[#338BE2] font-bold text-xs">YK</span>
+                <span className="text-[#E91E63] font-bold text-xs">YK</span>
               </div>
               <span className="font-semibold text-sm">Superadmin</span>
             </div>
@@ -481,7 +481,7 @@ function SidebarContent({
       {/* Logo */}
       <div className="flex items-center gap-3 p-5 border-b border-white/15">
         <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center shadow-md shrink-0">
-          <span className="text-[#338BE2] font-bold text-base">YK</span>
+          <span className="text-[#E91E63] font-bold text-base">YK</span>
         </div>
         <div className="min-w-0">
           <p className="font-bold text-sm text-white">YonuKom</p>
@@ -510,7 +510,7 @@ function SidebarContent({
               onClick={() => onNavigate(page)}
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
                 isActive
-                  ? "bg-white text-[#338BE2] shadow-md"
+                  ? "bg-white text-[#E91E63] shadow-md"
                   : "text-white/90 hover:bg-white/15 hover:text-white"
               }`}
             >
@@ -520,14 +520,14 @@ function SidebarContent({
               />
               <span className="flex-1 text-left">{label}</span>
               {showBadge && (
-                <span className="min-w-[20px] h-5 px-1.5 rounded-full bg-amber-300 text-[#2074C6] text-[10px] font-bold flex items-center justify-center">
+                <span className="min-w-[20px] h-5 px-1.5 rounded-full bg-amber-300 text-[#AD1457] text-[10px] font-bold flex items-center justify-center">
                   {notifCount! > 99 ? "99+" : notifCount}
                 </span>
               )}
               {isActive && !showBadge && (
                 <motion.span
                   layoutId="sa-sidebar-dot"
-                  className="w-1.5 h-1.5 rounded-full bg-[#338BE2]"
+                  className="w-1.5 h-1.5 rounded-full bg-[#E91E63]"
                 />
               )}
             </button>
@@ -1051,7 +1051,7 @@ function OverviewPage({
           size="sm"
           onClick={onRefresh}
           disabled={metricsLoading}
-          className="bg-background border-border hover:bg-[#338BE2]/5 hover:border-[#338BE2]/30 hover:text-[#338BE2]"
+          className="bg-background border-border hover:bg-[#E91E63]/5 hover:border-[#E91E63]/30 hover:text-[#E91E63]"
         >
           <RefreshCw
             className={`w-4 h-4 mr-1.5 ${metricsLoading ? "animate-spin" : ""}`}
@@ -1101,8 +1101,8 @@ function OverviewPage({
         <Card className="bg-background border border-border hover:shadow-[0_8px_24px_-12px_rgba(51,139,226,0.15)] transition-shadow">
           <CardContent className="p-5 flex flex-col items-center">
             <div className="flex items-center gap-2 self-start mb-2">
-              <div className="w-7 h-7 rounded-lg bg-[#338BE2]/10 flex items-center justify-center">
-                <TrendingUp className="w-4 h-4 text-[#338BE2]" />
+              <div className="w-7 h-7 rounded-lg bg-[#E91E63]/10 flex items-center justify-center">
+                <TrendingUp className="w-4 h-4 text-[#E91E63]" />
               </div>
               <p className="text-xs font-medium text-muted-foreground">Santé plateforme</p>
             </div>
@@ -1312,7 +1312,7 @@ function OverviewPage({
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between">
             <CardTitle className="text-base font-bold text-foreground flex items-center gap-2">
-              <Bell className="w-4 h-4 text-[#338BE2]" />
+              <Bell className="w-4 h-4 text-[#E91E63]" />
               Notifications récentes
             </CardTitle>
           </div>
@@ -1406,13 +1406,13 @@ function OverviewPage({
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between">
             <CardTitle className="text-base font-bold text-foreground flex items-center gap-2">
-              <Building2 className="w-4 h-4 text-[#338BE2]" />
+              <Building2 className="w-4 h-4 text-[#E91E63]" />
               Derniers commerces inscrits
             </CardTitle>
             <Button
               variant="ghost"
               size="sm"
-              className="text-xs gap-1 hover:bg-[#338BE2]/5 hover:text-[#338BE2]"
+              className="text-xs gap-1 hover:bg-[#E91E63]/5 hover:text-[#E91E63]"
               onClick={() => useSuperadminStore.getState().setActivePage("tenants")}
             >
               Voir tout
@@ -1625,7 +1625,7 @@ function TenantsPage({
             size="sm"
             onClick={onRefresh}
             disabled={tenantsLoading}
-            className="bg-background border-border hover:bg-[#338BE2]/5 hover:border-[#338BE2]/30 hover:text-[#338BE2]"
+            className="bg-background border-border hover:bg-[#E91E63]/5 hover:border-[#E91E63]/30 hover:text-[#E91E63]"
           >
             <RefreshCw
               className={`w-4 h-4 mr-1.5 ${tenantsLoading ? "animate-spin" : ""}`}
@@ -1638,7 +1638,7 @@ function TenantsPage({
               resetForm();
               setCreateOpen(true);
             }}
-            className="bg-[#338BE2] hover:bg-[#2074C6] text-white shadow-md shadow-[#338BE2]/25"
+            className="bg-[#E91E63] hover:bg-[#AD1457] text-white shadow-md shadow-[#E91E63]/25"
           >
             <Plus className="w-4 h-4 mr-1.5" />
             Nouveau tenant
@@ -1778,7 +1778,7 @@ function TenantsPage({
                 !form.ownerEmail ||
                 !form.ownerPhone
               }
-              className="bg-[#338BE2] hover:bg-[#2074C6] text-white"
+              className="bg-[#E91E63] hover:bg-[#AD1457] text-white"
             >
               {creating ? (
                 <>
@@ -2114,11 +2114,11 @@ function SubscriptionsPage() {
             <Card
               key={info.plan}
               className={`bg-background border ${
-                isHighlight ? "border-[#338BE2] shadow-md" : "border-border"
+                isHighlight ? "border-[#E91E63] shadow-md" : "border-border"
               } relative overflow-hidden`}
             >
               {isHighlight && (
-                <div className="absolute top-0 right-0 bg-[#338BE2] text-white text-[10px] font-bold px-2 py-0.5 rounded-bl-lg">
+                <div className="absolute top-0 right-0 bg-[#E91E63] text-white text-[10px] font-bold px-2 py-0.5 rounded-bl-lg">
                   POPULAIRE
                 </div>
               )}
@@ -2429,7 +2429,7 @@ function AnalyticsPage({ onRefresh }: { onRefresh: () => void }) {
           size="sm"
           onClick={onRefresh}
           disabled={metricsLoading}
-          className="bg-background border-border hover:bg-[#338BE2]/5 hover:border-[#338BE2]/30 hover:text-[#338BE2]"
+          className="bg-background border-border hover:bg-[#E91E63]/5 hover:border-[#E91E63]/30 hover:text-[#E91E63]"
         >
           <RefreshCw
             className={`w-4 h-4 mr-1.5 ${metricsLoading ? "animate-spin" : ""}`}
@@ -2484,7 +2484,7 @@ function AnalyticsPage({ onRefresh }: { onRefresh: () => void }) {
       <Card className="bg-background border border-border">
         <CardHeader className="pb-2">
           <CardTitle className="text-base font-bold text-foreground flex items-center gap-2">
-            <TrendingUp className="w-4 h-4 text-[#338BE2]" />
+            <TrendingUp className="w-4 h-4 text-[#E91E63]" />
             MRR — 12 derniers mois
           </CardTitle>
           <CardDescription>Évolution du revenu récurrent mensuel</CardDescription>
@@ -2567,14 +2567,14 @@ function LogsPage() {
   }, [levelFilter, setPlatformLogs]);
 
   const levelColors: Record<string, string> = {
-    info: "text-[#338BE2]",
+    info: "text-[#E91E63]",
     warning: "text-amber-500",
     error: "text-rose-500",
     critical: "text-rose-700 font-bold",
   };
 
   const levelBg: Record<string, string> = {
-    info: "bg-[#338BE2]/5",
+    info: "bg-[#E91E63]/5",
     warning: "bg-amber-50 dark:bg-amber-950/30",
     error: "bg-rose-50 dark:bg-rose-950/30",
     critical: "bg-rose-100 dark:bg-rose-950/50",
@@ -2677,7 +2677,7 @@ interface AdminUserRow {
 }
 
 const ROLE_BADGE_COLORS: Record<string, string> = {
-  superadmin: "bg-[#338BE2]/10 text-[#338BE2] border-[#338BE2]/20",
+  superadmin: "bg-[#E91E63]/10 text-[#E91E63] border-[#E91E63]/20",
   patron: "bg-emerald-100 text-emerald-700 border-emerald-200",
   gerant: "bg-amber-100 text-amber-700 border-amber-200",
   vendeur: "bg-slate-100 text-slate-700 border-slate-200 dark:bg-muted dark:text-muted-foreground",
@@ -2905,7 +2905,7 @@ function UsersPage() {
             size="sm"
             onClick={fetchUsers}
             disabled={loading}
-            className="bg-background border-border hover:bg-[#338BE2]/5 hover:border-[#338BE2]/30 hover:text-[#338BE2]"
+            className="bg-background border-border hover:bg-[#E91E63]/5 hover:border-[#E91E63]/30 hover:text-[#E91E63]"
           >
             <RefreshCw className={`w-4 h-4 mr-1.5 ${loading ? "animate-spin" : ""}`} />
             Actualiser
@@ -2916,7 +2916,7 @@ function UsersPage() {
               resetForm();
               setCreateOpen(true);
             }}
-            className="bg-[#338BE2] hover:bg-[#2074C6] text-white shadow-md shadow-[#338BE2]/25"
+            className="bg-[#E91E63] hover:bg-[#AD1457] text-white shadow-md shadow-[#E91E63]/25"
           >
             <UserPlus className="w-4 h-4 mr-1.5" />
             Nouvel utilisateur
@@ -2953,7 +2953,7 @@ function UsersPage() {
       {selectedIds.size > 0 && (
         <div className="flex items-center justify-between gap-3 p-3 rounded-lg border border-border bg-muted/40">
           <div className="flex items-center gap-2 text-sm">
-            <CheckSquare className="w-4 h-4 text-[#338BE2]" />
+            <CheckSquare className="w-4 h-4 text-[#E91E63]" />
             <span className="font-medium text-foreground">
               {selectedIds.size} utilisateur(s) sélectionné(s)
             </span>
@@ -3029,7 +3029,7 @@ function UsersPage() {
                         animate={{ opacity: 1 }}
                         transition={{ delay: i * 0.02 }}
                         className={`border-b border-border last:border-0 hover:bg-muted/40 transition-colors ${
-                          isChecked ? "bg-[#338BE2]/5" : ""
+                          isChecked ? "bg-[#E91E63]/5" : ""
                         }`}
                       >
                         <td className="px-4 py-3">
@@ -3041,7 +3041,7 @@ function UsersPage() {
                         </td>
                         <td className="px-2 py-3">
                           <div className="flex items-center gap-2.5">
-                            <div className="w-8 h-8 rounded-full bg-[#338BE2]/10 flex items-center justify-center text-[#338BE2] font-bold text-xs">
+                            <div className="w-8 h-8 rounded-full bg-[#E91E63]/10 flex items-center justify-center text-[#E91E63] font-bold text-xs">
                               {u.name.charAt(0).toUpperCase()}
                             </div>
                             <div className="min-w-0">
@@ -3252,7 +3252,7 @@ function UsersPage() {
             <Button
               onClick={handleCreate}
               disabled={creating || !form.name || !form.email || !form.password || !form.role}
-              className="bg-[#338BE2] hover:bg-[#2074C6] text-white"
+              className="bg-[#E91E63] hover:bg-[#AD1457] text-white"
             >
               {creating ? (
                 <>
@@ -3424,7 +3424,7 @@ function SettingsPage() {
           size="sm"
           onClick={handleSave}
           disabled={saving || loading}
-          className="bg-[#338BE2] hover:bg-[#2074C6] text-white gap-1.5"
+          className="bg-[#E91E63] hover:bg-[#AD1457] text-white gap-1.5"
         >
           {saving ? (
             <Loader2 className="w-4 h-4 animate-spin" />
@@ -3438,7 +3438,7 @@ function SettingsPage() {
       {loading ? (
         <Card className="bg-background border border-border">
           <CardContent className="p-12 text-center">
-            <Loader2 className="w-8 h-8 mx-auto animate-spin text-[#338BE2]" />
+            <Loader2 className="w-8 h-8 mx-auto animate-spin text-[#E91E63]" />
             <p className="text-sm text-muted-foreground mt-3">Chargement des paramètres...</p>
           </CardContent>
         </Card>
@@ -3448,7 +3448,7 @@ function SettingsPage() {
           <Card className="bg-background border border-border">
             <CardHeader>
               <CardTitle className="text-base font-bold text-foreground flex items-center gap-2">
-                <Globe className="w-4 h-4 text-[#338BE2]" />
+                <Globe className="w-4 h-4 text-[#E91E63]" />
                 SEO — Référencement
               </CardTitle>
               <CardDescription>
@@ -3521,7 +3521,7 @@ function SettingsPage() {
           <Card className="bg-background border border-border">
             <CardHeader>
               <CardTitle className="text-base font-bold text-foreground flex items-center gap-2">
-                <Server className="w-4 h-4 text-[#338BE2]" />
+                <Server className="w-4 h-4 text-[#E91E63]" />
                 Email — Configuration SMTP
               </CardTitle>
               <CardDescription>
@@ -3599,7 +3599,7 @@ function SettingsPage() {
           <Card className="bg-background border border-border">
             <CardHeader>
               <CardTitle className="text-base font-bold text-foreground flex items-center gap-2">
-                <BarChart3 className="w-4 h-4 text-[#338BE2]" />
+                <BarChart3 className="w-4 h-4 text-[#E91E63]" />
                 Analytics & Tracking
               </CardTitle>
               <CardDescription>
@@ -3642,8 +3642,8 @@ function SettingsPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-full bg-[#338BE2]/10 flex items-center justify-center">
-                  <Shield className="w-6 h-6 text-[#338BE2]" />
+                <div className="w-12 h-12 rounded-full bg-[#E91E63]/10 flex items-center justify-center">
+                  <Shield className="w-6 h-6 text-[#E91E63]" />
                 </div>
                 <div>
                   <p className="font-semibold text-foreground">
@@ -3656,7 +3656,7 @@ function SettingsPage() {
               </div>
               <Separator />
               <div className="flex items-center gap-2">
-                <Badge className="bg-[#338BE2]/10 text-[#338BE2] border border-[#338BE2]/20">
+                <Badge className="bg-[#E91E63]/10 text-[#E91E63] border border-[#E91E63]/20">
                   <Shield className="w-3 h-3 mr-1" />
                   Superadmin
                 </Badge>
@@ -3801,7 +3801,7 @@ function MessagesPage() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-2xl font-bold text-foreground flex items-center gap-2">
-            <Mail className="w-6 h-6 text-[#338BE2]" />
+            <Mail className="w-6 h-6 text-[#E91E63]" />
             Messages de contact
           </h2>
           <p className="text-sm text-muted-foreground mt-1">
@@ -3823,8 +3823,8 @@ function MessagesPage() {
           onClick={() => setFilter("all")}
           className={`text-left p-4 rounded-xl border transition-all ${
             filter === "all"
-              ? "bg-[#338BE2]/5 border-[#338BE2]/30"
-              : "bg-background border-border hover:border-[#338BE2]/30"
+              ? "bg-[#E91E63]/5 border-[#E91E63]/30"
+              : "bg-background border-border hover:border-[#E91E63]/30"
           }`}
         >
           <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Total</p>
@@ -3836,12 +3836,12 @@ function MessagesPage() {
           onClick={() => setFilter("new")}
           className={`text-left p-4 rounded-xl border transition-all ${
             filter === "new"
-              ? "bg-[#338BE2]/5 border-[#338BE2]/30"
-              : "bg-background border-border hover:border-[#338BE2]/30"
+              ? "bg-[#E91E63]/5 border-[#E91E63]/30"
+              : "bg-background border-border hover:border-[#E91E63]/30"
           }`}
         >
-          <p className="text-xs font-semibold uppercase tracking-wide text-[#338BE2]">Non lus</p>
-          <p className="text-2xl font-bold text-[#338BE2] mt-1">{counts.new || 0}</p>
+          <p className="text-xs font-semibold uppercase tracking-wide text-[#E91E63]">Non lus</p>
+          <p className="text-2xl font-bold text-[#E91E63] mt-1">{counts.new || 0}</p>
         </button>
         <button
           onClick={() => setFilter("read")}
@@ -3859,7 +3859,7 @@ function MessagesPage() {
           className={`text-left p-4 rounded-xl border transition-all ${
             filter === "archived"
               ? "bg-muted border-border"
-              : "bg-background border-border hover:border-[#338BE2]/30"
+              : "bg-background border-border hover:border-[#E91E63]/30"
           }`}
         >
           <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Archivés</p>
@@ -3899,12 +3899,12 @@ function MessagesPage() {
                     <button
                       onClick={() => openMessage(m)}
                       className={`w-full text-left p-4 hover:bg-muted/60 transition-colors ${
-                        selected?.id === m.id ? "bg-[#338BE2]/5" : ""
+                        selected?.id === m.id ? "bg-[#E91E63]/5" : ""
                       }`}
                     >
                       <div className="flex items-start gap-3">
                         <div className={`w-2 h-2 rounded-full mt-2 shrink-0 ${
-                          m.status === "new" ? "bg-[#338BE2] animate-pulse" : "bg-muted-foreground/40"
+                          m.status === "new" ? "bg-[#E91E63] animate-pulse" : "bg-muted-foreground/40"
                         }`} />
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between gap-2">
@@ -3934,18 +3934,18 @@ function MessagesPage() {
             <div className="p-6 space-y-4">
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-[#338BE2] flex items-center justify-center text-white font-bold">
+                  <div className="w-10 h-10 rounded-full bg-[#E91E63] flex items-center justify-center text-white font-bold">
                     {selected.name.charAt(0).toUpperCase()}
                   </div>
                   <div>
                     <p className="font-bold text-foreground">{selected.name}</p>
-                    <a href={`mailto:${selected.email}`} className="text-sm text-[#338BE2] hover:underline">
+                    <a href={`mailto:${selected.email}`} className="text-sm text-[#E91E63] hover:underline">
                       {selected.email}
                     </a>
                   </div>
                 </div>
                 <span className={`text-[10px] font-semibold uppercase px-2 py-1 rounded-full ${
-                  selected.status === "new" ? "bg-[#338BE2]/10 text-[#338BE2]" :
+                  selected.status === "new" ? "bg-[#E91E63]/10 text-[#E91E63]" :
                   selected.status === "read" ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400" :
                   "bg-muted text-muted-foreground"
                 }`}>
@@ -3967,7 +3967,7 @@ function MessagesPage() {
               <div className="flex flex-wrap items-center gap-2 pt-2">
                 <a
                   href={`mailto:${selected.email}?subject=Re: Votre message à YonuKom&body=Bonjour ${encodeURIComponent(selected.name)},%0D%0A%0D%0AMerci pour votre message.%0D%0A%0D%0A`}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#338BE2] hover:bg-[#2074C6] text-white text-xs font-semibold"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#E91E63] hover:bg-[#AD1457] text-white text-xs font-semibold"
                 >
                   <Mail className="w-3.5 h-3.5" />
                   Répondre par email

@@ -461,8 +461,8 @@ export function AccountingDashboard() {
                   title={vat.isCredit ? "Crédit de TVA" : "TVA à verser"}
                   value={Math.abs(vat.vatToPay)}
                   icon={vat.isCredit ? <CheckCircle2 className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
-                  accentColor={vat.isCredit ? "text-blue-600" : "text-rose-600"}
-                  bgColor={vat.isCredit ? "bg-blue-50 dark:bg-blue-950/30" : "bg-rose-50 dark:bg-rose-950/30"}
+                  accentColor={vat.isCredit ? "text-pink-600" : "text-rose-600"}
+                  bgColor={vat.isCredit ? "bg-pink-50 dark:bg-pink-950/30" : "bg-rose-50 dark:bg-rose-950/30"}
                   detail={vat.isCredit ? "Reportable" : `Avant le ${vat.dueDate.split("-").reverse().join("/")}`}
                 />
               </div>
@@ -507,18 +507,18 @@ export function AccountingDashboard() {
                   initial={{ opacity: 0, scale: 0.95 }}
                   animate={{ opacity: 1, scale: 1 }}
                 >
-                  <Card className="border-blue-300 bg-blue-50 dark:bg-blue-950/30 dark:border-blue-800">
+                  <Card className="border-pink-300 bg-pink-50 dark:bg-pink-950/30 dark:border-pink-800">
                     <CardContent className="p-4 flex items-start gap-3">
-                      <Info className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
+                      <Info className="w-5 h-5 text-pink-600 shrink-0 mt-0.5" />
                       <div className="flex-1">
-                        <p className="text-sm font-medium text-blue-900 dark:text-blue-200">
+                        <p className="text-sm font-medium text-pink-900 dark:text-pink-200">
                           Vous disposez d&apos;un crédit de TVA de{" "}
                           <strong>
                             {formatFCFA(Math.abs(vat.vatToPay))}
                           </strong>{" "}
                           reportable sur le mois suivant
                         </p>
-                        <p className="text-xs text-blue-700 dark:text-blue-300 mt-1">
+                        <p className="text-xs text-pink-700 dark:text-pink-300 mt-1">
                           Ce montant viendra déduire votre prochaine déclaration
                           de TVA. Conservez ce justificatif.
                         </p>
@@ -526,7 +526,7 @@ export function AccountingDashboard() {
                       <Button
                         variant="outline"
                         size="sm"
-                        className="text-blue-700 border-blue-300 hover:bg-blue-100 dark:text-blue-200 dark:border-blue-700 dark:hover:bg-blue-900/30"
+                        className="text-pink-700 border-pink-300 hover:bg-pink-100 dark:text-pink-200 dark:border-pink-700 dark:hover:bg-pink-900/30"
                         onClick={handleOpenVatPdf}
                       >
                         <FileText className="w-3.5 h-3.5 mr-1.5" />

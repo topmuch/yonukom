@@ -234,10 +234,10 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                 <Button
                   onClick={submit}
                   disabled={!canGoNext || isSubmitting}
-                  className="touch-target min-w-[170px] text-white shadow-lg shadow-[#338BE2]/30 transition-all hover:shadow-xl hover:shadow-[#338BE2]/40 hover:-translate-y-0.5 disabled:translate-y-0 disabled:shadow-none"
+                  className="touch-target min-w-[170px] text-white shadow-lg shadow-[#E91E63]/30 transition-all hover:shadow-xl hover:shadow-[#E91E63]/40 hover:-translate-y-0.5 disabled:translate-y-0 disabled:shadow-none"
                   style={{
                     background:
-                      "linear-gradient(135deg, #338BE2 0%, #2074C6 100%)",
+                      "linear-gradient(135deg, #E91E63 0%, #AD1457 100%)",
                   }}
                 >
                   {isSubmitting ? (
@@ -271,10 +271,10 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                   <Button
                     onClick={nextStep}
                     disabled={!canGoNext}
-                    className="touch-target min-w-[150px] text-white shadow-lg shadow-[#338BE2]/30 transition-all hover:shadow-xl hover:shadow-[#338BE2]/40 hover:-translate-y-0.5 disabled:translate-y-0 disabled:shadow-none"
+                    className="touch-target min-w-[150px] text-white shadow-lg shadow-[#E91E63]/30 transition-all hover:shadow-xl hover:shadow-[#E91E63]/40 hover:-translate-y-0.5 disabled:translate-y-0 disabled:shadow-none"
                     style={{
                       background:
-                        "linear-gradient(135deg, #338BE2 0%, #2074C6 100%)",
+                        "linear-gradient(135deg, #E91E63 0%, #AD1457 100%)",
                     }}
                   >
                     Continuer
@@ -312,7 +312,7 @@ function BrandingPanel({
       className="hidden lg:flex lg:sticky lg:top-14 lg:h-[calc(100vh-3.5rem)] flex-col justify-between overflow-hidden p-10 xl:p-14 relative"
       style={{
         background:
-          "linear-gradient(135deg, #338BE2 0%, #2074C6 55%, #1B5FA8 100%)",
+          "linear-gradient(135deg, #E91E63 0%, #AD1457 55%, #1B5FA8 100%)",
       }}
     >
       {/* Orbes décoratifs (glassmorphism) */}
@@ -433,7 +433,7 @@ function DecorativeOrbs() {
         transition={{ duration: 13, repeat: Infinity, ease: "easeInOut" }}
         className="absolute -top-32 -right-20 w-80 h-80 rounded-full blur-3xl opacity-40"
         style={{
-          background: "radial-gradient(circle, #B7BEDA 0%, transparent 70%)",
+          background: "radial-gradient(circle, #F8BBD0 0%, transparent 70%)",
         }}
       />
       <motion.div
@@ -486,14 +486,14 @@ function MobileBrandingHeader({
     <div
       className="lg:hidden relative overflow-hidden px-6 pt-6 pb-5"
       style={{
-        background: "linear-gradient(135deg, #338BE2 0%, #2074C6 100%)",
+        background: "linear-gradient(135deg, #E91E63 0%, #AD1457 100%)",
       }}
     >
       {/* Orbe décoratif */}
       <div
         className="absolute -top-12 -right-12 w-48 h-48 rounded-full blur-3xl opacity-30"
         style={{
-          background: "radial-gradient(circle, #B7BEDA 0%, transparent 70%)",
+          background: "radial-gradient(circle, #F8BBD0 0%, transparent 70%)",
         }}
         aria-hidden
       />
@@ -574,7 +574,7 @@ function NumberedStepper({ currentStepIndex }: { currentStepIndex: number }) {
           const bg = isPast
             ? "#10B981"
             : isCurrent
-            ? "#338BE2"
+            ? "#E91E63"
             : "#FFFFFF";
           const color = isPast || isCurrent ? "#FFFFFF" : "#94A3B8";
           const border =
@@ -758,7 +758,7 @@ function SuccessScreen({ onComplete }: { onComplete?: () => void }) {
               className="touch-target w-full sm:w-auto px-8 text-base text-white transition-all hover:-translate-y-0.5"
               style={{
                 background:
-                  "linear-gradient(135deg, #338BE2 0%, #2074C6 100%)",
+                  "linear-gradient(135deg, #E91E63 0%, #AD1457 100%)",
                 boxShadow: "0 15px 40px -10px rgba(51,139,226,0.5)",
               }}
             >
@@ -778,9 +778,9 @@ function SuccessScreen({ onComplete }: { onComplete?: () => void }) {
 function Confetti() {
   // Couleurs de la palette YonuKom
   const colors = [
-    "#338BE2",
+    "#E91E63",
     "#10B981",
-    "#B7BEDA",
+    "#F8BBD0",
     "#FBBF24",
     "#F472B6",
     "#FFFFFF",
