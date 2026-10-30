@@ -222,6 +222,29 @@
 }
 
 /* ============================================================
+   YonuKom — Marquee carousel (defilement continu)
+   Pour la section "Ils ont fait confiance"
+   ============================================================ */
+@keyframes yk-marquee {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+.animate-marquee {
+  animation: yk-marquee 45s linear infinite;
+  will-change: transform;
+}
+.animate-marquee:hover {
+  animation-play-state: paused;
+}
+.animate-marquee-fast {
+  animation: yk-marquee 30s linear infinite;
+  will-change: transform;
+}
+.animate-marquee-fast:hover {
+  animation-play-state: paused;
+}
+
+/* ============================================================
    YonuKom — Vibrant gradient utilities
    ============================================================ */
 
