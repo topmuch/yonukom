@@ -85,7 +85,7 @@ export function Footer() {
             <img
               src="/brand/logo-white.png"
               alt="YonuKom"
-              className="h-10 w-auto object-contain"
+              className="h-10 w-auto object-contain rounded-md"
             />
             <p className="text-sm text-slate-400 leading-relaxed max-w-xs">
               Le logiciel de caisse et de gestion qui s&apos;adapte aux

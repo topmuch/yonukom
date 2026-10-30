@@ -197,7 +197,7 @@ export function Navbar({
                     <img
                       src="/brand/logo.png"
                       alt="YonuKom"
-                      className="h-9 w-auto object-contain"
+                      className="h-9 w-auto object-contain rounded-lg"
                     />
                     <Button
                       variant="ghost"
