@@ -26,6 +26,7 @@ import { MoreBenefits } from "@/components/landing/MoreBenefits";
 import { GlobalTransfer } from "@/components/landing/GlobalTransfer";
 import { Referral } from "@/components/landing/Referral";
 import { CompleteSolutions } from "@/components/landing/CompleteSolutions";
+import { Metiers } from "@/components/landing/Metiers";
 import { Testimonials } from "@/components/landing/Testimonials";
 import { BigStat } from "@/components/landing/BigStat";
 import { Pricing } from "@/components/landing/Pricing";
@@ -225,6 +226,7 @@ export default function Home() {
             <GlobalTransfer onSignup={handleGoToSignup} />
             <Referral onSignup={handleGoToSignup} />
             <CompleteSolutions onSignup={handleGoToSignup} />
+            <Metiers onSignup={handleGoToSignup} />
             <Testimonials />
             <BigStat />
             <Pricing onSignup={handleGoToSignup} />

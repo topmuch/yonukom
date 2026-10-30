@@ -45,6 +45,24 @@ const solutions = [
     bg: "bg-[#10B981]/10",
     accent: "from-[#10B981] to-[#059669]",
   },
+  {
+    image: "/landing/site-internet.png",
+    alt: "Création de site internet e-commerce pour boutique avec YonuKom",
+    badge: "Pour votre présence en ligne",
+    title: "Site internet",
+    description:
+      "YonuKom crée votre site web professionnel en quelques clics : boutique en ligne, prises de rendez-vous, catalogue produits et pages personnalisées à votre image.",
+    features: [
+      "Boutique en ligne clé en main",
+      "Prise de rendez-vous en ligne",
+      "Catalogue produits synchronisé",
+      "Pages personnalisables (logo, couleurs)",
+      "Référencement SEO inclus",
+    ],
+    color: "#F59E0B",
+    bg: "bg-[#F59E0B]/10",
+    accent: "from-[#F59E0B] to-[#D97706]",
+  },
 ];
 
 export function CompleteSolutions({ onSignup }: CompleteSolutionsProps) {
@@ -77,7 +95,7 @@ export function CompleteSolutions({ onSignup }: CompleteSolutionsProps) {
           </p>
         </motion.div>
 
-        <div className="grid md:grid-cols-2 gap-6 lg:gap-8 max-w-5xl mx-auto">
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-6 max-w-6xl mx-auto">
           {solutions.map((sol, i) => {
             return (
               <motion.div

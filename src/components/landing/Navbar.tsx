@@ -20,6 +20,7 @@ const navLinks = [
   { label: "YonuKom", href: "/yonukom" },
   { label: "À propos", href: "/a-propos" },
   { label: "Fonctionnalités", href: "/fonctionnalites" },
+  { label: "Métiers", href: "#metiers" },
   { label: "Tarifs", href: "/tarifs" },
   { label: "FAQ", href: "/faq" },
   { label: "Contact", href: "/contact" },
