@@ -68,6 +68,7 @@
    ============================================================ */
 
 :root {
+  --yk-cache-bust: v2-pink;
   --radius: 0.625rem;
 
   /* YonuKom brand tokens (Premium Pink — inspiration Boutiko) */

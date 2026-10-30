@@ -48,27 +48,37 @@ const nextConfig: NextConfig = {
 
   // --- Cache headers for static assets ---
   // Long-cache immutable build assets + public images/fonts.
+  // In dev mode, Turbopack uses stable (non-content-hashed) chunk filenames,
+  // so we MUST NOT send immutable headers — otherwise the browser caches
+  // stale CSS forever and color/theme changes never reach the user.
   async headers() {
+    const isDev = process.env.NODE_ENV === "development";
     return [
       {
-        // Next.js hashed build assets (_next/static) are immutable
+        // Next.js hashed build assets (_next/static) are immutable in prod,
+        // but must always revalidate in dev.
         source: "/_next/static/:path*",
         headers: [
-          { key: "Cache-Control", value: "public, max-age=31536000, immutable" },
+          {
+            key: "Cache-Control",
+            value: isDev
+              ? "no-cache, must-revalidate"
+              : "public, max-age=31536000, immutable",
+          },
         ],
       },
       {
         // Public images (demo-store, demo-products, brand, hero-slides, onboarding)
         source: "/((?:demo-store|demo-products|brand|hero-slides|images|onboarding)/:path*)",
         headers: [
-          { key: "Cache-Control", value: "public, max-age=2592000" },
+          { key: "Cache-Control", value: isDev ? "no-cache, must-revalidate" : "public, max-age=2592000" },
         ],
       },
       {
         // SVG/PNG/JPG/WEBP/AVIF at root of /public
         source: "/(.*\\.(?:svg|png|jpg|jpeg|webp|avif|gif|ico))",
         headers: [
-          { key: "Cache-Control", value: "public, max-age=2592000" },
+          { key: "Cache-Control", value: isDev ? "no-cache, must-revalidate" : "public, max-age=2592000" },
         ],
       },
     ];
