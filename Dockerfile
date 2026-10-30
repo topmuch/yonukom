@@ -5,7 +5,7 @@ RUN npm install -g bun
 
 WORKDIR /app
 
-RUN echo "cachebust-8" && git clone --branch main --depth 1 https://github.com/topmuch/yonukom.git /app/tmp && \
+RUN echo "cachebust-9" && git clone --branch main --depth 1 https://github.com/topmuch/yonukom.git /app/tmp && \
     cp -r /app/tmp/. /app/ && rm -rf /app/tmp
 
 RUN bun install
@@ -16,8 +16,9 @@ ENV NEXT_TELEMETRY_DISABLED=1
 ENV DATABASE_URL=file:/app/data/yonukom.db
 RUN bun run build
 
-# Explicitly copy public folder to standalone output (images, manifest, sw.js)
-RUN cp -r public .next/standalone/public
+# Explicitly copy public folder contents to standalone output
+# (build script does cp -r public .next/standalone/ but we ensure it here too)
+RUN cp -rf public/. .next/standalone/public/ 2>/dev/null; ls .next/standalone/public/hero-slides/ || echo "WARN: hero-slides missing"
 
 RUN mkdir -p /app/data
 # Persistent uploads directory (mounted as Coolify volume in production).
