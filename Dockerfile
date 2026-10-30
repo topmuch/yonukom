@@ -5,7 +5,7 @@ RUN npm install -g bun
 
 WORKDIR /app
 
-RUN echo "cachebust-7" && git clone --branch main --depth 1 https://github.com/topmuch/yonukom.git /app/tmp && \
+RUN echo "cachebust-8" && git clone --branch main --depth 1 https://github.com/topmuch/yonukom.git /app/tmp && \
     cp -r /app/tmp/. /app/ && rm -rf /app/tmp
 
 RUN bun install
@@ -15,6 +15,9 @@ RUN npx prisma generate
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV DATABASE_URL=file:/app/data/yonukom.db
 RUN bun run build
+
+# Explicitly copy public folder to standalone output (images, manifest, sw.js)
+RUN cp -r public .next/standalone/public
 
 RUN mkdir -p /app/data
 # Persistent uploads directory (mounted as Coolify volume in production).
