@@ -72,6 +72,11 @@ export function Navbar({
             const offset = 80;
             const top = el.getBoundingClientRect().top + window.scrollY - offset;
             window.scrollTo({ top, behavior: "smooth" });
+          } else {
+            // La section n'existe pas sur la page courante (ex: on est sur
+            // /tarifs, /faq…) → naviguer vers la landing qui scrollera
+            // automatiquement vers la section au rendu (voir page.tsx).
+            router.push(`/?scroll=${id}`);
           }
         } else {
           // "#" tout seul → remonter en haut

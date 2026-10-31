@@ -172,6 +172,34 @@ export default function Home() {
   const effectiveView: PageView =
     authLoaded && configLoaded && !user && view === "app" ? "landing" : view;
 
+  // --- Scroll-to-section support : /?scroll=metiers ---
+  // Les ancres de la navbar (#metiers) ne peuvent scroller que si la section
+  // existe sur la page courante. Quand l'utilisateur clique « Métiers » depuis
+  // une autre page (/tarifs, /faq…), la navbar redirige vers /?scroll=<id>
+  // et c'est ici qu'on scrolle vers la section une fois la landing rendue.
+  useEffect(() => {
+    if (!authLoaded || !configLoaded) return;
+    if (effectiveView !== "landing") return;
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const target = params.get("scroll");
+    if (!target) return;
+
+    // Laisser le contenu de la landing se monter avant de scroller
+    const timer = setTimeout(() => {
+      const el = document.getElementById(target);
+      if (el) {
+        const top = el.getBoundingClientRect().top + window.scrollY - 80;
+        window.scrollTo({ top, behavior: "smooth" });
+        // Nettoyer le paramètre de l'URL après le scroll
+        const url = new URL(window.location.href);
+        url.searchParams.delete("scroll");
+        window.history.replaceState({}, "", url.toString());
+      }
+    }, 450);
+    return () => clearTimeout(timer);
+  }, [authLoaded, configLoaded, effectiveView]);
+
   const handleLoginSuccess = () => {
     setView("app");
   };
