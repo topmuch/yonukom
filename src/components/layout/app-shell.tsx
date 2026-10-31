@@ -464,6 +464,15 @@ export function AppShell({ activeTab, onTabChange, children }: AppShellProps) {
             <RoleBadge />
             <ConnectivityDot />
             <ThemeToggle />
+            <button
+              type="button"
+              onClick={() => useAuthStore.getState().logout()}
+              className="w-8 h-8 rounded-lg bg-muted border border-primary/15 hover:bg-red-500/10 hover:border-red-500/40 flex items-center justify-center text-muted-foreground hover:text-red-600 transition-colors shrink-0"
+              aria-label="Déconnexion"
+              title="Déconnexion"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
           </div>
         </div>
       </header>
@@ -526,6 +535,15 @@ export function AppShell({ activeTab, onTabChange, children }: AppShellProps) {
             <RoleBadge />
             <ConnectivityDot />
             <ThemeToggle />
+            <button
+              type="button"
+              onClick={() => useAuthStore.getState().logout()}
+              className="w-9 h-9 rounded-lg bg-muted border border-primary/15 hover:bg-red-500/10 hover:border-red-500/40 flex items-center justify-center text-muted-foreground hover:text-red-600 transition-colors"
+              aria-label="Déconnexion"
+              title="Déconnexion"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
           </div>
         </header>
 

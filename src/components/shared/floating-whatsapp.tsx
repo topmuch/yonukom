@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, MessageCircle, Send } from "lucide-react";
+import { useAuthStore } from "@/stores/use-auth-store";
 
 const WHATSAPP_NUMBER = "221783821822"; // +221 78 382 18 22
 const WHATSAPP_MESSAGE =
@@ -11,6 +12,7 @@ const WHATSAPP_MESSAGE =
 
 export function FloatingWhatsApp() {
   const pathname = usePathname();
+  const user = useAuthStore((s) => s.user);
   const [open, setOpen] = useState(false);
   const [visible, setVisible] = useState(false);
 
@@ -26,6 +28,12 @@ export function FloatingWhatsApp() {
   // On le garde uniquement sur le site YonuKom (landing, dashboard, etc.).
   const isPublicStore = pathname?.startsWith("/b/");
   if (isPublicStore) return null;
+
+  // Masquer dans le dashboard admin client (AppShell) : le bouton flottant
+  // WhatsApp support YonuKom est destiné aux prospects sur le site public,
+  // pas aux commerçants déjà connectés dans leur espace de gestion.
+  // (Le dashboard superadmin conserve le bouton — rôle support interne.)
+  if (user && user.role !== "superadmin") return null;
 
   const waUrl = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(WHATSAPP_MESSAGE)}`;
 
