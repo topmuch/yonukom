@@ -109,12 +109,16 @@ export function Hero({ onSignup }: HeroProps) {
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.1 }}
-              className="text-4xl sm:text-5xl lg:text-[3.5rem] font-extrabold text-slate-900 leading-[1.05] tracking-tight"
+              className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-slate-900 leading-[1.15] tracking-tight"
             >
-              Gérez votre{" "}
+              Que vous vendiez sur{" "}
+              <span className="text-[#E91E63] font-bold">TikTok</span>,{" "}
+              <span className="text-[#E91E63] font-bold">Instagram</span>{" "}
+              ou dans votre{" "}
+              <span className="text-[#E91E63] font-bold">boutique</span>,{" "}
               <span className="relative inline-block">
                 <span className="bg-gradient-to-r from-[#E91E63] to-[#F06292] bg-clip-text text-transparent">
-                  commerce
+                  YonuKom
                 </span>
                 <svg
                   className="absolute -bottom-2 left-0 w-full"
@@ -133,7 +137,7 @@ export function Hero({ onSignup }: HeroProps) {
                   />
                 </svg>
               </span>{" "}
-              en toute simplicité
+              est fait pour vous.
             </motion.h1>
 
             {/* Subtitle */}
@@ -143,9 +147,8 @@ export function Hero({ onSignup }: HeroProps) {
               transition={{ duration: 0.6, delay: 0.25 }}
               className="text-lg text-slate-600 leading-relaxed"
             >
-              Encaissez, suivez votre stock et envoyez des paiements en un
-              clic. YonuKom fonctionne même hors ligne, partout en Afrique de
-              l&apos;Ouest.
+              Encaissez, gérez votre stock, envoyez des liens de paiement.
+              La caisse mobile qui suit votre rythme — même sans connexion.
             </motion.p>
 
             {/* CTAs */}
