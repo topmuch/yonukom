@@ -71,7 +71,7 @@ const shops: ShopSite[] = [
 
 function ShopCard({ shop }: { shop: ShopSite }) {
   return (
-    <div className="group relative w-[320px] sm:w-[380px] shrink-0 mx-3">
+    <div className="group relative w-[340px] sm:w-[480px] shrink-0 mx-3">
       <div className="bg-white rounded-2xl overflow-hidden border border-slate-200/70 shadow-lg shadow-slate-900/5 group-hover:shadow-[0_24px_48px_-16px_rgba(233,30,99,0.28)] group-hover:-translate-y-1 transition-all duration-300">
         {/* Browser top bar */}
         <div className="flex items-center gap-2 px-4 h-9 bg-slate-50 border-b border-slate-200/70">
@@ -79,14 +79,14 @@ function ShopCard({ shop }: { shop: ShopSite }) {
           <span className="w-2.5 h-2.5 rounded-full bg-[#FFE66D]/90" />
           <span className="w-2.5 h-2.5 rounded-full bg-[#4ECDC4]/80" />
           <div className="flex-1 flex items-center justify-center">
-            <span className="text-[10px] sm:text-[11px] text-slate-400 font-mono truncate px-2 py-0.5 rounded bg-white border border-slate-200/60 max-w-[200px]">
+            <span className="text-[10px] sm:text-[11px] text-slate-400 font-mono truncate px-2 py-0.5 rounded bg-white border border-slate-200/60 max-w-[240px]">
               {shop.url}
             </span>
           </div>
         </div>
 
         {/* Website screenshot */}
-        <div className="relative aspect-[16/10] bg-slate-100 overflow-hidden">
+        <div className="relative aspect-[2/1] bg-slate-100 overflow-hidden">
           <img
             src={shop.image}
             alt={`Site internet de ${shop.name} créé avec YonuKom`}
