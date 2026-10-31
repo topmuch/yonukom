@@ -2,17 +2,26 @@
  * Génère les 5 captures de boutiques en format panoramique 1920x960 (ratio 2:1)
  * pour le carrousel "Ils ont fait confiance".
  *
- * Usage: bun scripts/gen-shops-pano.ts [index]
- *   - sans argument : régénère les 5 images (séquentiel)
- *   - avec index (0-4) : régénère une seule image
+ * Format 1920x960 : les deux dimensions sont des multiples de 32 et le total
+ * reste sous la limite de 2^22 pixels imposée par l'API.
+ *
+ * IMPORTANT : ce fichier est en .mjs (JavaScript pur) et non en .ts car le SDK
+ * ne type-autorise que les tailles whitelistées du CLI. Un fichier .ts ferait
+ * échouer le type-checking de `next build` (erreur TS2322).
+ *
+ * Usage:
+ *   bun scripts/gen-shops-pano.mjs            # régénère les 5 images (séquentiel)
+ *   bun scripts/gen-shops-pano.mjs 2          # régénère une seule image (index 0-4)
+ *   SHOPS_OUT_DIR=/tmp/test bun scripts/gen-shops-pano.mjs 0  # sortie custom
  */
 import ZAI from "z-ai-web-dev-sdk";
 import fs from "fs";
 import path from "path";
 
-const OUT_DIR = path.join(process.cwd(), "public", "landing", "shops");
+const OUT_DIR =
+  process.env.SHOPS_OUT_DIR || path.join(process.cwd(), "public", "landing", "shops");
 
-const SHOPS: { file: string; prompt: string }[] = [
+const SHOPS = [
   {
     file: "shop-restaurant.png",
     prompt:
@@ -62,6 +71,9 @@ async function main() {
     try {
       const response = await zai.images.generations.create({
         prompt,
+        // @ts-expect-error - l'API accepte 1920x960 à l'exécution (contraintes
+        // respectées : multiples de 32, <= 2^22 px) mais le type du SDK ne
+        // liste que les tailles whitelistées du CLI.
         size: "1920x960",
       });
       const base64 = response.data?.[0]?.base64;
@@ -76,4 +88,7 @@ async function main() {
   }
 }
 
-main();
+// Ne s'exécute que lorsqu'il est lancé directement (pas au import)
+if (import.meta.main) {
+  main();
+}
