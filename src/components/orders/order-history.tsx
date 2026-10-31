@@ -31,6 +31,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
+import { BluetoothPrintButton } from "@/components/shared/bluetooth-print-button";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -540,6 +541,13 @@ export function OrderHistory() {
                                     <Printer className="w-3.5 h-3.5" />
                                   </Button>
                                 </a>
+                                <BluetoothPrintButton
+                                  orderId={order.id}
+                                  orderNumber={order.orderNumber}
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-7 w-7 p-0 text-primary hover:bg-primary/10"
+                                />
                                 <Button
                                   variant="ghost"
                                   size="sm"

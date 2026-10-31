@@ -53,6 +53,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
+import { BluetoothPrintButton } from "@/components/shared/bluetooth-print-button";
 import {
   AlertCircle,
   CreditCard,
@@ -404,21 +405,29 @@ export function DebtsDashboard() {
                             <Eye className="w-4 h-4" />
                           </Button>
                           {d.orderId && (
-                            <a
-                              href={`/api/orders/${d.orderId}/receipt`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex"
-                              title="Imprimer le reçu"
-                            >
-                              <Button
+                            <>
+                              <a
+                                href={`/api/orders/${d.orderId}/receipt`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex"
+                                title="Imprimer le reçu"
+                              >
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-8 w-8 p-0 text-primary hover:bg-primary/10"
+                                >
+                                  <Printer className="w-4 h-4" />
+                                </Button>
+                              </a>
+                              <BluetoothPrintButton
+                                orderId={d.orderId}
                                 size="sm"
                                 variant="ghost"
                                 className="h-8 w-8 p-0 text-primary hover:bg-primary/10"
-                              >
-                                <Printer className="w-4 h-4" />
-                              </Button>
-                            </a>
+                              />
+                            </>
                           )}
                           <Button
                             size="sm"
@@ -1093,15 +1102,23 @@ function DebtDetailsDialog({ debt, open, onOpenChange }: DebtDetailsDialogProps)
 
           {/* Print receipt (if linked to an order) */}
           {debt.orderId && (
-            <a
-              href={`/api/orders/${debt.orderId}/receipt`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
-            >
-              <Printer className="w-3 h-3" />
-              Imprimer le reçu de la commande liée
-            </a>
+            <>
+              <a
+                href={`/api/orders/${debt.orderId}/receipt`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+              >
+                <Printer className="w-3 h-3" />
+                Imprimer le reçu de la commande liée
+              </a>
+              <BluetoothPrintButton
+                orderId={debt.orderId}
+                size="sm"
+                variant="ghost"
+                className="inline-flex items-center gap-1 text-xs text-primary hover:underline h-auto w-auto p-0"
+              />
+            </>
           )}
         </div>
       </DialogContent>

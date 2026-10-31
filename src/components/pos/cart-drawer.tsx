@@ -29,6 +29,7 @@ import { useConnectivityStore } from "@/stores/use-connectivity-store";
 import { useSyncQueueStore } from "@/stores/use-sync-queue-store";
 import { formatFCFA } from "@/lib/fcfa";
 import { toast } from "@/hooks/use-toast";
+import { isBridgeAvailable, printOrderBluetooth } from "@/lib/bluetooth-print";
 import {
   Sheet,
   SheetContent,
@@ -68,6 +69,7 @@ import {
   Loader2,
   CheckCircle2,
   Printer,
+  Bluetooth,
   Lock,
   Landmark,
   Utensils,
@@ -561,6 +563,37 @@ export function CartPanelContent({
     onCloseMobile?.();
   };
 
+  const [bluetoothPrinting, setBluetoothPrinting] = useState(false);
+
+  const handlePrintBluetooth = async () => {
+    if (!lastOrder || bluetoothPrinting) return;
+    setBluetoothPrinting(true);
+    try {
+      const status = await isBridgeAvailable();
+      if (!status.available) {
+        toast({
+          title: "Pont d'impression introuvable",
+          description: "Installez et lancez l'app « YonuKom Print Bridge » sur ce téléphone pour imprimer en Bluetooth.",
+          variant: "destructive",
+        });
+        return;
+      }
+      toast({ title: "Impression Bluetooth…", description: "Envoi du ticket à l'imprimante." });
+      const result = await printOrderBluetooth(lastOrder.id);
+      if (result.ok) {
+        toast({ title: "Ticket imprimé ✓", description: "Le ticket a été envoyé à l'imprimante Bluetooth." });
+      } else {
+        toast({
+          title: "Échec de l'impression",
+          description: result.error || "Vérifiez que l'imprimante est allumée et couplée.",
+          variant: "destructive",
+        });
+      }
+    } finally {
+      setBluetoothPrinting(false);
+    }
+  };
+
   const handlePrintReceipt = () => {
     if (!lastOrder) return;
     window.open(
@@ -614,6 +647,8 @@ export function CartPanelContent({
           customer={customer}
           onNewSale={handleNewSale}
           onPrintReceipt={handlePrintReceipt}
+          onPrintBluetooth={handlePrintBluetooth}
+          bluetoothPrinting={bluetoothPrinting}
         />
       ) : (
         <div className="flex-1 flex flex-col min-h-0 px-4 pb-4 gap-3">
@@ -1007,9 +1042,11 @@ interface SuccessPanelProps {
   customer: { name: string; phone: string } | null;
   onNewSale: () => void;
   onPrintReceipt: () => void;
+  onPrintBluetooth: () => void;
+  bluetoothPrinting: boolean;
 }
 
-function SuccessPanel({ order, customer, onNewSale, onPrintReceipt }: SuccessPanelProps) {
+function SuccessPanel({ order, customer, onNewSale, onPrintReceipt, onPrintBluetooth, bluetoothPrinting }: SuccessPanelProps) {
   return (
     <div className="px-4 pb-6 pt-2 flex-1 flex flex-col items-center text-center overflow-y-auto">
       {/* Check icon */}
@@ -1076,6 +1113,16 @@ function SuccessPanel({ order, customer, onNewSale, onPrintReceipt }: SuccessPan
         >
           <Printer className="w-5 h-5" />
           Imprimer le ticket
+        </Button>
+        <Button
+          onClick={onPrintBluetooth}
+          disabled={bluetoothPrinting}
+          size="lg"
+          variant="outline"
+          className="w-full min-h-[48px] gap-2 border-[#E91E63]/30 text-[#E91E63] hover:bg-[#E91E63]/5"
+        >
+          {bluetoothPrinting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Bluetooth className="w-5 h-5" />}
+          {bluetoothPrinting ? "Envoi en cours…" : "Imprimer Bluetooth"}
         </Button>
         <Button
           onClick={onNewSale}
