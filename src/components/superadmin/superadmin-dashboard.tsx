@@ -50,6 +50,10 @@ import {
   Server,
   CheckCircle2,
   PauseCircle,
+  Printer,
+  Bluetooth,
+  Download,
+  Smartphone,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -115,6 +119,7 @@ const NAV_ITEMS: { page: SuperadminPage; icon: typeof BarChart3; label: string }
   { page: "logs", icon: ScrollText, label: "Logs" },
   { page: "modules", icon: Puzzle, label: "Modules" },
   { page: "settings", icon: SettingsIcon, label: "Paramètres" },
+  { page: "printing", icon: Printer, label: "Impression" },
 ];
 
 /**
@@ -441,6 +446,7 @@ export function SuperadminDashboard() {
                 {activePage === "logs" && <LogsPage />}
                 {activePage === "settings" && <SettingsPage />}
                 {activePage === "modules" && <SuperadminModulesPage />}
+          {activePage === "printing" && <PrintingPage />}
               </motion.div>
             </AnimatePresence>
           </div>
@@ -3996,6 +4002,178 @@ function MessagesPage() {
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+// ============================================================
+// Page : Impression — app pont Bluetooth + mode d'emploi + QR APK
+// ============================================================
+function PrintingPage() {
+  const apkUrl =
+    "https://github.com/topmuch/yonukom/releases/download/print-bridge-v1/YonuKomPrintBridge-v1.apk";
+  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=240x240&margin=8&data=${encodeURIComponent(
+    apkUrl
+  )}`;
+
+  const copyLink = () => {
+    if (typeof navigator !== "undefined" && navigator.clipboard) {
+      navigator.clipboard
+        .writeText(apkUrl)
+        .then(() => toast.success("Lien APK copié ✓"))
+        .catch(() => toast.error("Copie impossible"));
+    }
+  };
+
+  const steps = [
+    {
+      title: "Téléchargez l'app pont",
+      body: "Scannez le QR code avec le téléphone, ou cliquez « Télécharger l'APK ». Le fichier YonuKomPrintBridge-v1.apk se télécharge (~5,5 Mo).",
+    },
+    {
+      title: "Autorisez l'installation",
+      body: "Ouvrez le fichier .apk depuis le gestionnaire de fichiers. Si Android bloque : Réglages → Sécurité → « Sources inconnues » (ou activez l'installation pour Chrome/Files). Puis « Installer ».",
+    },
+    {
+      title: "Couplez l'imprimante Bluetooth",
+      body: "Réglages Bluetooth du téléphone → « Coupler un appareil » → sélectionnez votre imprimante thermique 58mm (elle doit apparaître dans « Appareils couplés »).",
+    },
+    {
+      title: "Lancez le pont",
+      body: "Ouvrez YonuKom Print Bridge → bouton « Démarrer le pont ». Dans la liste, tapotez votre imprimante → « Connecté ✓ ».",
+    },
+    {
+      title: "Imprimez depuis YonuKom",
+      body: "Dans Chrome (même téléphone), ouvrez YonuKom → après une vente (POS), le bouton « Imprimer Bluetooth » envoie le ticket à l'imprimante. Disponible aussi dans « Historique » (icône Bluetooth à côté de chaque reçu).",
+    },
+  ];
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+          <Printer className="w-6 h-6 text-[#E91E63]" />
+          Impression Bluetooth
+        </h1>
+        <p className="text-muted-foreground text-sm mt-1">
+          Configuration de l'impression des tickets de caisse via imprimante
+          thermique Bluetooth (58mm) — sans fil, depuis un téléphone ou tablette Android.
+        </p>
+      </div>
+
+      {/* APK download card */}
+      <Card className="bg-background border border-border">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <Smartphone className="w-5 h-5 text-[#E91E63]" />
+            App pont Android — YonuKom Print Bridge
+          </CardTitle>
+          <CardDescription>
+            L'app à installer sur le téléphone du commerçant. Elle reçoit les
+            tickets depuis YonuKom (Chrome) et les envoie à l'imprimante
+            Bluetooth couplée via ESC/POS.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col md:flex-row items-center gap-6">
+          {/* QR code */}
+          <div className="flex flex-col items-center gap-2 shrink-0">
+            <div className="p-3 bg-white rounded-xl border border-border">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={qrUrl}
+                alt="QR code pointant vers le téléchargement de l'APK YonuKom Print Bridge"
+                className="w-[180px] h-[180px]"
+                width={180}
+                height={180}
+              />
+            </div>
+            <p className="text-xs text-muted-foreground flex items-center gap-1">
+              <Smartphone className="w-3 h-3" />
+              Scannez avec le téléphone
+            </p>
+          </div>
+
+          {/* Download button + URL */}
+          <div className="flex-1 flex flex-col gap-3 w-full min-w-0">
+            <a href={apkUrl} target="_blank" rel="noopener noreferrer">
+              <Button className="bg-[#E91E63] hover:bg-[#AD1457] text-white gap-2 w-full">
+                <Download className="w-4 h-4" />
+                Télécharger l'APK (5,5 Mo)
+              </Button>
+            </a>
+            <div className="flex items-center gap-2">
+              <code className="flex-1 text-xs bg-muted px-3 py-2 rounded-md break-all text-muted-foreground">
+                {apkUrl}
+              </code>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={copyLink}
+                className="shrink-0"
+              >
+                Copier
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Version 1.0 · build debug · commit b0b5dc2 · compatible Android 6.0+
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Mode d'emploi */}
+      <Card className="bg-background border border-border">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <Bluetooth className="w-5 h-5 text-[#E91E63]" />
+            Mode d'emploi — installation & utilisation
+          </CardTitle>
+          <CardDescription>
+            Étapes à suivre par le commerçant sur son téléphone Android
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ol className="space-y-4">
+            {steps.map((step, i) => (
+              <li key={i} className="flex gap-3">
+                <span className="shrink-0 w-7 h-7 rounded-full bg-[#E91E63] text-white text-sm font-bold flex items-center justify-center">
+                  {i + 1}
+                </span>
+                <div className="min-w-0">
+                  <p className="font-medium text-foreground">{step.title}</p>
+                  <p className="text-sm text-muted-foreground mt-0.5">
+                    {step.body}
+                  </p>
+                </div>
+              </li>
+            ))}
+          </ol>
+
+          <div className="mt-6 p-4 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 text-sm">
+            <p className="font-medium text-amber-900 dark:text-amber-200">
+              ⚠️ Points importants
+            </p>
+            <ul className="mt-1.5 space-y-1 text-amber-800 dark:text-amber-300 list-disc list-inside">
+              <li>
+                L'imprimante doit être <strong>couplée</strong> dans les réglages
+                Bluetooth du téléphone avant de lancer le pont.
+              </li>
+              <li>
+                L'app pont doit rester <strong>ouverte en arrière-plan</strong>{" "}
+                (service persistant) pour recevoir les tickets.
+              </li>
+              <li>
+                Compatible imprimantes <strong>Bluetooth Classic</strong> 58mm
+                (AliExpress : Goojprt, ZK-58, Netum, génériques).
+              </li>
+              <li>
+                Si le bouton « Imprimer Bluetooth » affiche « Pont introuvable » :
+                l'app pont n'est pas lancée sur le téléphone.
+              </li>
+            </ul>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
