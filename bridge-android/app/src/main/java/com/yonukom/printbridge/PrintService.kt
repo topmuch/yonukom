@@ -13,6 +13,7 @@ import android.os.IBinder
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import fi.iki.elonen.NanoHTTPD
+import java.io.IOException
 
 /**
  * Foreground service that hosts the [HttpServer] and the [BluetoothPrinterManager].
