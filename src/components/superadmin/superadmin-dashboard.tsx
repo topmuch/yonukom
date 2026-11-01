@@ -150,6 +150,16 @@ const AMBER = "#F59E0B";
 const ROSE = "#F43F5E";
 const SLATE = "#3D2438";
 
+/** Darken a hex color by a ratio (0-1) for gradient ends. */
+function darkenHex(hex: string, amount = 0.3): string {
+  const h = hex.replace("#", "");
+  const r = parseInt(h.slice(0, 2), 16);
+  const g = parseInt(h.slice(2, 4), 16);
+  const b = parseInt(h.slice(4, 6), 16);
+  const f = (v: number) => Math.max(0, Math.round(v * (1 - amount)));
+  return `#${f(r).toString(16).padStart(2, "0")}${f(g).toString(16).padStart(2, "0")}${f(b).toString(16).padStart(2, "0")}`;
+}
+
 // ============================================================
 // MAIN COMPONENT
 // ============================================================
@@ -1104,17 +1114,20 @@ function OverviewPage({
           delta="-2"
           deltaUp={false}
         />
-        <Card className="bg-background border border-border hover:shadow-[0_8px_24px_-12px_rgba(51,139,226,0.15)] transition-shadow">
+        <Card
+          className="border-0 text-white hover:shadow-lg hover:-translate-y-0.5 transition-all overflow-hidden"
+          style={{ background: "linear-gradient(135deg, #6366F1, #4338CA)" }}
+        >
           <CardContent className="p-5 flex flex-col items-center">
             <div className="flex items-center gap-2 self-start mb-2">
-              <div className="w-7 h-7 rounded-lg bg-[#E91E63]/10 flex items-center justify-center">
-                <TrendingUp className="w-4 h-4 text-[#E91E63]" />
+              <div className="w-7 h-7 rounded-lg bg-white/20 flex items-center justify-center backdrop-blur-sm">
+                <TrendingUp className="w-4 h-4 text-white" />
               </div>
-              <p className="text-xs font-medium text-muted-foreground">Santé plateforme</p>
+              <p className="text-xs font-medium text-white/80">Santé plateforme</p>
             </div>
             <GaugeMeter
               value={metrics ? Math.min(100, 100 - metrics.churnRate * 2) : 75}
-              color={BLUE}
+              color="rgba(255,255,255,0.95)"
               label={metrics ? `${Math.min(100, 100 - metrics.churnRate * 2)}%` : "75%"}
               sublabel="Global"
             />
@@ -1456,20 +1469,19 @@ function StatCardRing({
   deltaUp?: boolean;
 }) {
   return (
-    <Card className="bg-background border border-border hover:shadow-[0_8px_24px_-12px_rgba(51,139,226,0.15)] transition-shadow">
+    <Card
+      className="border-0 text-white hover:shadow-lg hover:-translate-y-0.5 transition-all overflow-hidden"
+      style={{ background: `linear-gradient(135deg, ${color}, ${darkenHex(color, 0.4)})` }}
+    >
       <CardContent className="p-5">
         <div className="flex items-start justify-between mb-3">
           <div className="space-y-1 min-w-0">
-            <p className="text-xs text-muted-foreground font-medium truncate">{title}</p>
-            <p className="text-xl font-bold text-foreground tracking-tight">
+            <p className="text-xs text-white/80 font-medium truncate">{title}</p>
+            <p className="text-xl font-bold text-white tracking-tight drop-shadow-sm">
               {value}
             </p>
             {delta && (
-              <span
-                className={`inline-flex items-center gap-0.5 text-[10px] font-semibold ${
-                  deltaUp ? "text-emerald-600" : "text-rose-600"
-                }`}
-              >
+              <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold bg-white/20 text-white px-1.5 py-0.5 rounded-full backdrop-blur-sm">
                 {deltaUp ? (
                   <ArrowUpRight className="w-3 h-3" />
                 ) : (
@@ -1481,18 +1493,15 @@ function StatCardRing({
           </div>
           <CircularProgressRing
             value={progress}
-            color={color}
-            trackColor={`${color}1a`}
+            color="rgba(255,255,255,0.95)"
+            trackColor="rgba(255,255,255,0.25)"
             size={56}
             stroke={5}
             label={`${Math.round(progress)}%`}
           />
         </div>
-        <div
-          className="w-7 h-7 rounded-lg flex items-center justify-center"
-          style={{ background: `${color}1a` }}
-        >
-          <Icon className="w-3.5 h-3.5" style={{ color }} />
+        <div className="w-7 h-7 rounded-lg bg-white/20 flex items-center justify-center backdrop-blur-sm">
+          <Icon className="w-3.5 h-3.5 text-white" />
         </div>
       </CardContent>
     </Card>
