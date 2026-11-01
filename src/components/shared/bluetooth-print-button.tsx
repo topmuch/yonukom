@@ -8,11 +8,13 @@
 // works in any component regardless of that component's own toast lib.
 // ============================================================
 
-import { useState } from "react";
+import { useState, type ComponentProps } from "react";
 import { Bluetooth, Loader2 } from "lucide-react";
-import { Button, type ButtonProps } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
 import { isBridgeAvailable, printOrderBluetooth } from "@/lib/bluetooth-print";
+
+type ButtonProps = ComponentProps<typeof Button>;
 
 interface BluetoothPrintButtonProps {
   orderId: string;

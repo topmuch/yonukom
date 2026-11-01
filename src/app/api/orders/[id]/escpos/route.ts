@@ -207,7 +207,7 @@ export async function GET(
 
     const bytes = b.encode();
 
-    return new NextResponse(bytes, {
+    return new NextResponse(bytes as BodyInit, {
       status: 200,
       headers: {
         "Content-Type": "application/octet-stream",
